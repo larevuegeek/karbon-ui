@@ -1,0 +1,48 @@
+<!-- Liste de SourceSwitcher.svelte, partagée par les deux placements (sous le bouton,
+     ou à sa droite quand la barre est repliée). flex flex-col gap-0.5 du panneau : le gap
+     porte sur ce conteneur interne (sans effet posé sur le k-popover).
+     L'option choisie (bg-neutral-100 dark:bg-white/6) et les autres
+     (hover:bg-neutral-100/70 dark:hover:bg-white/4), l'icône teintée ({e.tone}, TEINTES) :
+     classes avec ( ) ou /, une branche {#if} par état ; les textes sont dans
+     SourceOption.ui. Ajout de la traduction : le focus clavier d'une entrée a le fond de
+     son survol (dark:focus-visible:bg-white/4). -->
+<div class="flex flex-col gap-0.5">
+{#each data::SOURCES as (i, s) (i)}
+    {#if i > 0}<div class="my-1 h-px bg-neutral-200/70 dark:bg-white/8" role="separator"></div>{/if}
+    {#if i == self.source}
+        <button class="flex items-center gap-3 px-2 py-2 rounded-xl text-left cursor-pointer transition-colors
+                       bg-neutral-100 dark:bg-white/6"
+                role="option" onclick={Msg::ChoisirSource(i)}>
+            {#if s.teinte == "serveur"}
+                <div class="w-9 h-9 rounded-[9px] shrink-0 flex items-center justify-center bg-sky-500/12 text-sky-600 dark:text-sky-300"><Icon icon={s.icone} width={20} /></div>
+            {:else if s.teinte == "toutes"}
+                <div class="w-9 h-9 rounded-[9px] shrink-0 flex items-center justify-center bg-violet-500/12 text-violet-600 dark:text-violet-300"><Icon icon={s.icone} width={20} /></div>
+            {:else}
+                <div class="w-9 h-9 rounded-[9px] shrink-0 flex items-center justify-center bg-(--sb-gbg) text-(--sb-g)"><Icon icon={s.icone} width={20} /></div>
+            {/if}
+            {@include "SourceOption.ui"}
+            <!-- Icon check : shrink-0 text-green-600 dark:text-green-400 (flex : conteneur de l'icône). -->
+            <div class="flex shrink-0 text-green-600 dark:text-green-400"><Icon icon="material-symbols:check-rounded" width={18} /></div>
+        </button>
+    {:else}
+        <button class="flex items-center gap-3 px-2 py-2 rounded-xl text-left cursor-pointer transition-colors
+                       hover:bg-neutral-100/70 dark:hover:bg-white/4 dark:focus-visible:bg-white/4"
+                role="option" onclick={Msg::ChoisirSource(i)}>
+            {#if s.teinte == "serveur"}
+                <div class="w-9 h-9 rounded-[9px] shrink-0 flex items-center justify-center bg-sky-500/12 text-sky-600 dark:text-sky-300"><Icon icon={s.icone} width={20} /></div>
+            {:else if s.teinte == "toutes"}
+                <div class="w-9 h-9 rounded-[9px] shrink-0 flex items-center justify-center bg-violet-500/12 text-violet-600 dark:text-violet-300"><Icon icon={s.icone} width={20} /></div>
+            {:else}
+                <div class="w-9 h-9 rounded-[9px] shrink-0 flex items-center justify-center bg-(--sb-gbg) text-(--sb-g)"><Icon icon={s.icone} width={20} /></div>
+            {/if}
+            {@include "SourceOption.ui"}
+        </button>
+    {/if}
+{/each}
+<button class="mt-1 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer
+               text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100/70 dark:hover:bg-white/4 dark:focus-visible:bg-white/4"
+        role="option" onclick={Msg::CloseMenu}>
+    <Icon icon="material-symbols:add-rounded" width={17} />
+    <div>Ajouter un serveur</div>
+</button>
+</div>

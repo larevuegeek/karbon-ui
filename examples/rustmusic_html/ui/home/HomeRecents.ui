@@ -1,0 +1,100 @@
+<!-- home/HomeRecents.svelte — le dernier morceau écouté avant celui du lecteur, puis
+     les albums écoutés avant (autant que de colonnes : 3, 4 à @6xl, 5 à @7xl). Classes
+     Tailwind de la source (styles STYLES.fond de la carte, avec pochette ; snippet `lien`
+     développé) ; recent-vedette et vedette-voile sont des classes d'app.css
+     (styles/home.css). <span>/<a> de texte en <div> ; les liens artiste / album d'une
+     ligne forment un seul texte.
+     Écart : tête items-start, côté droit mt-[9.5px], au lieu de items-baseline : la ligne
+     de base des éléments flex est approchée par le moteur (8,4 px au lieu de 9,5 entre le
+     titre 24/32 et les liens 14/20).
+     Un <button> dont le contenu est du texte seul est un bouton natif (fond, retrait, gras) :
+     les libellés des liens sont dans un <div>. -->
+<section id="recemment-joues" class="scroll-mt-6 flex flex-col gap-5">
+    <div class="flex items-start justify-between gap-4">
+        <h2 class="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">Récemment joués</h2>
+        <div class="flex items-center gap-6 mt-[9.5px]">
+            <button class="text-sm text-neutral-500 dark:text-[#9aa39e] hover:text-neutral-800 dark:hover:text-neutral-200 cursor-pointer transition-colors"
+                    onclick={Msg::Noop}><div>Effacer l'historique</div></button>
+            <button class="text-sm font-semibold text-emerald-600 dark:text-accent-500 hover:underline cursor-pointer"
+                    onclick={Msg::Noop}><div>Tout voir</div></button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 @3xl:grid-cols-[340px_minmax(0,1fr)] @6xl:grid-cols-[400px_minmax(0,1fr)] gap-7 items-start">
+
+        <!-- Le dernier morceau écouté -->
+        <div class="recent-vedette relative overflow-hidden flex flex-col gap-4 p-5 rounded-2xl border min-w-0 bg-[#121614] border-white/10" role="group">
+            <!-- BlurredCover est floutée à l'avance par RustMusic (rayon 36, saturation 1,8) :
+                 flou CSS en direct ici. scale-125 passe à un conteneur : une image ne se
+                 transforme pas. overflow-hidden : le flou reste dans la boîte du fond. -->
+            <div class="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+                <div class="w-full h-full scale-125">
+                    <img class="w-full h-full object-cover opacity-95 blur-[36px] saturate-[1.8]" src={cover(data::VEDETTE.pochette)} alt="">
+                </div>
+            </div>
+            <div class="vedette-voile absolute inset-0 pointer-events-none" aria-hidden="true"></div>
+
+            <div class="relative flex items-center gap-4.5 min-w-0">
+                <button class="group relative w-30 h-30 rounded-[10px] overflow-hidden shrink-0 cursor-pointer
+                               bg-neutral-200 dark:bg-neutral-800 shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
+                        onclick={Msg::Noop} aria-label={data::VEDETTE.titre}>
+                    <img class="w-full h-full object-cover" src={cover(data::VEDETTE.pochette)} alt="">
+                    <div class="absolute inset-0 flex items-center justify-center bg-black/40 text-white
+                                opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                        <Icon icon="mynaui:play-solid" width={30} />
+                    </div>
+                </button>
+
+                <div class="flex flex-col gap-1 min-w-0">
+                    <div class="text-[12px] font-bold uppercase tracking-widest truncate text-accent-400">{format!("Écouté {}", data::VEDETTE_ECOUTE)}</div>
+                    <div class="text-[24px] font-extrabold tracking-[-0.01em] leading-[1.1] line-clamp-2 text-white hover:text-white hover:underline"
+                         onclick={Msg::Noop}>{data::VEDETTE.titre}</div>
+                    <div class="text-[15px] truncate text-white/70">{format!("{} · {}", data::VEDETTE.artiste, data::VEDETTE.album)}</div>
+                </div>
+            </div>
+
+            <div class="relative flex items-center gap-2.5 min-w-0">
+                <button class="h-11 px-5 rounded-full bg-accent-500 hover:bg-accent-400 text-(--rg-on-g) font-bold text-[15px]
+                               flex items-center gap-2 shrink-0 whitespace-nowrap cursor-pointer transition-colors
+                               disabled:opacity-60 disabled:cursor-wait"
+                        onclick={Msg::Noop}>
+                    <Icon icon="mynaui:play-solid" width={18} />
+                    <div>Rejouer</div>
+                </button>
+                <!-- flex items-center : le navigateur centre le contenu d'un bouton. -->
+                <button class="h-11 px-4.5 rounded-full font-semibold text-[15px] min-w-0 cursor-pointer transition-colors
+                               disabled:opacity-60 disabled:cursor-wait bg-white/10 hover:bg-white/16 text-white flex items-center"
+                        onclick={Msg::Noop}>
+                    <div class="block truncate">Lire l'album</div>
+                </button>
+                <button class="favori shrink-0 w-11 h-11 rounded-full flex items-center justify-center cursor-pointer transition-colors
+                               bg-white/10 hover:bg-white/16 text-white"
+                        onclick={Msg::Noop} aria-label="J'aime" title="J'aime">
+                    <Icon icon="mynaui:heart" width={18} />
+                </button>
+            </div>
+        </div>
+
+        <!-- Les albums écoutés avant : autant que de colonnes (visibilite : flex, flex, flex,
+             hidden @6xl:flex, hidden @7xl:flex). -->
+        <div class="grid grid-cols-3 @6xl:grid-cols-4 @7xl:grid-cols-5 gap-4" role="list" aria-label="Albums écoutés avant">
+            {#each data::BANDE as (i, a) (a.id)}
+                <!-- visibilite[i] : une branche par état (class:flex={…} posé après flex-col
+                     remettrait la direction en ligne ; @6xl:flex aussi, d'où @6xl:flex-col). -->
+                {#if i < 3}
+                    <div class="flex-col gap-2 min-w-0 flex" role="listitem">
+                        {@include "HomeRecentsAlbum.ui"}
+                    </div>
+                {:else if i == 3}
+                    <div class="flex-col gap-2 min-w-0 hidden @6xl:flex @6xl:flex-col" role="listitem">
+                        {@include "HomeRecentsAlbum.ui"}
+                    </div>
+                {:else}
+                    <div class="flex-col gap-2 min-w-0 hidden @7xl:flex @7xl:flex-col" role="listitem">
+                        {@include "HomeRecentsAlbum.ui"}
+                    </div>
+                {/if}
+            {/each}
+        </div>
+    </div>
+</section>

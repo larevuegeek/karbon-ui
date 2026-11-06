@@ -1,0 +1,131 @@
+//! Pont AT-SPI sans bus : chemins des objets, états, rôles, actions et frontières du
+//! texte. Le dialogue avec un vrai client (libatspi) se vérifie à la main, voir
+//! `docs/tests.md`.
+use super::{
+    text,
+    tree::{self, Object, state},
+};
+use crate::{
+    ui::{
+        element::{CheckState, ChoiceState, ElementId, Role},
+        runtime::{AccessibilityAction, AccessibleElement},
+        scene::RectF,
+        text_input::{AccessibleLine, AccessibleText},
+    },
+    window::WindowId,
+};
+use std::sync::Arc;
+
+fn element(id: u64, role: Role) -> AccessibleElement {
+    AccessibleElement {
+        id: ElementId(id),
+        parent: None,
+        role,
+        name: format!("élément {id}"),
+        enabled: true,
+        focused: false,
+        bounds: RectF::new(10., 20., 30., 40.),
+        clipped_bounds: RectF::new(10., 20., 30., 40.),
+        focusable: true,
+        offscreen: false,
+        invokable: true,
+        value: None,
+        choice: None,
+        selection_container: None,
+        text: None,
+        range: None,
+        select: None,
+        read_only: false,
+        help: String::new(),
+        expanded: None,
+    }
+}
+#[test]
+fn object_paths_round_trip_and_reject_foreign_paths() {
+    for object in [
+        Object::Root,
+        Object::Window(WindowId(3)),
+        Object::Element(WindowId(3), ElementId(u64::MAX)),
+    ] {
+        assert_eq!(Object::parse(&object.path()), Some(object));
+    }
+    assert_eq!(Object::parse(tree::NULL), None);
+    assert_eq!(Object::parse("/org/a11y/atspi/accessible/x1"), None);
+}
+#[test]
+fn states_roles_and_actions_follow_the_element() {
+    let mut check = element(1, Role::Checkbox);
+    check.choice = Some(ChoiceState::Toggle(CheckState::On));
+    check.focused = true;
+    let [low, high] = tree::element_states(&check);
+    let has = |bit: u32| {
+        if bit < 32 {
+            low & 1 << bit != 0
+        } else {
+            high & 1 << (bit - 32) != 0
+        }
+    };
+    assert!(has(state::CHECKED) && has(state::FOCUSED) && has(state::CHECKABLE));
+    assert!(has(state::ENABLED) && has(state::SHOWING) && !has(state::EDITABLE));
+    assert_eq!(tree::role(&check), (7, "check box"));
+    assert!(matches!(
+        tree::press(&check),
+        Some(("toggle", AccessibilityAction::Toggle(_)))
+    ));
+    check.enabled = false;
+    assert!(
+        tree::press(&check).is_none(),
+        "un contrôle désactivé n'a pas d'action"
+    );
+    let mut main = element(2, Role::Main);
+    main.offscreen = true;
+    let [low, _] = tree::element_states(&main);
+    assert_eq!(low & 1 << state::SHOWING, 0, "élément défilé hors de vue");
+    assert!(tree::attributes(&main).contains(&("xml-roles", "main")));
+}
+#[test]
+fn text_offsets_are_characters_and_boundaries_follow_words_and_lines() {
+    let value: Arc<str> = Arc::from("été\nsuivant mot");
+    let mut input = element(3, Role::TextInput);
+    input.text = Some(AccessibleText {
+        value: Arc::clone(&value),
+        selection: 3..3,
+        carets: Vec::new(),
+        clusters: Vec::new(),
+        clip: RectF::new(0., 0., 100., 40.),
+        multiline: true,
+        lines: vec![
+            AccessibleLine {
+                range: 0..5,
+                rect: RectF::new(0., 0., 100., 20.),
+            },
+            AccessibleLine {
+                range: 6..17,
+                rect: RectF::new(0., 20., 100., 20.),
+            },
+        ],
+    });
+    // « é » vaut deux octets : le caret à l'octet 3 est au caractère 2.
+    match text::property(&input, "CaretOffset") {
+        Some(super::properties::Prop::Int(offset)) => assert_eq!(offset, 2),
+        _ => panic!("CaretOffset"),
+    }
+    match text::property(&input, "CharacterCount") {
+        Some(super::properties::Prop::Int(count)) => {
+            assert_eq!(count, value.chars().count() as i32)
+        }
+        _ => panic!("CharacterCount"),
+    }
+    let t = input.text.as_ref().unwrap();
+    let at = |byte: usize, unit: u32, granularity: bool| {
+        let (a, b) = text::piece(t, byte, unit, granularity);
+        &value[a..b]
+    };
+    // Mot (et blancs qui le suivent), ligne visuelle avec son retour, caractère.
+    assert_eq!(at(9, 1, false), "suivant ");
+    assert_eq!(at(2, 5, false), "été\n");
+    assert_eq!(at(14, 5, false), "suivant mot");
+    assert_eq!(at(0, 0, false), "é");
+    assert_eq!(tree::role(&input), (61, "text"), "champ multiligne");
+    assert!(tree::interfaces(&input).contains(&"org.a11y.atspi.EditableText"));
+}

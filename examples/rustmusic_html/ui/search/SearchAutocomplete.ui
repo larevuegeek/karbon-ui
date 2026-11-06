@@ -1,0 +1,87 @@
+<!-- search/SearchAutocomplete.svelte : le champ et la liste des résultats, avec les classes
+     Tailwind de la source. La liste ne prend pas le focus (k-popover combobox) : la frappe
+     continue, Haut/Bas/Entrée passent par onkeydown. L'icône (composant) est dans un <div>
+     qui porte ses classes ; le <kbd> et les <span>/<p> sont des <div>. -->
+<div class="relative w-full">
+    <!-- Champ. data-focus-ring="row" (trait de focus du contraste élevé) n'est pas repris,
+         comme l'anneau de focus dans l'export. Reste : transition-[…,box-shadow] — le moteur
+         n'anime pas les ombres (box-shadow écarté de la transition) : le halo du focus
+         apparaît sans transition. -->
+    <div id="header.recherche"
+         class="group relative flex items-center gap-2.5 h-9 pl-3 pr-1.5 rounded-[10px] border
+                transition-[background-color,border-color,box-shadow] duration-150
+                bg-white border-(--c-bord) hover:border-(--c-bord2)
+                focus-within:border-emerald-500/60 focus-within:shadow-[0_0_0_3px_rgba(34,197,94,0.14)]
+                dark:bg-[#131715] dark:border-[#1f2522] dark:hover:border-[#2e3632]
+                dark:focus-within:bg-[#151a17] dark:focus-within:border-emerald-500/50
+                dark:focus-within:shadow-[0_0_0_3px_rgba(34,197,94,0.12)]">
+        <div class="h-4 w-4 shrink-0 transition-colors text-[#5e625d] dark:text-[#8b948f]
+                    group-focus-within:text-emerald-500" aria-hidden="true"><Icon icon="mynaui:search" width={16} /></div>
+
+        <!-- Ajout de la traduction : h-[34px] p-0 border-0 (hauteur, bordure et retrait du
+             champ du moteur). -->
+        <input class="w-full bg-transparent outline-none text-[13px]
+                      dark:text-neutral-100 dark:placeholder:text-[#8b948f]
+                      text-[#1a1c1a] placeholder:text-[#6f736d]
+                      h-[34px] p-0 border-0"
+               type="search" value={self.search.as_str()} oninput={Msg::Search}
+               onkeydown={Msg::SearchKey} placeholder="Rechercher un titre, un artiste, un album…"
+               aria-label="Rechercher" aria-haspopup="listbox" aria-expanded={self.open(Menu::Recherche)}>
+        <!-- Le raccourci existe (layout) : on le montre tant que le champ est vide.
+             font-mono : ui-monospace… Consolas sous Windows. -->
+        {#if self.search.is_empty()}
+            <div class="hidden lg:inline-flex group-focus-within:hidden shrink-0 items-center h-5.5 px-1.5 rounded-md border pointer-events-none
+                        font-mono text-[10.5px] leading-none text-[#5e625d] dark:text-[#8b948f]
+                        border-(--c-bord) dark:border-[#2e3632] bg-(--c-kbd) dark:bg-[#0b0d0c]" aria-hidden="true">
+                <div>Ctrl K</div>
+            </div>
+        {/if}
+    </div>
+
+    <!-- Dropdown résultats : absolute top-full left-0 right-0 mt-2 z-50 (placement du
+         popover : match-width, offset 8). Le défilement (max-h-[400px] overflow-y-auto) porte
+         sur un conteneur interne : max-h-[398px], les 400 px de la source bordure comprise.
+         Barre classique de WebView2 (sans ::-webkit-scrollbar) : environ 15 px, réservée
+         quand la liste déborde (.recherche-liste, menus.css).
+         Lignes : classes avec / selon l'état, une branche {#if} par état ; contenu commun dans
+         SearchResult.ui. -->
+    {#if self.open(Menu::Recherche)}
+        <k-popover anchor="header.recherche" combobox match-width placement="bottom-start" offset="8"
+                   aria-label="Résultats de recherche" onclose={Msg::CloseMenu}
+                   class="menu p-0
+                          bg-white dark:bg-neutral-900
+                          border border-neutral-200/60 dark:border-white/10
+                          rounded-xl shadow-2xl shadow-black/20
+                          overflow-hidden">
+            <div class="recherche-liste flex flex-col max-h-[398px] overflow-y-auto">
+                {#each self.resultats() as (i, r) (i)}
+                    <!-- Pas un <button> en Svelte (pastilles de version à l'intérieur) : role option. -->
+                    {#if self.suggestion == Some(i)}
+                        <div class="w-full flex items-center gap-3 px-4 py-2.5 text-left cursor-pointer
+                                    transition-colors duration-100
+                                    bg-green-500/10 dark:bg-green-500/15"
+                             role="option" onclick={Msg::SearchPick(i)}>
+                            {@include "SearchResult.ui"}
+                        </div>
+                    {:else}
+                        <div class="w-full flex items-center gap-3 px-4 py-2.5 text-left cursor-pointer
+                                    transition-colors duration-100
+                                    hover:bg-neutral-50 dark:hover:bg-white/5"
+                             role="option" onclick={Msg::SearchPick(i)}>
+                            {@include "SearchResult.ui"}
+                        </div>
+                    {/if}
+                {/each}
+                <!-- Voir tous les résultats -->
+                <button class="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs
+                               text-green-600 dark:text-green-400 font-medium
+                               border-t border-neutral-200/60 dark:border-white/5
+                               hover:bg-green-500/5 cursor-pointer transition-colors"
+                        role="option" onclick={Msg::CloseMenu}>
+                    <Icon icon="lucide:search" width={12} />
+                    <div>Voir tous les résultats</div>
+                </button>
+            </div>
+        </k-popover>
+    {/if}
+</div>

@@ -1,0 +1,22 @@
+/* Lecteur : les templates (ui/player) portent les classes Tailwind des composants Svelte.
+   Restent ici les classes propres d'app.css de RustMusic (dock flottant teinté par la
+   pochette, --lh / --ls) ; leurs jetons (.dark .lecteur, contraste élevé) sont dans
+   theme.css (:root), chromas calculées pour --ls 0.07 (voir le commentaire de theme.css). */
+
+/* .lecteur, puis .dark .lecteur : fond en dégradé, ombre, reflet et liseré ; Figtree ;
+   line-height: 1.5 de la feuille de base de Tailwind (html), hérité par text-[11px]… */
+.lecteur {
+    color: var(--lc-tx); font-family: var(--font-maquette); line-height: 1.5;
+    background: linear-gradient(100deg, var(--lc-fond-1), var(--lc-fond-2) 45%, var(--lc-fond-3));
+    box-shadow: 0px 20px 50px var(--lc-ombre), inset 0px 1px 0px var(--lc-reflet), 0px 0px 0px 1px var(--lc-lisere);
+}
+/* .lecteur-pochette */
+.lecteur-pochette { box-shadow: 0px 10px 26px var(--lc-pochette-ombre), 0px 0px 0px 1px var(--lc-pochette-lisere); }
+/* .lecteur-lecture { box-shadow: 0 8px 22px oklch(0.55 calc(0.13 * var(--ls)) var(--lh) / 0.4) } */
+.lecteur-lecture { box-shadow: 0px 8px 22px var(--lc-lecture-ombre); }
+/* .lecteur-dossier : chemin tronqué par la gauche, la fin (dossier de l'album) reste lisible. */
+.lecteur-dossier { direction: rtl; text-align: left; }
+
+/* Menus Sortie et Réseau : dans la carte (police de .lecteur) en Svelte ; ici des
+   k-popover hors de la carte, que la classe menu met en Inter : police de .lecteur. */
+.lecteur-menu { font-family: var(--font-maquette); }

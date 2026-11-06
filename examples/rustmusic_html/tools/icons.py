@@ -1,0 +1,136 @@
+"""Build-time only: writes the Iconify icons used by the example as SVG files.
+
+    python -I examples/rustmusic_html/tools/icons.py [<path-to-rustmusic>]
+
+Scans the templates and Rust files of the example for Iconify names written like the
+Svelte code (`"lucide:plus"`, `"material-symbols:home-outline-rounded"`), reads each
+icon from the local `@iconify-json/<set>/icons.json` packages of RustMusic (no network)
+and writes:
+
+- `icons/<set>/<name>.svg`: the icon as `@iconify/svelte` renders it (viewBox of the
+  set, body unchanged), compiled by `<svg src="…">`;
+- `icons.rs`: `svg(cx, name, thick)`, the match from the Iconify name to the compiled
+  `<svg src>`, used by the `<Icon>` component. `thick` adds the `.sb-icone` stroke of
+  RustMusic's app.css (`stroke: currentColor; stroke-width: .55; stroke-linejoin: round`)
+  for the names listed in THICK.
+"""
+import json
+import re
+import sys
+from pathlib import Path
+
+EXAMPLE = Path(__file__).resolve().parent.parent
+# Par défaut, RustMusic à côté du dépôt (`<dépôt>/../rustmusic`).
+SOURCE = Path(sys.argv[1]) if len(sys.argv) > 1 else EXAMPLE.parents[1].parent / "rustmusic"
+PACKAGES = SOURCE / "node_modules" / "@iconify-json"
+
+# Icônes dessinées avec la classe `.sb-icone` dans le Svelte (tuiles de navigation,
+# source, bibliothèque).
+THICK = {
+    "material-symbols:home-outline-rounded",
+    "material-symbols:music-note-rounded",
+    "material-symbols:mic-external-on-outline-rounded",
+    "material-symbols:album-outline-rounded",
+    "material-symbols:sell-outline-rounded",
+    "material-symbols:folder-outline-rounded",
+    "material-symbols:queue-music-rounded",
+    "material-symbols:calendar-month-outline-rounded",
+    "material-symbols:shuffle-rounded",
+    "material-symbols:computer-outline-rounded",
+    "material-symbols:dns-outline-rounded",
+    "material-symbols:stacks-outline-rounded",
+    "material-symbols:cloud-outline-rounded",
+    "material-symbols:hard-drive-outline",
+}
+
+NAME = re.compile(r'"([a-z0-9]+(?:-[a-z0-9]+)*):([a-z0-9]+(?:-[a-z0-9]+)*)"')
+
+
+def used_names():
+    sets = {p.name for p in PACKAGES.iterdir() if (p / "icons.json").exists()}
+    names = set()
+    files = list((EXAMPLE / "ui").rglob("*.ui")) + list((EXAMPLE / "data").glob("*.rs")) + [
+        f for f in EXAMPLE.glob("*.rs") if f.name != "icons.rs"
+    ]
+    for f in files:
+        for prefix, name in NAME.findall(f.read_text(encoding="utf-8")):
+            if prefix in sets:
+                names.add(f"{prefix}:{name}")
+    return sorted(names | THICK)
+
+
+def resolve(data, name):
+    """Body and box of an icon, aliases followed (transformations refused)."""
+    seen = 0
+    while name not in data["icons"]:
+        alias = data.get("aliases", {}).get(name)
+        if alias is None:
+            raise SystemExit(f"{data['prefix']}:{name} is not in the local Iconify set")
+        if set(alias) - {"parent"}:
+            raise SystemExit(f"{data['prefix']}:{name}: transformed alias not supported")
+        name = alias["parent"]
+        seen += 1
+        if seen > 8:
+            raise SystemExit(f"alias loop on {name}")
+    icon = data["icons"][name]
+    box = [
+        icon.get("left", data.get("left", 0)),
+        icon.get("top", data.get("top", 0)),
+        icon.get("width", data.get("width", 16)),
+        icon.get("height", data.get("height", 16)),
+    ]
+    if any(icon.get(k) for k in ("rotate", "hFlip", "vFlip")):
+        raise SystemExit(f"{data['prefix']}:{name}: transformed icon not supported")
+    return icon["body"], box
+
+
+def main():
+    names = used_names()
+    cache = {}
+    out_dir = EXAMPLE / "icons"
+    written = set()
+    arms = []
+    for full in names:
+        prefix, name = full.split(":", 1)
+        if prefix not in cache:
+            cache[prefix] = json.loads(
+                (PACKAGES / prefix / "icons.json").read_text(encoding="utf-8")
+            )
+        body, (left, top, width, height) = resolve(cache[prefix], name)
+        fmt = lambda v: f"{v:g}"
+        svg = (
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{fmt(width)}" height="{fmt(height)}"'
+            f' viewBox="{fmt(left)} {fmt(top)} {fmt(width)} {fmt(height)}">{body}</svg>\n'
+        )
+        path = out_dir / prefix / f"{name}.svg"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(svg, encoding="utf-8", newline="\n")
+        written.add(path)
+        src = f"icons/{prefix}/{name}.svg"
+        arms.append(f'        ("{full}", false) => ui! {{@context(cx); <svg src="{src}" />}},')
+        if full in THICK:
+            arms.append(
+                f'        ("{full}", true) => ui! {{@context(cx); <svg src="{src}"'
+                ' stroke="currentColor" stroke-width="0.55" stroke-linejoin="round" />},'
+            )
+    for old in out_dir.rglob("*.svg"):
+        if old not in written:
+            old.unlink()
+    code = (
+        "//! Generated by `tools/icons.py` from the local `@iconify-json` packages: do not edit.\n"
+        "//! Iconify name → compiled `<svg src>` (see the `Icon` component).\n"
+        "use super::assets::Assets;\n"
+        "use karbon_ui::ui::prelude::*;\n\n"
+        "/// The icon `name` (`\"lucide:plus\"`), with the `.sb-icone` stroke when `thick`;\n"
+        "/// `None` for a name the script did not export.\n"
+        "pub fn svg(cx: &TemplateContext<'_, Assets>, name: &str, thick: bool) -> Option<Element> {\n"
+        "    Some(match (name, thick) {\n"
+        + "\n".join(arms)
+        + "\n        _ => return None,\n    })\n}\n"
+    )
+    (EXAMPLE / "icons.rs").write_text(code, encoding="utf-8", newline="\n")
+    print(f"{len(names)} icons, {len(arms)} variants -> {out_dir}")
+
+
+if __name__ == "__main__":
+    main()

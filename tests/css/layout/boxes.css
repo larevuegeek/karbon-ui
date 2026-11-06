@@ -1,0 +1,31 @@
+/* Modèle de boîte et marges (boxes.rs). */
+.content { box-sizing: content-box; width: 100px; height: 20px; padding: 10px; border: 2px solid #fff; }
+.centered { width: 100px; height: 30px; margin: 0 auto; }
+.negative { width: 100px; height: 30px; margin: -5px 0 0 -10px; }
+
+/* Positionnement et ordre z. */
+.position-host { position: relative; width: 300px; height: 160px; padding: 10px; border: 2px solid #ffffff; overflow: visible; }
+.absolute { position: absolute; right: 10px; top: 5px; width: 50%; height: 30px; }
+.absolute-stretch { position: absolute; left: 10px; right: 20px; bottom: 5px; height: 12px; }
+.relative { position: relative; left: 15px; top: 7px; width: 100px; height: 20px; }
+.fixed { position: fixed; right: 10px; bottom: 10px; width: 100px; height: 40px; background: #102030; }
+.z-lower { position: absolute; left: 100px; top: 100px; width: 100px; height: 40px; background: #ff0000; z-index: 1; }
+.z-upper { position: absolute; left: 100px; top: 100px; width: 100px; height: 40px; background: #00ff00; z-index: 10; }
+.outside { position: absolute; left: 250px; top: 10px; width: 100px; height: 40px; background: #204060; }
+.hidden { overflow: hidden; }
+
+/* Espacements en unités relatives et expressions : `em` suit la police de l'élément,
+   `rem` celle de la racine, vw/vh le viewport. */
+:root { --space: 1.5em; }
+.spacing-root { font-size: 20px; display: flex; flex-direction: column; align-items: start; }
+.em-pad { font-size: 10px; box-sizing: content-box; width: 40px; height: 10px; padding: 1em 2em; margin: .5em 0 0 1rem; }
+.calc-gap { display: flex; flex-direction: row; gap: calc(1rem + 2px); margin-top: calc(2em - 30px); padding-left: max(4px, .5em); }
+.mixed-margin { width: 100px; height: 10px; margin: 1em auto 0; }
+.negative-em { font-size: 10px; width: 50px; height: 10px; margin-left: -1em; padding-top: var(--space); }
+.viewport-pad { width: 10px; height: 10px; box-sizing: content-box; padding: 2vw 0 0 1vh; }
+.media-pad { font-size: 10px; width: 10px; height: 10px; box-sizing: content-box; padding: 1em; }
+.media-px { width: 10px; height: 10px; box-sizing: content-box; padding: 4px; }
+@media (max-width: 500px) {
+    .media-pad { padding-top: 2px; }
+    .media-px { padding-left: 1rem; }
+}

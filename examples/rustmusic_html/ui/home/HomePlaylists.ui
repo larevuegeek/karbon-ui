@@ -1,0 +1,41 @@
+<!-- home/HomePlaylists.svelte — vos playlists, les épinglées d'abord, dans un Carousel.
+     Classes Tailwind de la source ; <span> en <div>.
+     Écart : tête items-start, description et lien mt-[9.5px], au lieu de items-baseline : la ligne
+     de base des éléments flex est approchée par le moteur (8,4 px au lieu de 9,5 entre le
+     titre 24/32 et les liens 14/20). -->
+<section class="flex flex-col gap-4">
+    <div class="flex items-start justify-between gap-4">
+        <h2 class="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">Vos playlists</h2>
+        <!-- whitespace-nowrap : le paragraphe garde sa ligne dans la rangée flex. -->
+        <span class="hidden @3xl:inline flex-1 text-sm text-neutral-500 dark:text-[#9aa39e] mt-[9.5px] whitespace-nowrap">Les vôtres et celles qui se remplissent seules</span>
+        <button class="shrink-0 text-sm font-semibold text-emerald-600 dark:text-emerald-400 hover:underline mt-[9.5px]"
+                onclick={Msg::Noop}><div>Toutes les playlists</div></button>
+    </div>
+    <!-- ui/carousel/Carousel.svelte (axe="80px", class="gap-4 @4xl:gap-5 pt-1.5 pb-2").
+         Masque : linear-gradient(to right, #000, #000 calc(100% - 48px), transparent) ;
+         arrêts en % seulement (48 px ≈ 5 % de la rangée).
+         TODO-TW: snap-x snap-mandatory (piste), snap-start (éléments) — « Unknown utility
+         'snap-x'; did you mean 'gap-x'? » (de même snap-mandatory, snap-start) : pas
+         d'aimantation dans le moteur ; sans équivalent.
+         TODO-TW: [&::-webkit-scrollbar]:hidden — « Arbitrary variant '[&::-webkit-scrollbar]':
+         ::-webkit-scrollbar is not available as a variant » ; [scrollbar-width:none] suffit
+         au moteur. -->
+    <div class="relative">
+        <div class="flex overflow-x-auto [scrollbar-width:none] gap-4 @4xl:gap-5 pt-1.5 pb-2
+                    [mask-image:linear-gradient(to_right,#000_95%,transparent)]">
+            {#each data::HOME_PLAYLISTS as p (p.id)}
+                <div class="w-40 @4xl:w-44 shrink-0">
+                    <PlaylistCard playlist={p} />
+                </div>
+            {/each}
+        </div>
+        <!-- Flèche « suivant » : la rangée déborde (la flèche « précédent », transparente,
+             n'est pas traduite). style:top = axe : top-[80px]. -->
+        <button class="absolute z-10 w-10 h-10 -mt-5 rounded-full flex items-center justify-center cursor-pointer transition duration-200
+                       bg-white text-neutral-800 shadow-[0_6px_18px_rgba(0,0,0,0.22)] ring-1 ring-black/8 hover:scale-105
+                       dark:bg-[#1c211e] dark:text-white dark:ring-white/12 dark:shadow-[0_6px_18px_rgba(0,0,0,0.6)] right-1 top-[80px]"
+                onclick={Msg::Noop} aria-label="Suivant" title="Suivant">
+            <Icon icon="material-symbols:chevron-right-rounded" width={26} />
+        </button>
+    </div>
+</section>

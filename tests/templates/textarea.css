@@ -1,0 +1,11 @@
+.notes {
+    width: 200px;
+    height: 60px;
+    padding: 4px;
+    font-size: 10px;
+    color: #e0e0e0;
+    background-color: #102030;
+    border: 1px solid #405060;
+    border-radius: 6px;
+}
+.notes::placeholder { color: #808080; }

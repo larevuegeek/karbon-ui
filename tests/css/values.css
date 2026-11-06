@@ -1,0 +1,44 @@
+/* Valeurs (values.rs). Les variables de `tokens.css` passent par @import. */
+@import "tokens.css";
+.panel {
+    display: flex;
+    flex-direction: column;
+    width: 200px;
+    margin: 3px 5px 7px 11px;
+    padding: 2px 4px 6px 8px;
+    background-image: linear-gradient(90deg, transparent, var(--end));
+    background-color: var(--panel);
+    border: 1px solid #fff;
+}
+.title {
+    font-weight: 700;
+    font-family: "Consolas";
+    font-size: 20px;
+    color: var(--foreground);
+}
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 11px 7px; }
+.wide { width: 50%; margin: 0 10px; height: 20px; }
+
+/* Unités relatives et expressions. */
+.units { font-size: 20px; width: calc(50% - 2em); height: clamp(20px, 10vh, 80px); }
+.relative-text { font-size: 1.5em; width: min(30vw, 10rem); }
+
+/* Variables remplacées par l'application (CssVariables). */
+:root { --gutter: 20px; --height: 40px; --type-size: 20px; --family: "Consolas"; --ink: var(--accent); --accent: #204060; --alpha: 1; --pad: 4px; }
+.dynamic { width: calc(50% - var(--gutter)); height: var(--height); font-size: var(--type-size); font-family: var(--family); color: var(--ink); opacity: var(--alpha); padding: var(--pad); }
+
+/* Couleurs : fonctions évaluées à la compilation, currentColor et variables à l'exécution. */
+:root { --hue: 250; --brand: #00ff00; }
+.red-oklch { background: oklch(62.8% 0.2577 29.23); }
+.green-hsl { background: hsl(120 100% 25% / 50%); }
+.legacy-hsl { background-color: hsla(0, 100%, 50%, 1); }
+.mix-srgb { background-color: color-mix(in srgb, #ffffff 25%, #000000); }
+.mix-oklch { background: color-mix(in oklch, oklab(1 0 0) 50%, oklch(0 0 0)); }
+.current { color: #336699; border: 2px solid currentColor; background: color-mix(in srgb, currentColor 50%, transparent); }
+.hue { background: oklch(62.8% 0.2577 var(--hue)); color: var(--brand); }
+.hue:hover { background: oklch(62.8% 0.2577 calc(var(--hue) + 10)); }
+
+/* Propriétés personnalisées héritées. */
+.palette { --h: 140; --w: 30px; --tint: #102030; }
+.palette:hover { --h: 29.23; }
+.swatch { background: oklch(62.8% 0.2577 var(--h, 250)); width: calc(var(--w, 10px) * 2); height: 10px; color: var(--tint, #ffffff); }

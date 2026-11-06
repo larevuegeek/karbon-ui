@@ -1,0 +1,30 @@
+<!-- routes/+page.svelte : bibliothèque chargée et non vide, morceau en pause dans le
+     lecteur, historique non vide. HomeWelcome / HomeRemoteWelcome (bibliothèque vide
+     ou distante) ne s'affichent pas dans cet état. Classes Tailwind de la source ;
+     home-maquette et scrollbar-app sont des classes d'app.css (styles/home.css).
+     Écart : le retrait py-6 px-4 md:px-10 du conteneur défilant passe au @container
+     (max-w-[1400px] + 2 × 40 = max-w-[1480px], pb-10 + py-6 = pb-16) : le moteur pose la
+     barre de défilement dans la boîte de contenu du conteneur défilant (sous son
+     retrait) ; la boîte de contenu du @container, interrogée par les requêtes, garde
+     min(1400, largeur − 80). -->
+<div class="home-maquette h-full overflow-y-auto overscroll-contain scrollbar-app">
+    <div class="@container max-w-[1480px] mx-auto flex flex-col gap-10 py-6 px-4 md:px-10 pb-16">
+
+        <div class="-mb-4">
+            {@include "home/HomeHeader.ui"}
+        </div>
+
+        {@include "home/HomeResume.ui"}
+
+        {@include "home/HomeMixes.ui"}
+
+        <!-- Les playlists sont au profil : elles s'affichent même sans bibliothèque. -->
+        {@include "home/HomePlaylists.ui"}
+
+        {@include "home/HomeGenres.ui"}
+        {@include "home/HomeRecentlyAdded.ui"}
+
+        <!-- Tout en bas : la section vers laquelle mène « Tout voir » du hero. -->
+        {@include "home/HomeRecents.ui"}
+    </div>
+</div>

@@ -1,0 +1,53 @@
+{
+  "name": "karbon-ui-language",
+  "displayName": "Karbon UI",
+  "description": "Templates HTML Karbon UI : balises HTML, blocs {#if}/{#each}, expressions Rust, indentation et snippets.",
+  "version": "0.1.0",
+  "publisher": "karbon",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "karbon-ui",
+        "aliases": [
+          "Karbon UI",
+          "karbon-ui"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "karbon-ui",
+        "scopeName": "text.karbon-ui",
+        "path": "./syntaxes/karbon-ui.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.rust": "rust"
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "karbon-ui",
+        "path": "./snippets/karbon-ui.json"
+      }
+    ]
+  }
+}

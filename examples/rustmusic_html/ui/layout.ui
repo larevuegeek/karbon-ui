@@ -1,0 +1,59 @@
+<!-- routes/+layout.svelte : état « profil initialisé », hors mini-lecteur et hors /settings.
+     Le burger mobile (md:hidden), le fond de la barre latérale mobile, les onglets
+     « en haut » (réglage « à gauche ») et les panneaux flottants (file, paroles,
+     toasts, popins…) ne sont pas affichés dans cet état : ils ne sont pas traduits.
+     Classes Tailwind de la source. font-sans text-[16px] : police et taille de base que la
+     préflight de Tailwind pose sur html (la hauteur de ligne n'est pas reprise). -->
+<main class="w-screen h-screen flex flex-col bg-(--c-fond) dark:bg-zinc-950 text-gray-900 dark:text-gray-100 overflow-hidden
+             font-sans text-[16px]">
+    <!-- Barre unique : la barre de titre porte la navigation, la recherche et les actions. -->
+    <Titlebar avec_sidebar replie={self.sidebar_collapsed}>
+        <div class="hidden sm:flex items-center gap-0.5">
+            {#each [("Retour", "heroicons:chevron-left"), ("Suivant", "heroicons:chevron-right")] as nav (nav.0)}
+                <button class="flex items-center justify-center w-8 h-8 rounded-lg cursor-pointer transition-colors
+                               text-[#1a1c1a] dark:text-neutral-400 hover:text-black dark:hover:text-white
+                               hover:bg-[#e5e1d8] dark:hover:bg-white/8"
+                        onclick={Msg::Noop} aria-label={nav.0} title={nav.0}>
+                    <Icon icon={nav.1} width={20} />
+                </button>
+            {/each}
+        </div>
+
+        <!-- La recherche passe avant le reste : nom du profil et « Ctrl K » cèdent d'abord. -->
+        <div class="flex-1 min-w-40 max-w-140">
+            {@include "search/SearchAutocomplete.ui"}
+        </div>
+
+        <div class="ml-auto shrink-0 flex items-center gap-1 md:gap-2">
+            {@include "player/SleepTimerButton.ui"}
+            {@include "whatsnew/WhatsNewButton.ui"}
+            {@include "input/SwitchTheme.ui"}
+            {@include "header/ProfilSelectorInput.ui"}
+        </div>
+    </Titlebar>
+
+    <div class="flex grow overflow-hidden relative">
+        <!-- Sidebar app. Reste : fixed md:relative — « State property 'css_position' has no
+             native state resolver yet » ; md:z-auto — « z-index requires an integer » ;
+             -translate-x-full md:translate-x-0 compile, mais le moteur refuse une
+             transformation sur un conteneur qui porte une zone défilante (la barre). La
+             fenêtre fait au moins 960 px (md) : relative, sans z-index (z-40 n'est que l'état
+             mobile) ni translation (nulle à md), l'état md de la source.
+             shrink-0 : ajout de la traduction ; dans le navigateur, la largeur minimale
+             automatique d'un élément flex (celle de la barre, w-72 shrink-0) l'empêche de
+             rétrécir, le moteur la compte 0 (grow du contenu principal, base auto). -->
+        <div class="relative h-full transition-transform duration-300 ease-out shrink-0">
+            {@include "sidebar/Sidebar.ui"}
+        </div>
+
+        <!-- ═══ CONTENU PRINCIPAL ═══ -->
+        <div id="app.main" class="grow overflow-hidden flex flex-col min-w-0">
+            <!-- Contenu scrollable (le div h-full du fondu de page n'est pas repris) -->
+            <div class="flex-1 overflow-hidden">
+                {@include "page.ui"}
+            </div>
+        </div>
+    </div>
+
+    {@include "player/Player.ui"}
+</main>

@@ -1,0 +1,5 @@
+/* SVG en ligne (svg.rs) : la couleur CSS de l'élément colore `currentColor`. */
+.icons { display: flex; gap: 8px; padding: 8px; background: #ffffff; }
+.icon-button { color: #336699; padding: 4px; }
+.icon-button:hover { color: #ffcc00; }
+.dot { width: 16px; height: 16px; color: #ff0000; }

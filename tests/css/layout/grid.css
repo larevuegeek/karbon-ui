@@ -1,0 +1,20 @@
+/* Grilles (grid.rs). */
+.tracks { display: grid; grid-template-columns: 80px minmax(100px, 1fr) 2fr; gap: 10px; }
+
+/* Ratio, inset, alignement en grille, pistes de contenu. */
+.ratio { aspect-ratio: 16 / 9; width: 160px; }
+.ratio-auto { aspect-ratio: 1; }
+.positioned { position: relative; width: 200px; height: 100px; }
+.pinned { position: absolute; inset: 5px 10px; }
+.cellgrid { display: grid; grid-template-columns: 100px 100px; }
+.self-aligned { justify-self: center; align-self: end; width: 20px; height: 10px; }
+.tall { height: 40px; }
+.content-tracks { display: grid; grid-template-columns: max-content fit-content(100px) fit-content(30px) 1fr; }
+/* justify-content d'une grille : colonnes fixes centrées, ou réparties. */
+.centered-tracks { display: grid; grid-template-columns: 40px 40px; column-gap: 10px; justify-content: center; width: 200px; }
+.spread-tracks { display: grid; grid-template-columns: 40px 40px 40px; justify-content: space-between; width: 200px; }
+.cell { height: 10px; }
+
+/* align-items d'une grille : alignement par défaut des cellules. */
+.grid-center { display: grid; grid-template-columns: 50px 50px; align-items: center; width: 100px; }
+.short { height: 10px; }

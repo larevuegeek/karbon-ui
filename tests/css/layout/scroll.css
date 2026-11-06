@@ -1,0 +1,20 @@
+/* Conteneurs défilants mesurés sur leur contenu (scroll.rs). */
+.page { overflow-y: auto; height: 300px; width: 400px; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.block { height: 120px; }
+.carousel { overflow-x: auto; display: flex; flex-direction: row; gap: 8px; padding: 6px 0px 8px 0px; }
+.card { width: 150px; height: 90px; flex-shrink: 0; }
+.inner { overflow-y: auto; }
+.section { display: flex; flex-direction: column; gap: 4px; }
+.line { font-size: 16px; line-height: 20px; margin: 0px; }
+.boxed { display: flex; flex-direction: column; height: 100px; }
+
+/* Barres de défilement. */
+.scroller { height: 100px; width: 200px; overflow-y: auto; }
+.thin { scrollbar-width: thin; scrollbar-color: #ff0000 transparent; }
+.stable { scrollbar-gutter: stable; }
+.no-bar { scrollbar-width: none; }
+.smart { scrollbar-color: transparent transparent; }
+.smart::-webkit-scrollbar { width: 8px; height: 8px; }
+.tall { height: 300px; }
+.short { height: 40px; }

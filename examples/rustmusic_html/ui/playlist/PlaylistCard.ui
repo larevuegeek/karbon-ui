@@ -1,0 +1,41 @@
+<!-- playlist/PlaylistCard.svelte, carte carrée (hors sélection, sans punaise : HomePlaylists
+     ne passe pas `epinglee`). Classes Tailwind de la source (snippet `mosaique` développé) ;
+     le lien est un <button>, les <span> des <div>. -->
+<div class="group relative min-w-0">
+    <button class="min-w-0 flex flex-col gap-2.5" onclick={Msg::Noop} title={p.nom}>
+        <div class="relative block">
+            <!-- Fond : linear-gradient(140deg, couleur, color-mix(in oklab, couleur 45%, black)),
+                 calculé en Rust (playlist_fond). -->
+            <div class="relative block overflow-hidden isolate aspect-square w-full rounded-2xl shadow-[0_10px_26px_rgba(0,0,0,0.18)] dark:shadow-[0_10px_26px_rgba(0,0,0,0.5)] transition-transform duration-200 group-hover:-translate-y-0.5"
+                 style:background={playlist_fond(p.couleur)}>
+                <!-- Mosaïque dès quatre pochettes, une seule sinon, et à défaut l'icône de la playlist.
+                     CoverImg w-full h-full : h-full d'une cellule de grille vise la grille dans le
+                     moteur, aspect-square donne la hauteur de la cellule. -->
+                {#if p.couvertures.len() >= 4}
+                    <div class="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px bg-black/20">
+                        {#each p.couvertures.iter().take(4) as c (*c)}
+                            <img class="w-full aspect-square object-cover" src={cx.resources.cover(c)} alt="">
+                        {/each}
+                    </div>
+                {:else if !p.couvertures.is_empty()}
+                    <img class="absolute inset-0 w-full h-full object-cover" src={cx.resources.cover(p.couvertures[0])} alt="">
+                {:else}
+                    <div class="absolute inset-0 flex items-center justify-center text-white/90"><Icon icon={p.icone} width={44} /></div>
+                {/if}
+                <!-- style="border-radius: inherit" : rounded-2xl, le rayon de la mosaïque
+                     (TODO-TW: rounded-[inherit] — « Expected px or 0, received 'inherit' »). -->
+                <div class="absolute inset-0 ring-1 ring-inset ring-black/8 dark:ring-white/8 pointer-events-none rounded-2xl"></div>
+            </div>
+            {#if p.auto}
+                <div class="absolute left-2 top-2 h-6 px-2 inline-flex items-center gap-1 rounded-full text-[11px] font-bold bg-black/55 text-white backdrop-blur-sm">
+                    <Icon icon="material-symbols:auto-awesome-rounded" width={13} />
+                    <div>Auto</div>
+                </div>
+            {/if}
+        </div>
+        <div class="min-w-0 px-0.5">
+            <div class="block truncate text-[15px] font-bold text-(--rg-tx)">{p.nom}</div>
+            <div class="block truncate text-[13px] text-(--rg-mu)">{p.sous_titre}</div>
+        </div>
+    </button>
+</div>

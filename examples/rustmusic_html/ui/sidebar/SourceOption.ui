@@ -1,0 +1,17 @@
+<!-- Textes d'une option de la liste de SourceSwitcher.svelte (SourceMenu.ui, une branche
+     par état de l'option) : nom, et détail précédé du StatusDot d'un serveur.
+     StatusDot : inline-block shrink-0 w-1.5 h-1.5 rounded-full align-middle bg-red-500
+     (hors ligne) / bg-emerald-500. Reste : align-middle — « vertical-align (align-*) is not
+     implemented by the engine » ; le point est un élément de la rangée flex du détail
+     (items-center) : même place. -->
+<div class="flex-1 min-w-0">
+    <b class="block text-sm font-bold truncate text-neutral-800 dark:text-neutral-100">{s.nom}</b>
+    <div class="flex items-center gap-1.5 text-xs truncate text-neutral-500 dark:text-neutral-400">
+        {#if s.en_ligne == Some(true)}
+            <div class="inline-block shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgb(16_185_129/0.7)]"></div>
+        {:else if s.en_ligne == Some(false)}
+            <div class="inline-block shrink-0 w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_5px_rgb(239_68_68/0.7)]"></div>
+        {/if}
+        <span class="truncate">{s.detail}</span>
+    </div>
+</div>

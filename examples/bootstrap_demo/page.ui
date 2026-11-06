@@ -1,0 +1,260 @@
+<body data-bs-theme={theme} class="d-flex flex-column vh-100">
+  {#if chrome}
+  <!-- Barre de titre de la fenêtre (absente des exports) : couleurs du thème Bootstrap,
+       glisser pour déplacer, double clic pour agrandir. -->
+  <div class="d-flex align-items-center bg-body-secondary border-bottom ps-3" data-drag-region>
+    <span class="small fw-semibold text-body-emphasis">Bootstrap 5.3 · karbon-ui</span>
+    <div class="d-flex ms-auto">
+      <button class="btn btn-sm rounded-0 px-3 py-2" aria-label="Minimize" onclick={Msg::Window(WindowAction::Minimize)}>–</button>
+      <button class="btn btn-sm rounded-0 px-3 py-2" aria-label="Maximize" onclick={Msg::Window(WindowAction::ToggleMaximize)}>□</button>
+      <button class="btn btn-sm btn-outline-danger border-0 rounded-0 px-3 py-2" aria-label="Close" onclick={Msg::Window(WindowAction::Close)}>✕</button>
+    </div>
+  </div>
+  {/if}
+  <!-- Contenu défilant sous la barre de titre, comme le défilement du document. -->
+  <div id="page" class="flex-grow-1 overflow-y-auto" style="scrollbar-width: thin">
+  <nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom">
+    <div class="container-fluid">
+      <span class="navbar-brand">karbon-ui</span>
+      <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item"><button class="nav-link active" onclick={Msg::Noop}>Home</button></li>
+          <li class="nav-item"><button class="nav-link" onclick={Msg::Noop}>Features</button></li>
+          <li class="nav-item"><button class="nav-link" onclick={Msg::Noop}>Pricing</button></li>
+          <li class="nav-item"><button class="nav-link disabled" onclick={Msg::Noop}>Disabled</button></li>
+        </ul>
+        <span class="navbar-text">Bootstrap 5.3 · native</span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container py-4">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h2 class="h5 mb-3">Buttons</h2>
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          <button type="button" class="btn btn-primary" onclick={Msg::Noop}>Primary</button>
+          <button type="button" class="btn btn-secondary" onclick={Msg::Noop}>Secondary</button>
+          <button type="button" class="btn btn-success" onclick={Msg::Noop}>Success</button>
+          <button type="button" class="btn btn-danger" onclick={Msg::Noop}>Danger</button>
+          <button type="button" class="btn btn-warning" onclick={Msg::Noop}>Warning</button>
+          <button type="button" class="btn btn-info" onclick={Msg::Noop}>Info</button>
+          <button type="button" class="btn btn-light" onclick={Msg::Noop}>Light</button>
+          <button type="button" class="btn btn-dark" onclick={Msg::Noop}>Dark</button>
+          <button type="button" class="btn btn-link" onclick={Msg::Noop}>Link</button>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          <button type="button" class="btn btn-outline-primary" onclick={Msg::Noop}>Primary</button>
+          <button type="button" class="btn btn-outline-secondary" onclick={Msg::Noop}>Secondary</button>
+          <button type="button" class="btn btn-outline-success" onclick={Msg::Noop}>Success</button>
+          <button type="button" class="btn btn-outline-danger" onclick={Msg::Noop}>Danger</button>
+          <button type="button" class="btn btn-outline-warning" onclick={Msg::Noop}>Warning</button>
+          <button type="button" class="btn btn-outline-info" onclick={Msg::Noop}>Info</button>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+          <button type="button" class="btn btn-primary btn-lg" onclick={Msg::Noop}>Large</button>
+          <button type="button" class="btn btn-primary" onclick={Msg::Noop}>Default</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick={Msg::Noop}>Small</button>
+          <button type="button" class="btn btn-secondary" disabled onclick={Msg::Noop}>Disabled</button>
+          <div class="btn-group" aria-label="Basic example">
+            <button type="button" class="btn btn-outline-primary" onclick={Msg::Noop}>Left</button>
+            <button type="button" class="btn btn-outline-primary" onclick={Msg::Noop}>Middle</button>
+            <button type="button" class="btn btn-outline-primary" onclick={Msg::Noop}>Right</button>
+          </div>
+        </div>
+
+        <h2 class="h5 mb-3">Badges</h2>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <span class="badge text-bg-primary">Primary</span>
+          <span class="badge text-bg-secondary">Secondary</span>
+          <span class="badge text-bg-success">Success</span>
+          <span class="badge text-bg-danger">Danger</span>
+          <span class="badge text-bg-warning">Warning</span>
+          <span class="badge rounded-pill text-bg-info">Info pill</span>
+          <span class="badge rounded-pill text-bg-dark">Dark pill</span>
+        </div>
+
+        <h2 class="h5 mb-3">Alerts</h2>
+        <div class="alert alert-primary">A simple primary alert.</div>
+        <div class="alert alert-success">A simple success alert.</div>
+        <div class="alert alert-warning alert-dismissible">
+          <strong>Holy guacamole!</strong> You should check in on some of those fields below.
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
+        <h2 class="h5 mb-3">List group</h2>
+        <ul class="list-group mb-3">
+          <li class="list-group-item active">An active item</li>
+          <li class="list-group-item">A second item</li>
+          <li class="list-group-item">A third item</li>
+          <li class="list-group-item disabled">A disabled item</li>
+        </ul>
+
+        <h2 class="h5 mb-3">Progress and spinners</h2>
+        <div class="progress mb-2">
+          <div class="progress-bar" style="width: 25%">25%</div>
+        </div>
+        <div class="progress mb-2">
+          <div class="progress-bar bg-success" style="width: 60%">60%</div>
+        </div>
+        <div class="progress mb-3">
+          <div class="progress-bar bg-warning" style="width: 85%"></div>
+        </div>
+        <div class="d-flex gap-3 mb-3">
+          <div class="spinner-border text-primary"></div>
+          <div class="spinner-border text-success"></div>
+          <div class="spinner-grow text-danger"></div>
+        </div>
+
+        <h2 class="h5 mb-3">Pagination</h2>
+        <ul class="pagination">
+          <li class="page-item disabled"><button class="page-link" onclick={Msg::Noop}>Previous</button></li>
+          <li class="page-item"><button class="page-link" onclick={Msg::Noop}>1</button></li>
+          <li class="page-item active"><button class="page-link" onclick={Msg::Noop}>2</button></li>
+          <li class="page-item"><button class="page-link" onclick={Msg::Noop}>3</button></li>
+          <li class="page-item"><button class="page-link" onclick={Msg::Noop}>Next</button></li>
+        </ul>
+      </div>
+
+      <div class="col-lg-6">
+        <h2 class="h5 mb-3">Cards</h2>
+        <div class="row g-3 mb-3">
+          <div class="col-6">
+            <div class="card">
+              <div class="card-header">Featured</div>
+              <div class="card-body">
+                <h5 class="card-title">Card title</h5>
+                <p class="card-text">Some quick example text to build on the card title.</p>
+                <button class="btn btn-primary" onclick={Msg::Noop}>Go somewhere</button>
+              </div>
+              <div class="card-footer text-body-secondary">2 days ago</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="card text-bg-dark">
+              <div class="card-body">
+                <h5 class="card-title">Dark card</h5>
+                <p class="card-text">With supporting text below as a natural lead-in.</p>
+              </div>
+              <ul class="list-group list-group-flush">
+                <li class="list-group-item">An item</li>
+                <li class="list-group-item">A second item</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <h2 class="h5 mb-3">Forms</h2>
+        <div class="mb-3">
+          <label class="form-label">Email address</label>
+          <input type="text" class="form-control" placeholder="name@example.com" oninput={Msg::Text}>
+        </div>
+        <div class="mb-3">
+          <select class="form-select" value="1" onchange={Msg::Pick}>
+            <option value="1">Open this select menu</option>
+            <option value="2">Two</option>
+          </select>
+        </div>
+        <div class="input-group mb-3">
+          <span class="input-group-text">@</span>
+          <input type="text" class="form-control" placeholder="Username" oninput={Msg::Text}>
+        </div>
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="checkDefault" checked={checked} onchange={Msg::Check}>
+          <label class="form-check-label" for="checkDefault">Checked checkbox</label>
+        </div>
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" switch id="switchDefault" checked={switched} onchange={Msg::Switch}>
+          <label class="form-check-label" for="switchDefault">Switch</label>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Range</label>
+          <input type="range" class="form-range" value={range} oninput={Msg::Range}>
+        </div>
+
+        <h2 class="h5 mb-3">Grid</h2>
+        <div class="row g-2 mb-3 text-center">
+          <div class="col-4"><div class="p-2 bg-primary-subtle border rounded">col-4</div></div>
+          <div class="col-4"><div class="p-2 bg-primary-subtle border rounded">col-4</div></div>
+          <div class="col-4"><div class="p-2 bg-primary-subtle border rounded">col-4</div></div>
+          <div class="col-8"><div class="p-2 bg-success-subtle border rounded">col-8</div></div>
+          <div class="col-4"><div class="p-2 bg-success-subtle border rounded">col-4</div></div>
+        </div>
+
+        <h2 class="h5 mb-3">Components</h2>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <div class="dropdown">
+            <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" id="bs-dropdown">Dropdown</button>
+            <ul class="dropdown-menu">
+              <li><button class="dropdown-item">Action</button></li>
+              <li><button class="dropdown-item">Another action</button></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><button class="dropdown-item">Something else</button></li>
+            </ul>
+          </div>
+          <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">Launch modal</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" data-bs-title="Tooltip on top" onclick={Msg::Noop}>Tooltip</button>
+          <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseExample">Toggle collapse</button>
+          <button class="btn btn-outline-dark" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasExample">Offcanvas</button>
+        </div>
+        <div class="collapse mb-3" id="collapseExample">
+          <div class="card card-body">Some placeholder content for the collapse component.</div>
+        </div>
+
+        <ul class="nav nav-tabs mb-2">
+          <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#home-pane">Home</button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#profile-pane">Profile</button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#contact-pane">Contact</button></li>
+        </ul>
+        <div class="tab-content mb-3">
+          <div class="tab-pane fade show active" id="home-pane">This is the home tab's content.</div>
+          <div class="tab-pane fade" id="profile-pane">This is the profile tab's content.</div>
+          <div class="tab-pane fade" id="contact-pane">This is the contact tab's content.</div>
+        </div>
+
+        <div class="accordion" id="accordionExample">
+          <div class="accordion-item">
+            <div class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">Accordion Item #1</button></div>
+            <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#accordionExample">
+              <div class="accordion-body">This is the first item's accordion body.</div>
+            </div>
+          </div>
+          <div class="accordion-item">
+            <div class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo">Accordion Item #2</button></div>
+            <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#accordionExample">
+              <div class="accordion-body">This is the second item's accordion body.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasExample">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">Offcanvas</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">Some text as placeholder. In real life you can have the elements you have chosen, like text, images, lists, etc.</div>
+  </div>
+
+  <div class="modal fade" id="exampleModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5">Modal title</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">Woo-hoo, you're reading this text in a modal!</div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" onclick={Msg::Noop}>Save changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>

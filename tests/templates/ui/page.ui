@@ -1,0 +1,42 @@
+<main class="page">
+  <h1 id="title">Templates &amp; HTML</h1>
+  <p id="intro">Hello <b>you</b> &amp; me &mdash; see the <a onclick={Msg::Open(7)}>guide</a>.</p>
+  <div id="after-intro" style="display:flex; gap:8px">
+    <span>Left</span>
+  </div>
+
+  <label for="name">Your name</label>
+  <input id="name" type="text" value={self.name.as_str()} oninput={Msg::Name} placeholder="Ex. Ada">
+  <input id="notify" type="checkbox" checked={self.notify} onchange={Msg::Notify}> Notifications
+  <input id="volume" type="range" min="0" max="100" value={self.volume} oninput={Msg::Volume}>
+  <select id="theme" value={self.theme} onchange={Msg::Theme}>
+    <option value="1">Dark</option>
+    <option value="2">Light</option>
+  </select>
+  <div id="sizes" aria-label="Size">
+    <input type="radio" name="size" checked={self.size == 1} onchange={Msg::Size(1)}> Small
+    <input type="radio" name="size" checked={self.size == 2} onchange={Msg::Size(2)}> Large
+  </div>
+  <div id="row" style="display:flex; align-items:center">
+    <button id="save" onclick={Msg::Saved}>Save</button>
+    <small>Saved locally</small>
+  </div>
+
+  <ul id="tracks" data-stagger="40ms">
+    {#each self.tracks as track (track.0)}
+      <li class="track" data-exit="fade-out 150ms">{track.1}</li>
+    {/each}
+  </ul>
+  <div id="scroller" style="overflow:auto; height:40px">
+    <p>One</p><p>Two</p><p>Three</p>
+  </div>
+  <hr>
+  {#if self.dialog}
+    <dialog id="settings" onclose={Msg::Close}>
+      <h2>Settings</h2>
+      <button onclick={Msg::Close}>Close</button>
+    </dialog>
+  {:else}
+    <p>No dialog</p>
+  {/if}
+</main>

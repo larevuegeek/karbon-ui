@@ -1,0 +1,29 @@
+<!-- Contenu d'un résultat de SearchAutocomplete.svelte (SearchAutocomplete.ui, une branche
+     par état de la ligne) : vignette ou icône du type, titre et sous-titre, badge du type.
+     Les marques de version et de nuage devant le titre ne sont pas traduites.
+     m-0 : marges des <p> remises à zéro (préflight de Tailwind ; le moteur leur donne une
+     marge basse par défaut). -->
+<!-- Thumbnail (CoverImg) -->
+{#if r.pochette.is_some()}
+    <img class="w-10 h-10 rounded-lg object-cover shrink-0" src={cover(r.pochette.unwrap_or_default())} alt="">
+{:else}
+    <!-- text-neutral-400 : classe de l'icône (composant), portée par la boîte. -->
+    <div class="w-10 h-10 rounded-lg shrink-0 flex items-center justify-center
+                bg-neutral-100 dark:bg-neutral-800 text-neutral-400">
+        <Icon icon={r.genre.icone()} width={16} />
+    </div>
+{/if}
+
+<!-- Infos -->
+<div class="flex-1 min-w-0">
+    <p class="text-sm font-medium text-neutral-800 dark:text-neutral-200 truncate m-0">{r.titre}</p>
+    {#if !r.sous_titre.is_empty()}
+        <p class="text-xs text-neutral-500 dark:text-neutral-400 truncate m-0">{r.sous_titre}</p>
+    {/if}
+</div>
+
+<!-- Type badge : le <span> est un <div> ; son texte est dans un <p> (m-0), comme avant la
+     conversion (même rendu au pixel près). -->
+<div class="text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded
+            bg-neutral-100 dark:bg-white/5
+            text-neutral-400 dark:text-neutral-500 shrink-0"><p class="m-0">{r.genre.libelle()}</p></div>

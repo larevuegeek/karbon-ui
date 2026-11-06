@@ -1,0 +1,55 @@
+<!-- Contenu de la liste de LibrarySelector.svelte, partagé par les deux placements
+     (sous le bouton, ou à sa droite quand la barre est repliée). Classes Tailwind de la
+     source. La ligne active (bg-green-500/10, icône bg-green-500/20) et
+     les autres (hover:bg-neutral-100/80 dark:hover:bg-white/4) : classes avec /, une
+     branche {#if} par état. -->
+<!-- Header : le span en ligne est placé dans la ligne de 24 px du div comme dans le
+     navigateur (mt-[6.2px] mb-[2.8px] autour de sa ligne de 15 px). -->
+<div class="px-3 pt-3 pb-2">
+    <span class="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 dark:text-neutral-500 mt-[6.2px] mb-[2.8px]">Bibliothèques</span>
+</div>
+<!-- Barre classique de WebView2 : réservée seulement quand la liste déborde
+     ([scrollbar-width:thin]). -->
+<div class="max-h-64 overflow-y-auto px-1.5 [scrollbar-width:thin]">
+    {#each data::BIBLIOTHEQUES as (i, b) (b.nom)}
+        {#if i == self.bibliotheque}
+            <div class="w-full flex items-center gap-1 pr-1 rounded-lg transition-all duration-150 bg-green-500/10">
+                <button class="flex-1 min-w-0 flex items-center gap-2.5 px-2.5 py-2 cursor-pointer" onclick={Msg::ChoisirBibliotheque(i)}>
+                    <div class="relative w-7 h-7 rounded-md shrink-0 flex items-center justify-center bg-green-500/20 text-green-500">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2.5" stroke-linecap="round"><path d="m4.5 12.75 6 6 9-13.5"/></svg>
+                    </div>
+                    {@include "LibraryInfos.ui"}
+                </button>
+                {@include "LibraryManage.ui"}
+            </div>
+        {:else}
+            <div class="w-full flex items-center gap-1 pr-1 rounded-lg transition-all duration-150 hover:bg-neutral-100/80 dark:hover:bg-white/4">
+                <button class="flex-1 min-w-0 flex items-center gap-2.5 px-2.5 py-2 cursor-pointer" onclick={Msg::ChoisirBibliotheque(i)}>
+                    <div class="relative w-7 h-7 rounded-md shrink-0 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500">
+                        <Icon icon="material-symbols:hard-drive-outline" width={14} />
+                    </div>
+                    {@include "LibraryInfos.ui"}
+                </button>
+                {@include "LibraryManage.ui"}
+            </div>
+        {/if}
+    {/each}
+</div>
+<!-- Footer -->
+<div class="p-1.5 border-t border-neutral-200/60 dark:border-white/6 flex gap-1">
+    <button class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg
+                   text-xs font-medium cursor-pointer transition-all duration-150
+                   text-neutral-500 dark:text-neutral-400
+                   hover:bg-neutral-100 dark:hover:bg-white/4" onclick={Msg::CloseMenu}>
+        <Icon icon="lucide:arrow-right" width={12} />
+        <div>Voir</div>
+    </button>
+    <button class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg
+                   text-xs font-medium cursor-pointer transition-all duration-150
+                   text-green-600 dark:text-green-400
+                   hover:bg-green-500/10" onclick={Msg::CloseMenu}>
+        <Icon icon="lucide:plus" width={12} />
+        <div>Nouvelle</div>
+    </button>
+</div>

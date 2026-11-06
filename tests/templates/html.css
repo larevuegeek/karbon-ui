@@ -1,0 +1,6 @@
+.page { padding: 10px; }
+.track { padding: 4px; animation: arrive 200ms ease-out both; }
+@keyframes arrive {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}

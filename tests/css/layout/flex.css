@@ -1,0 +1,12 @@
+/* Flex (flex.rs). */
+.flex { display: flex; flex-wrap: wrap; gap: 10px; align-items: start; }
+.basis { flex: 1 1 100px; height: 20px; }
+.freeze { flex: 1 1 100px; max-width: 120px; height: 20px; }
+.shrink { display: flex; }
+.shrink-item { flex: 0 1 100px; height: 20px; }
+.sizing-row { display: flex; }
+.sizing-copy { flex: 1 1 0px; }
+.sizing-action { width: 100px; height: 30px; flex-shrink: 0; }
+.partial-grow { flex: .25 0 100px; height: 20px; }
+.partial-shrink { flex: 0 .25 200px; height: 20px; }
+.partial-limit { max-width: 110px; }

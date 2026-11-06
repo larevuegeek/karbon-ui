@@ -1,0 +1,45 @@
+<!-- sidebar/SidebarRow.svelte : vignette, titre, sous-titre et menu « … ».
+     Repliée (group relative flex justify-center) : la vignette de 44 px seule, centrée,
+     le titre en infobulle ; ni texte ni « … » (anneau vert quand la ligne est active).
+     Le <b> et le <small> voisins de la source sont des <div> : deux balises en ligne
+     voisines formeraient un seul paragraphe (le compilateur ne lit pas le display flex
+     des utilitaires du conteneur). Les classes conditionnelles qui
+     contiennent ( ) / [ ] (text-(--sb-g), ring-(--sb-g), hover:bg-(--sb-hover)) ne
+     peuvent pas s'écrire class:nom={…} : une branche {#if} par état. -->
+<div class="group relative" class:flex={self.replie} class:justify-center={self.replie}>
+    {#if self.replie}
+        <button class="flex items-center gap-3 rounded-lg text-left cursor-pointer transition-colors p-0"
+                onclick={Msg::Noop} title={self.titre.as_str()} aria-label={self.titre.as_str()}>
+            {#if self.actif}
+                <div class="shrink-0 overflow-hidden rounded-md w-11 h-11 ring-2 ring-(--sb-g)"><slot name="vignette" /></div>
+            {:else}
+                <div class="shrink-0 overflow-hidden rounded-md w-11 h-11"><slot name="vignette" /></div>
+            {/if}
+        </button>
+    {:else}
+        <button class="flex items-center gap-3 rounded-lg text-left cursor-pointer transition-colors w-full p-1 pr-9 hover:bg-(--sb-hover)"
+                onclick={Msg::Noop} title={self.titre.as_str()}>
+            <div class="shrink-0 overflow-hidden rounded-md w-10 h-10"><slot name="vignette" /></div>
+            <div class="flex flex-col gap-px min-w-0 flex-1">
+                {#if self.actif}
+                    <div class="text-sm font-bold truncate text-(--sb-g)">{self.titre}</div>
+                {:else}
+                    <div class="text-sm font-bold truncate text-(--sb-tx)">{self.titre}</div>
+                {/if}
+                {#if !self.sous_titre.is_empty()}
+                    <div class="text-xs truncate text-(--sb-mu)">{self.sous_titre}</div>
+                {/if}
+            </div>
+        </button>
+        <!-- Frère du bouton et non enfant : un bouton dans un bouton n'est pas du HTML valide. -->
+        {#if self.menu}
+            <button class="absolute right-1 top-1/2 -translate-y-1/2 w-7.5 h-7.5 rounded-lg
+                           flex items-center justify-center cursor-pointer transition-opacity
+                           opacity-0 group-hover:opacity-100 focus-visible:opacity-100
+                           text-(--sb-mu) hover:text-(--sb-tx) hover:bg-(--sb-s2)"
+                    onclick={Msg::Noop} aria-label={self.titre.as_str()} title={self.titre.as_str()}>
+                <Icon icon="material-symbols:more-horiz" width={20} />
+            </button>
+        {/if}
+    {/if}
+</div>

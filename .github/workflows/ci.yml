@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Format et lint, une fois : identiques sur toutes les cibles.
+  lint:
+    name: Format & clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux desktop libraries (link-time bindings)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libcairo2-dev libpango1.0-dev libgdk-pixbuf-2.0-dev libfontconfig-dev \
+            libfreetype-dev libwayland-dev libxkbcommon-dev libdbus-1-dev
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo doc --no-deps --workspace
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+  # Un backend par système : tests du moteur (contrat, sur toutes les cibles) et suite
+  # minimale du backend natif. Les tests qui demandent un GPU, un compositeur ou un
+  # serveur X se sautent d'eux-mêmes quand ils manquent.
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libcairo2-dev libpango1.0-dev libgdk-pixbuf-2.0-dev libfontconfig-dev \
+            libfreetype-dev libwayland-dev libxkbcommon-dev libdbus-1-dev \
+            fonts-dejavu-core
+      - name: Clippy (native backend)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test --workspace --all-targets
+      - name: Doc tests
+        run: cargo test --doc --workspace
+
+  # Les exports de référence (rustmusic_html 1280x900 et 960x700, rendu logiciel)
+  # doivent rester identiques octet pour octet d'un commit à l'autre : ils sont
+  # produits ici pour être comparés à la main (téléchargeables), la police d'interface
+  # des exécuteurs n'étant pas garantie identique à celle du poste de développement.
+  reference-exports:
+    name: Reference exports (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --example rustmusic_html
+      - run: |
+          ./target/release/examples/rustmusic_html.exe --export rustmusic-1280x900.png --size 1280x900 --scale 1.5 --renderer=software
+          ./target/release/examples/rustmusic_html.exe --export rustmusic-960x700.png --size 960x700 --scale 1.5 --renderer=software
+          Get-FileHash rustmusic-*.png | Format-Table -AutoSize
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reference-exports
+          path: rustmusic-*.png

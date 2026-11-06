@@ -1,0 +1,150 @@
+{
+  "comments": {
+    "blockComment": [
+      "<!--",
+      "-->"
+    ]
+  },
+  "brackets": [
+    [
+      "<!--",
+      "-->"
+    ],
+    [
+      "{",
+      "}"
+    ],
+    [
+      "[",
+      "]"
+    ],
+    [
+      "(",
+      ")"
+    ]
+  ],
+  "colorizedBracketPairs": [
+    [
+      "{",
+      "}"
+    ],
+    [
+      "[",
+      "]"
+    ],
+    [
+      "(",
+      ")"
+    ]
+  ],
+  "autoClosingPairs": [
+    {
+      "open": "{",
+      "close": "}",
+      "notIn": [
+        "string",
+        "comment"
+      ]
+    },
+    {
+      "open": "[",
+      "close": "]",
+      "notIn": [
+        "string",
+        "comment"
+      ]
+    },
+    {
+      "open": "(",
+      "close": ")",
+      "notIn": [
+        "string",
+        "comment"
+      ]
+    },
+    {
+      "open": "\"",
+      "close": "\"",
+      "notIn": [
+        "string",
+        "comment"
+      ]
+    },
+    {
+      "open": "'",
+      "close": "'",
+      "notIn": [
+        "string",
+        "comment"
+      ]
+    },
+    {
+      "open": "<!--",
+      "close": " -->",
+      "notIn": [
+        "string",
+        "comment"
+      ]
+    }
+  ],
+  "autoCloseBefore": ";:.,=}])>` \n\t<",
+  "surroundingPairs": [
+    [
+      "{",
+      "}"
+    ],
+    [
+      "[",
+      "]"
+    ],
+    [
+      "(",
+      ")"
+    ],
+    [
+      "\"",
+      "\""
+    ],
+    [
+      "'",
+      "'"
+    ],
+    [
+      "<",
+      ">"
+    ]
+  ],
+  "wordPattern": "(-?\\d*\\.\\d\\w*)|([A-Za-z_\\u00C0-\\u024F][\\w\\u00C0-\\u024F-]*)",
+  "folding": {
+    "markers": {
+      "start": "^\\s*<!--\\s*#region\\b.*-->",
+      "end": "^\\s*<!--\\s*#endregion\\b.*-->"
+    }
+  },
+  "indentationRules": {
+    "increaseIndentPattern": "<(?!(?:area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr)\\b)([A-Za-z_][\\w.:-]*)\\b(?:[^'\"{}/>]|\"[^\"]*\"|'[^']*'|\\{[^{}]*(?:\\{[^{}]*\\}[^{}]*)*\\}|/(?!>))*>(?!.*</\\1>)[^<]*$|<!--(?!.*-->)|\\{\\s*(?:#(?:if|each)|:else)\\b[^}]*\\}\\s*$|\\{[^}\"']*$",
+    "decreaseIndentPattern": "^\\s*(?:</[A-Za-z_][\\w.:-]*\\s*>|-->|\\{\\s*(?::else|/(?:if|each))\\b|\\})"
+  },
+  "onEnterRules": [
+    {
+      "beforeText": "<(?!(?:area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr)\\b)([A-Za-z_][\\w.:-]*)\\b(?:[^'\"{}/>]|\"[^\"]*\"|'[^']*'|\\{[^{}]*(?:\\{[^{}]*\\}[^{}]*)*\\}|/(?!>))*>[^<]*$",
+      "afterText": "^</[A-Za-z_][\\w.:-]*\\s*>",
+      "action": {
+        "indent": "indentOutdent"
+      }
+    },
+    {
+      "beforeText": "\\{\\s*(?:#(?:if|each)|:else)\\b[^}]*\\}\\s*$",
+      "afterText": "^\\s*\\{\\s*(?::else|/(?:if|each))\\b",
+      "action": {
+        "indent": "indentOutdent"
+      }
+    },
+    {
+      "beforeText": "\\{\\s*(?:#(?:if|each)|:else)\\b[^}]*\\}\\s*$",
+      "action": {
+        "indent": "indent"
+      }
+    }
+  ]
+}

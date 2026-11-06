@@ -1,0 +1,97 @@
+<!-- player/NetworkMenu.svelte : pastille « Réseau » (lecteurs UPnP/DLNA, AirPlay, partage)
+     et son menu, avec les classes Tailwind de la source ({pastille} {TEINTE.vert}
+     {cliquable} du lecteur). Le <div bind:this={menuEl}> n'est pas repris. -->
+{#if self.reseau.iter().any(|actif| *actif) || self.open(Menu::Reseau)}
+    <!-- ouvert ? 'border-current/50' : '' — le « / » interdit class:… : une branche par état.
+         Contenu : icônes des services actifs, voyant du partage ({voyant} : w-1.5 h-1.5
+         rounded-full bg-current shadow-[0_0_6px_currentColor]), libellé.
+         Ouverte : dark:border-current/50! garde la bordure de la traduction précédente
+         (border-current/50 seul cède à dark:border-emerald-400/25). -->
+    {#if self.open(Menu::Reseau)}
+        <button id="player.reseau"
+                class="shrink-0 h-5.5 px-2 flex items-center gap-1.5 rounded-full whitespace-nowrap text-[10.5px] font-semibold border
+                       bg-emerald-500/12 border-emerald-600/25 text-emerald-800 dark:border-emerald-400/25 dark:text-emerald-300
+                       cursor-pointer transition-colors hover:border-current/50 border-current/50 dark:border-current/50!"
+                onclick={Msg::Menu(Menu::Reseau)} title={self.reseau_resume()} aria-expanded={self.open(Menu::Reseau)}>
+            {#if self.reseau[0]}<div class="flex shrink-0"><Icon icon="material-symbols-light:cast-rounded" width={14} /></div>{/if}
+            {#if self.reseau[1]}<div class="flex shrink-0"><Icon icon="material-symbols-light:airplay-rounded" width={14} /></div>{/if}
+            {#if self.reseau[2]}<div class="w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_6px_currentColor]"></div>{/if}
+            <div class="w-auto">Réseau</div>
+        </button>
+    {:else}
+        <button id="player.reseau"
+                class="shrink-0 h-5.5 px-2 flex items-center gap-1.5 rounded-full whitespace-nowrap text-[10.5px] font-semibold border
+                       bg-emerald-500/12 border-emerald-600/25 text-emerald-800 dark:border-emerald-400/25 dark:text-emerald-300
+                       cursor-pointer transition-colors hover:border-current/50"
+                onclick={Msg::Menu(Menu::Reseau)} title={self.reseau_resume()} aria-expanded={self.open(Menu::Reseau)}>
+            {#if self.reseau[0]}<div class="flex shrink-0"><Icon icon="material-symbols-light:cast-rounded" width={14} /></div>{/if}
+            {#if self.reseau[1]}<div class="flex shrink-0"><Icon icon="material-symbols-light:airplay-rounded" width={14} /></div>{/if}
+            {#if self.reseau[2]}<div class="w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_6px_currentColor]"></div>{/if}
+            <div class="w-auto">Réseau</div>
+        </button>
+    {/if}
+{/if}
+
+<!-- Menu : absolute bottom-full right-2 mb-2 z-50 de la carte du lecteur (placement du
+     k-popover, sans ces classes) ; menu et lecteur-menu : voir PlayerSoundBar.ui. -->
+{#if self.open(Menu::Reseau)}
+    <k-popover anchor="player.carte" placement="top-end" offset="8" cross-offset="-8"
+               aria-label="Réseau" onclose={Msg::CloseMenu}
+               class="menu lecteur-menu w-96 p-1.5 rounded-[16px] border
+                      bg-(--lc-menu) border-(--lc-menu-bd) shadow-[0_18px_40px_rgba(0,0,0,0.35)] text-(--lc-tx)">
+        <div class="flex items-center gap-2 px-2.5 pt-2 pb-1">
+            <div class="flex shrink-0 text-(--lc-mu)"><Icon icon="material-symbols-light:lan-outline-rounded" width={18} /></div>
+            <div class="flex-1 text-[13px] font-bold">Réseau</div>
+            <div class="shrink-0 inline-flex items-center px-1.75 py-0.5 rounded-[5px] border text-[11px] font-bold leading-[1.2] whitespace-nowrap
+                        bg-(--rg-ambg) text-(--rg-am) border-(--rg-ambd)">BÊTA</div>
+        </div>
+        {#each data::SERVICES_RESEAU as (i, service) (service.1)}
+            {#if i == 0}<div class="px-2.5 pt-2.5 pb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-(--lc-mu)">Envoyer la musique vers</div>{/if}
+            {#if i == 2}<div class="px-2.5 pt-2.5 pb-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-(--lc-mu)">Partager la bibliothèque</div>{/if}
+            <!-- Ligne : div role="button" en Svelte (l'interrupteur y est imbriqué) ; ici un
+                 bouton, la ligne entière bascule le service. w-full text-left : largeur et
+                 alignement du div de la source (un bouton se réduit et centre son texte).
+                 L'icône est écrite dans chaque branche : un bouton dont le contenu n'est qu'un
+                 {@include} est lu comme un libellé de texte par le compilateur.
+                 vivant ? 'bg-(--rg-g)/10 hover:bg-(--rg-g)/14' : 'hover:bg-(--lc-survol)' -->
+            {#if i == 2 && self.reseau[i]}
+                <button class="flex items-center gap-3 px-2.5 py-2 rounded-[12px] cursor-pointer transition-colors
+                               bg-(--rg-g)/10 hover:bg-(--rg-g)/14 w-full text-left"
+                        onclick={Msg::BasculerReseau(i)} aria-label={service.1}>
+                    {#if self.reseau[i]}
+                        <div class="w-9 h-9 shrink-0 flex items-center justify-center rounded-[10px] transition-colors bg-(--rg-g)/15 text-(--rg-g)">
+                            <Icon icon={service.0} width={20} />
+                        </div>
+                    {:else}
+                        <div class="w-9 h-9 shrink-0 flex items-center justify-center rounded-[10px] transition-colors bg-(--lc-survol) text-(--lc-mu)">
+                            <Icon icon={service.0} width={20} />
+                        </div>
+                    {/if}
+                    {@include "NetworkRow.ui"}
+                </button>
+            {:else}
+                <button class="flex items-center gap-3 px-2.5 py-2 rounded-[12px] cursor-pointer transition-colors
+                               hover:bg-(--lc-survol) w-full text-left"
+                        onclick={Msg::BasculerReseau(i)} aria-label={service.1}>
+                    {#if self.reseau[i]}
+                        <div class="w-9 h-9 shrink-0 flex items-center justify-center rounded-[10px] transition-colors bg-(--rg-g)/15 text-(--rg-g)">
+                            <Icon icon={service.0} width={20} />
+                        </div>
+                    {:else}
+                        <div class="w-9 h-9 shrink-0 flex items-center justify-center rounded-[10px] transition-colors bg-(--lc-survol) text-(--lc-mu)">
+                            <Icon icon={service.0} width={20} />
+                        </div>
+                    {/if}
+                    {@include "NetworkRow.ui"}
+                </button>
+            {/if}
+        {/each}
+        <button class="mt-1.5 w-full flex items-center justify-center gap-2 h-9 rounded-[12px] border border-(--lc-menu-bd) cursor-pointer
+                       text-[12.5px] font-semibold text-(--lc-mu) hover:text-(--lc-tx) hover:bg-(--lc-survol) transition-colors"
+                onclick={Msg::CloseMenu}>
+            <div class="flex shrink-0"><Icon icon="material-symbols-light:settings-outline-rounded" width={17} /></div>
+            <div class="w-auto">Réglages réseau</div>
+            <div class="flex shrink-0"><Icon icon="material-symbols-light:arrow-forward-rounded" width={15} /></div>
+        </button>
+    </k-popover>
+{/if}

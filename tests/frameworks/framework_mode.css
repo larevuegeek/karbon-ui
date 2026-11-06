@@ -1,0 +1,22 @@
+/* Cascade d'une feuille de framework : couches, !important, attributs, :where(). */
+@layer base, components;
+@layer components {
+    .box.special { background: #ff0000; color: #0000ff !important; }
+}
+@layer base {
+    div.box { color: #ff0000; }
+}
+.box { background: #00ff00; color: #000000; }
+:where(.box) { background: #ffff00; }
+.box[data-state="on"] { background: #ff00ff; }
+input[type=text].field:read-only { border: 1px solid #123456; }
+@supports (display: grid) { .grid-only { display: grid; } }
+@media print { .box { background: #000000; } }
+@font-face { font-family: Skipped; src: url(skipped.woff2); }
+.unsupported:has(.x) { color: red; }
+/* Transition composée lue par var() : le minutage est celui du premier élément animable. */
+.scope { --t: box-shadow 50ms ease, background-color 100ms linear, border-radius 1s ease, transform 100ms linear; }
+.trans { transition: var(--t); background-color: #000000; padding: 10px; }
+.trans:hover { background-color: #ffffff; transform: translateX(10px); }
+.collapsing { height: 0; overflow: hidden; transition: height 200ms linear; }
+.closed { display: none; }

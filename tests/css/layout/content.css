@@ -1,0 +1,11 @@
+/* Contenu HTML dans la mise en page (content.rs). */
+.row { display: flex; gap: 10px; }
+.tag { font-size: 10px; }
+.host { position: relative; width: 40px; height: 20px; border-radius: 6px; background: #000000; }
+.host::after { content: ""; position: absolute; left: 0px; top: 30px; width: 40px; height: 6px; background: #00ff00; }
+.clipped { overflow: hidden; }
+.baseline { display: flex; align-items: baseline; gap: 8px; }
+.big { font-size: 20px; }
+.small { font-size: 10px; }
+.tracks { display: grid; grid-template-columns: min-content 1fr; width: 400px; font-size: 10px; }
+.path { width: 60px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; }

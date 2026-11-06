@@ -1,0 +1,120 @@
+<!-- sidebar/Sidebar.svelte — sections dans l'ordre d'origine (playlists, écoute en ligne ;
+     pas d'épinglés), hors mode « Organiser ». `replie` (réglage sidebar_collapsed) donne
+     la colonne d'icônes de 76 px : w-19 items-center pt-3 pb-3 au lieu de w-72 px-4 pt-4
+     pb-3 (pb-3 commun, écrit une fois), largeur animée (transition-[width] duration-200).
+     Classes Tailwind de la source ; sidebar, smart-scroll et sb-liste-fondu sont des
+     classes d'app.css (sidebar.css). Libellés en texte nu de la source dans un <div>. -->
+<aside id="sidebar"
+       class="sidebar h-full shrink-0 flex flex-col gap-3 overflow-y-auto overflow-x-hidden smart-scroll
+              bg-(--sb-bg) border-r border-(--sb-sep) transition-[width] duration-200 pb-3"
+       class:w-19={self.sidebar_collapsed} class:items-center={self.sidebar_collapsed} class:pt-3={self.sidebar_collapsed}
+       class:w-72={!self.sidebar_collapsed} class:px-4={!self.sidebar_collapsed} class:pt-4={!self.sidebar_collapsed}>
+    <!-- ─── Haut : ouvrir, navigation, bibliothèque. Le logo est dans la barre de titre. ─── -->
+    <div class="shrink-0 flex flex-col gap-3" class:items-center={self.sidebar_collapsed}>
+        {@include "SourceSwitcher.ui"}
+        <!-- Affiché par défaut ; se masque depuis son « … » ou Réglages → Apparence.
+             Repliée : ni Fichier / Dossier ni leur « … ». -->
+        {#if self.boutons_ouvrir && !self.sidebar_collapsed}
+            <div class="flex items-center gap-2">
+                {#each [("material-symbols:audio-file-outline-rounded", "Fichier"), ("material-symbols:create-new-folder-outline-rounded", "Dossier")] as bouton (bouton.0)}
+                    <button class="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-lg cursor-pointer transition-colors
+                                   text-xs font-semibold bg-(--sb-s1) border border-(--sb-bd) text-(--sb-tx2)
+                                   hover:border-(--sb-bd2) hover:text-(--sb-tx)"
+                            onclick={Msg::Noop}>
+                        <Icon icon={bouton.0} width={17} />
+                        <div>{bouton.1}</div>
+                    </button>
+                {/each}
+                <!-- Le conteneur sert d'ancre au menu (le bouton est un composant) : la boîte
+                     du bouton (flex shrink-0). -->
+                <div id="sidebar.ouvrir" class="flex shrink-0">
+                    <SidebarButton icon="material-symbols:more-horiz" label="Ouvrir" onclick={Msg::Menu(Menu::Ouvrir)} />
+                </div>
+            </div>
+            {@include "OpenZoneMenu.ui"}
+            <!-- Part avec la section. -->
+            <div class="h-px bg-linear-to-r from-transparent via-(--sb-mu)/40 to-transparent" aria-hidden="true"></div>
+        {/if}
+
+        {@include "SidebarNav.ui"}
+
+        <!-- flex gap-2 dans une colonne items-center : la rangée prend la largeur de son
+             contenu dans le navigateur ; ici elle garde celle de la colonne, le bouton y est
+             centré (justify-center, ajout de la traduction). -->
+        <div class="flex gap-2" class:justify-center={self.sidebar_collapsed}>
+            {@include "../library/LibrarySelector.ui"}
+        </div>
+    </div>
+
+    <!-- ─── Milieu : playlists et épinglés, seule zone qui défile. Repliée, sans
+         barre de défilement (elle mangerait la colonne), sans titres de section ni
+         fondu du bas : les vignettes seules, centrées.
+         La disposition du contenu (items-center gap-2 py-2, gap-0.5 px-2 pb-8) porte sur
+         un conteneur interne (flex flex-col) : posés sur le conteneur qui défile, le retrait
+         et la marge négative ne donnent pas la boîte du navigateur. ─── -->
+    {#if self.sidebar_collapsed}
+        <div class="flex flex-col border-t border-(--sb-sep) flex-1 min-h-0 w-full
+                    overflow-y-auto overflow-x-hidden [scrollbar-width:none]">
+            <div class="flex flex-col items-center gap-2 py-2">
+                <!-- secPlaylists, sans SidebarTitle -->
+                {#each data::SIDEBAR_PLAYLISTS.iter().filter(|p| self.raccourci_visible(p.nom)) as playlist (playlist.id)}
+                    <PlaylistItem playlist={playlist} replie />
+                {/each}
+                <!-- secOnline, sans SidebarTitle -->
+                <SidebarRow titre="Podcasts" sous_titre={data::PODCASTS_DETAIL} replie>
+                    <SidebarThumbnail slot="vignette" couvertures={&data::PODCASTS[..]}
+                                      couleur="#8b5cf6" icone="material-symbols:podcasts-rounded" />
+                </SidebarRow>
+                <SidebarRow titre="Radios" sous_titre="1 radio favorite" replie>
+                    <!-- RadioLogo, comme dans la barre dépliée (voir plus bas). -->
+                    <div slot="vignette" class="relative block overflow-hidden isolate bg-white w-full h-full rounded-md">
+                        <img class="absolute inset-[12%] w-[76%] h-[76%] object-contain" src={cx.resources.cover("radio_logo")} alt="">
+                        <div class="absolute inset-0 ring-1 ring-inset ring-black/8 dark:ring-white/8 pointer-events-none rounded-md"></div>
+                    </div>
+                </SidebarRow>
+            </div>
+        </div>
+    {:else}
+        <div class="flex flex-col border-t border-(--sb-sep) flex-[1_0_140px] min-h-35 -mx-2
+                    overflow-y-auto overflow-x-hidden smart-scroll sb-liste-fondu">
+            <div class="flex flex-col gap-0.5 px-2 pb-8">
+                <!-- secPlaylists -->
+                <SidebarTitle titre="Playlists" aide="Toutes les playlists">
+                    <SidebarButton slot="actions" icon="material-symbols:auto-awesome-outline-rounded"
+                                   label="Playlist intelligente" taille={16} onclick={Msg::Noop} />
+                    <SidebarButton slot="actions" icon="material-symbols:add-rounded"
+                                   label="Nouvelle playlist" taille={16} onclick={Msg::Noop} />
+                    <div slot="actions" id="sidebar.playlists.options" class="flex shrink-0">
+                        <SidebarButton icon="material-symbols:more-horiz" label="Options d'affichage"
+                                       taille={16} onclick={Msg::Menu(Menu::Affichage)} />
+                    </div>
+                </SidebarTitle>
+                {@include "PlaylistZoneMenu.ui"}
+                <!-- « Titres likés » et « Récemment joués » suivent leurs raccourcis. -->
+                {#each data::SIDEBAR_PLAYLISTS.iter().filter(|p| self.raccourci_visible(p.nom)) as playlist (playlist.id)}
+                    <PlaylistItem playlist={playlist} />
+                {/each}
+
+                <!-- secOnline -->
+                <SidebarTitle titre="Écoute en ligne" aide="Écoute en ligne" />
+                <SidebarRow titre="Podcasts" sous_titre={data::PODCASTS_DETAIL}>
+                    <SidebarThumbnail slot="vignette" couvertures={&data::PODCASTS[..]}
+                                      couleur="#8b5cf6" icone="material-symbols:podcasts-rounded" />
+                </SidebarRow>
+                <SidebarRow titre="Radios" sous_titre="1 radio favorite">
+                    <!-- radio/RadioLogo.svelte (class="w-full h-full rounded-[inherit]"), logo de
+                         la dernière radio écoutée. TODO-TW: rounded-[inherit] (et style="border-radius:
+                         inherit" du liseré) — « Expected px or 0, received 'inherit' » ; rounded-md,
+                         le rayon de la vignette, donne le même rendu. -->
+                    <div slot="vignette" class="relative block overflow-hidden isolate bg-white w-full h-full rounded-md">
+                        <img class="absolute inset-[12%] w-[76%] h-[76%] object-contain" src={cx.resources.cover("radio_logo")} alt="">
+                        <div class="absolute inset-0 ring-1 ring-inset ring-black/8 dark:ring-white/8 pointer-events-none rounded-md"></div>
+                    </div>
+                </SidebarRow>
+            </div>
+        </div>
+    {/if}
+
+    <!-- ─── Pied : état du scan et profil ─── -->
+    {@include "SidebarFooter.ui"}
+</aside>

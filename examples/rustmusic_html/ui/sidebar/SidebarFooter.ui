@@ -1,0 +1,104 @@
+<!-- sidebar/SidebarFooter.svelte — languette et carte ; « réduit » donne la ligne
+     unique de la capture, le clic sur la languette la redéplie. Barre repliée : une
+     colonne sous un filet (dossiers, rescan et son point d'état, avatar du profil),
+     sans languette ni carte. Classes Tailwind de la source (hors scan en cours) ;
+     sb-pied-carte, sb-avatar et sb-point sont des classes d'app.css (sidebar.css) ;
+     <b> et <small> voisins (pied déplié) en <div> (voir SidebarRow.ui). La couleur de l'initiale (style="color: {texteAvatar}",
+     blanc sur le vert du profil) est text-white. -->
+{#if self.sidebar_collapsed}
+    <div class="shrink-0 w-full flex flex-col items-center gap-1 pt-2.5 border-t border-(--sb-sep)">
+        <!-- bouton(…, grand) -->
+        <button class="relative shrink-0 flex items-center justify-center cursor-pointer transition-colors
+                       text-(--sb-mu) enabled:hover:bg-(--sb-s2) enabled:hover:text-(--sb-tx) disabled:cursor-default
+                       w-12 h-12 rounded-lg"
+                onclick={Msg::Noop} aria-label="Dossiers synchronisés" title="Dossiers synchronisés">
+            <Icon icon="material-symbols:folder-open-outline-rounded" width={22} />
+        </button>
+        <!-- Le point d'état est posé dans le bouton (span relative autour du bouton dans
+             le Svelte : même boîte). -->
+        <button id="sidebar.footer.rescan"
+                class="relative shrink-0 flex items-center justify-center cursor-pointer transition-colors
+                       text-(--sb-mu) enabled:hover:bg-(--sb-s2) enabled:hover:text-(--sb-tx) disabled:cursor-default
+                       w-12 h-12 rounded-lg"
+                onclick={Msg::Noop}
+                aria-label={format!("Rescanner la bibliothèque — {}", data::SCAN)}
+                title={format!("Rescanner la bibliothèque — {}", data::SCAN)}>
+            <Icon icon="material-symbols:refresh-rounded" width={22} />
+            <div class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full ring-2 ring-(--sb-bg) pointer-events-none bg-(--sb-point)"
+                 aria-hidden="true"></div>
+        </button>
+        <!-- flex : le bouton prend la boîte de l'avatar (ajout de la traduction). -->
+        <button id="sidebar.footer.profil" class="mt-1 cursor-pointer rounded-full flex" onclick={Msg::Noop}
+                aria-label="David — Profil actif · changer" title="David — Profil actif · changer">
+            <div class="sb-avatar w-8.5 h-8.5 rounded-full shrink-0 overflow-hidden flex items-center justify-center text-sm font-extrabold text-white">D</div>
+        </button>
+    </div>
+{:else}
+<!-- Languette : un onglet posé sur le bord de la carte, qui la réduit à une ligne.
+     Elle chevauche le bas de la liste ; autour d'elle, la liste reste visible et cliquable. -->
+<div class="shrink-0 -mt-7 relative z-10 flex flex-col items-center pointer-events-none">
+    <button id="sidebar.footer.tab"
+            class="pointer-events-auto relative z-10 -mb-px w-10 h-4 flex items-center justify-center rounded-t-lg cursor-pointer
+                   bg-(--sb-pied) border border-b-0 border-(--sb-piedbd) text-(--sb-mu) hover:text-(--sb-tx) transition-colors"
+            onclick={Msg::ToggleFooter}
+            title={if self.footer_collapsed {"Développer"} else {"Réduire"}}
+            aria-label={if self.footer_collapsed {"Développer"} else {"Réduire"}}
+            aria-expanded={!self.footer_collapsed}>
+        <Icon icon={if self.footer_collapsed {"material-symbols:keyboard-arrow-up-rounded"} else {"material-symbols:keyboard-arrow-down-rounded"}} width={16} />
+    </button>
+
+    <div class="sb-pied-carte pointer-events-auto relative overflow-hidden w-full flex flex-col rounded-[14px] border border-(--sb-piedbd)">
+        {#if self.footer_collapsed}
+            <!-- Réduit : une ligne, qui se redéplie au clic. -->
+            <button class="flex items-center gap-2 py-1.5 pl-2 pr-2.5 min-w-0 text-left cursor-pointer"
+                    onclick={Msg::ToggleFooter} title="Développer">
+                <div class="sb-avatar w-6 h-6 rounded-full shrink-0 overflow-hidden flex items-center justify-center text-[11px] font-extrabold text-white">D</div>
+                <b class="text-[13px] font-bold truncate text-(--sb-tx) shrink-0 max-w-[40%]">David</b>
+                <div class="sb-point w-1.5 h-1.5 rounded-full shrink-0 text-(--sb-point)" aria-hidden="true"></div>
+                <small class="min-w-0 text-xs truncate tabular-nums text-(--sb-mu)">{data::SCAN}</small>
+            </button>
+        {:else}
+            <div>
+                <div class="flex items-center gap-2.5 pt-2 pb-1.5 pl-2 pr-1.5">
+                    <button class="group flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer"
+                            onclick={Msg::Noop} title="David — Profil actif · changer">
+                        <div class="sb-avatar w-8.5 h-8.5 rounded-full shrink-0 overflow-hidden flex items-center justify-center text-sm font-extrabold text-white">D</div>
+                        <div class="flex flex-col gap-px min-w-0">
+                            <div class="text-sm font-bold truncate text-(--sb-tx) group-hover:underline underline-offset-2 decoration-(--sb-mu)">David</div>
+                            <div class="text-xs truncate text-(--sb-mu)">Profil actif · changer</div>
+                        </div>
+                    </button>
+                    <button class="relative shrink-0 flex items-center justify-center cursor-pointer transition-colors
+                                   text-(--sb-mu) enabled:hover:bg-(--sb-s2) enabled:hover:text-(--sb-tx) disabled:cursor-default
+                                   w-7 h-7 rounded-md text-(--sb-tx2)"
+                            onclick={Msg::Noop} aria-label="Réglages" title="Réglages">
+                        <Icon icon="material-symbols:settings-outline-rounded" width={17} />
+                    </button>
+                </div>
+                <div class="flex items-center gap-2.5 py-1 pl-2 pr-1.5 border-t border-(--sb-piedbd)">
+                    <div class="w-8.5 shrink-0 flex justify-center">
+                        <div class="sb-point w-1.5 h-1.5 rounded-full text-(--sb-point)"></div>
+                    </div>
+                    <small class="flex-1 min-w-0 text-xs truncate tabular-nums text-(--sb-mu)">{data::SCAN}</small>
+                    <div class="flex items-center gap-0.5 shrink-0">
+                        <button class="relative shrink-0 flex items-center justify-center cursor-pointer transition-colors
+                                       text-(--sb-mu) enabled:hover:bg-(--sb-s2) enabled:hover:text-(--sb-tx) disabled:cursor-default
+                                       w-7 h-7 rounded-md text-(--sb-tx2)"
+                                onclick={Msg::Noop} aria-label="Dossiers synchronisés" title="Dossiers synchronisés">
+                            <Icon icon="material-symbols:folder-open-outline-rounded" width={17} />
+                        </button>
+                        <button class="relative shrink-0 flex items-center justify-center cursor-pointer transition-colors
+                                       text-(--sb-mu) enabled:hover:bg-(--sb-s2) enabled:hover:text-(--sb-tx) disabled:cursor-default
+                                       w-7 h-7 rounded-md text-(--sb-tx2)"
+                                onclick={Msg::Noop}
+                                aria-label={format!("Rescanner la bibliothèque — {}", data::SCAN)}
+                                title={format!("Rescanner la bibliothèque — {}", data::SCAN)}>
+                            <Icon icon="material-symbols:refresh-rounded" width={17} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        {/if}
+    </div>
+</div>
+{/if}

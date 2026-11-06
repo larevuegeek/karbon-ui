@@ -1,0 +1,35 @@
+<!-- home/HomeHeader.svelte — deux lignes : bouton face au titre, chiffres face au sous-titre.
+     Classes Tailwind de la source ; les <span>/<p> sont des <div> (marges par défaut des <p>,
+     deux balises en ligne voisines formeraient un seul paragraphe), les liens des chiffres
+     des <button>. Les classes de l'<Icon> passent sur un conteneur (couleur héritée).
+     Écart : items-start au lieu de items-baseline dans les chiffres, mt-[6.6px] du libellé
+     de 11 px : la ligne de base des éléments flex est approchée par le moteur (le
+     libellé se calait sur le haut du chiffre). -->
+<header class="grid grid-cols-1 @3xl:grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-8 gap-y-1.5">
+    <h1 class="@3xl:col-start-1 @3xl:row-start-1 min-w-0 text-3xl @3xl:text-[34px] font-extrabold tracking-[-0.02em] leading-tight
+               text-neutral-900 dark:text-neutral-50">{data::GREETING}, David</h1>
+
+    <div class="@3xl:col-start-1 @3xl:row-start-2 min-w-0 text-[17px] text-neutral-500 dark:text-[#9aa39e]">Voici de quoi reprendre, et quelques albums à redécouvrir.</div>
+
+    <div class="@3xl:col-start-2 @3xl:row-start-2 @3xl:justify-self-end mt-2 @3xl:mt-0 flex items-baseline gap-3.5">
+        {#each data::STATS as (i, c) (c.libelle)}
+            {#if i > 0}<div class="self-center w-px h-3.5 bg-neutral-300 dark:bg-white/15" aria-hidden="true"></div>{/if}
+            <button class="group flex items-start gap-1.5 whitespace-nowrap" onclick={Msg::Noop}>
+                <div class="text-[17px] font-extrabold tabular-nums tracking-[-0.01em] text-neutral-900 dark:text-neutral-50
+                            group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{c.n}</div>
+                <div class="text-[11px] font-bold uppercase tracking-widest text-neutral-500 dark:text-[#9aa39e] mt-[6.6px]">{c.libelle}</div>
+            </button>
+        {/each}
+    </div>
+
+    <!-- Même famille que les boutons secondaires du hero ; seul le « + » porte l'accent. -->
+    <button class="@3xl:col-start-2 @3xl:row-start-1 self-center justify-self-start @3xl:justify-self-end mt-3 @3xl:mt-0
+                   h-10 px-4 rounded-full text-sm font-semibold flex items-center gap-2 cursor-pointer whitespace-nowrap
+                   bg-neutral-900/6 hover:bg-neutral-900/10 text-neutral-900
+                   dark:bg-white/10 dark:hover:bg-white/16 dark:text-white transition-colors"
+            onclick={Msg::Noop}>
+        <div class="text-accent-600 dark:text-accent-500"><Icon icon="lucide:plus" width={16} /></div>
+        <!-- w-auto : le libellé garde la largeur de son texte dans la rangée flex. -->
+        <div class="w-auto">Ajouter de la musique</div>
+    </button>
+</header>

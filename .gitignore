@@ -1,0 +1,11 @@
+/target
+# Journaux et paquets générés localement
+/debug.log
+*.vsix
+/.claude/worktrees/
+# Exports, captures, planches de comparaison et relevés produits par les commandes des
+# docs : régénérés localement, jamais suivis (volumineux, et les planches de comparaison
+# reproduisent des captures de RustMusic avec de vraies pochettes).
+/artifacts/
+/accueil.png
+/.vscode/

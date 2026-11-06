@@ -1,0 +1,5 @@
+/* routes/+layout.svelte, ui/titlebar/Titlebar.svelte, ui/logo/LogoRustMusic.svelte,
+   search/SearchAutocomplete.svelte, ui/input/SwitchTheme.svelte,
+   whatsnew/WhatsNewButton.svelte, header/ProfilSelectorInput.svelte : classes Tailwind de
+   la source dans leurs templates (plus de CSS propre). `truncate` est l'utilitaire de
+   Tailwind. */

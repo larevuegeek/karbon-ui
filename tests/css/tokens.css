@@ -1,0 +1,5 @@
+:root {
+    --panel: #123456;
+    --foreground: #eaf0f8;
+    --end: rgba(255, 255, 255, 50%);
+}

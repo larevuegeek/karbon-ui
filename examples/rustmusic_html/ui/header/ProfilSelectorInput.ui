@@ -1,0 +1,72 @@
+<!-- header/ProfilSelectorInput.svelte : bouton profil et son menu déroulant, avec les
+     classes Tailwind de la source (compilées par css_file!, voir styles/app.css). Les
+     <span>/<p> de la source sont des <div> : pas de marges par défaut à annuler (la
+     préflight de Tailwind n'est pas reproduite). La couleur du profil passe par
+     bg-(--profil) au lieu de style="background: …". -->
+<button id="header.profil"
+        class="group flex items-center gap-2 rounded-full border py-1 pl-1 pr-2.5
+               transition backdrop-blur-md cursor-pointer
+               bg-white border-(--c-bord) hover:border-(--c-bord2)
+               dark:bg-neutral-900/60 dark:border-white/10 dark:hover:bg-neutral-900/75 dark:hover:border-white/20"
+        onclick={Msg::Menu(Menu::Profil)} aria-label="Menu du profil"
+        aria-haspopup="menu" aria-expanded={self.open(Menu::Profil)}>
+    <!-- Avatar -->
+    <div class="relative grid place-items-center w-7.5 h-7.5 rounded-full overflow-hidden text-[11px] font-bold text-white bg-(--profil)">D</div>
+    <!-- Nom -->
+    <div class="hidden lg:block text-sm font-medium text-neutral-900 dark:text-neutral-100 max-w-24 truncate">David</div>
+    <!-- Chevron -->
+    <svg class="w-3.5 h-3.5 text-neutral-400 transition-transform duration-200" class:rotate-180={self.open(Menu::Profil)}
+         viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="m6 9 6 6 6-6"/>
+    </svg>
+</button>
+
+<!-- Dropdown menu : absolute top-full right-0 mt-2 z-50 w-56 (placement du popover),
+     transition:scale (120 ms, 0,97) : la classe menu garde le fondu d'entrée. p-0
+     retire le padding par défaut du panneau k-popover (la source a un simple div). -->
+{#if self.open(Menu::Profil)}
+    <k-popover anchor="header.profil" menu placement="bottom-end" offset="8"
+               aria-label="Menu du profil" onclose={Msg::CloseMenu}
+               class="menu p-0 w-56 rounded-xl border overflow-hidden
+                      bg-white/98 dark:bg-neutral-900/98 backdrop-blur-xl
+                      border-neutral-200/60 dark:border-white/8
+                      shadow-xl shadow-black/10 dark:shadow-black/40">
+        <!-- Header profil -->
+        <div class="px-4 py-3 border-b border-neutral-200/60 dark:border-white/6">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold text-white bg-(--profil)">D</div>
+                <div class="min-w-0">
+                    <div class="text-[13px] font-medium text-neutral-800 dark:text-neutral-200 truncate">David</div>
+                    <div class="text-[10px] text-neutral-400 dark:text-neutral-500">Utilisateur</div>
+                </div>
+            </div>
+        </div>
+        <!-- Items -->
+        <div class="py-1 px-1">
+            {#each data::PROFIL_MENU as item (item.1)}
+                <button class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left cursor-pointer
+                               text-[13px] text-neutral-700 dark:text-neutral-300
+                               hover:bg-neutral-100/80 dark:hover:bg-white/5
+                               transition-colors duration-100"
+                        role="menuitem" onclick={Msg::CloseMenu}>
+                    <div class="flex shrink-0 text-neutral-400 dark:text-neutral-500"><Icon icon={item.0} width={15} /></div>
+                    {item.1}
+                </button>
+            {/each}
+        </div>
+        <!-- Séparateur -->
+        <div class="h-px mx-3 bg-neutral-200/60 dark:bg-white/6" role="separator"></div>
+        <!-- Quitter -->
+        <div class="py-1 px-1">
+            <button class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left cursor-pointer
+                           text-[13px] text-red-500/70 dark:text-red-400/70
+                           hover:bg-red-500/8 dark:hover:bg-red-500/10
+                           hover:text-red-500 dark:hover:text-red-400
+                           transition-colors duration-100"
+                    role="menuitem" onclick={Msg::Close}>
+                <div class="flex shrink-0"><Icon icon="lucide:log-out" width={15} /></div>
+                Quitter l'application
+            </button>
+        </div>
+    </k-popover>
+{/if}

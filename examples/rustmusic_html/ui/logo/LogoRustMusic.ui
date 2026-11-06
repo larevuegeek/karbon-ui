@@ -1,0 +1,20 @@
+<!-- ui/logo/LogoRustMusic.svelte : un <svg> (texte et dégradés url(#…) non pris en charge),
+     refait en boîtes placées aux coordonnées du viewBox 181×28 ramenées à 140 px de large
+     (échelle 0,7735). Les classes fill-* de la source ne s'appliquent pas à des boîtes :
+     les couleurs sont des valeurs arbitraires (dégradé #34d369 → #22c55e de (0,0) à (28,28)). -->
+<div class="relative w-35 h-5.5" aria-hidden="true">
+    <!-- Casque audio (ph:headphones-fill, Phosphor) 26×26 en (1, 1) : couleur médiane du dégradé. -->
+    <div class="absolute left-[0.8px] top-[0.8px] text-[#2bcc63]"><Icon icon="ph:headphones-fill" width={20} /></div>
+    <!-- "RustMusic" : <text x=30 y=21 font-size=22 font-weight=800 letter-spacing=-1.2> × 0,7735.
+         La couleur passe par le conteneur : un paragraphe enrichi (portion colorée) refuse une
+         couleur venue d'une variable. « Music » commence à x = 58, au-delà du dernier arrêt du
+         dégradé : la couleur finale, unie. -->
+    <div class="absolute left-[23px] top-[-0.5px] text-neutral-100">
+        <p class="m-0 whitespace-nowrap font-sans text-[17px] font-extrabold leading-[22px] tracking-[-0.93px]">Rust<span class="text-[#22c55e]">Music</span></p>
+    </div>
+    <!-- Badge Beta : rect x=142 y=4 38×16 rx=4, dégradé (couleur finale), dark:opacity-85 → 29,4 × 12,4 ;
+         text font-size 9 font-weight 700 letter-spacing .5 → 7 px. -->
+    <div class="absolute left-[110px] top-[3px] w-[29px] h-3 rounded-[3px] bg-[rgb(34_197_94/0.85)] flex items-center justify-center">
+        <p class="m-0 font-sans text-[7px] font-bold text-white leading-[9px] tracking-[0.39px]">BETA</p>
+    </div>
+</div>

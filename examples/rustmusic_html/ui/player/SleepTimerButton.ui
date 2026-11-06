@@ -1,0 +1,128 @@
+<!-- player/SleepTimerButton.svelte : bouton (vert et compte à rebours quand actif) et son
+     panneau, avec les classes Tailwind de la source. La saisie personnalisée est un champ
+     texte (pas d'input number). Les <span> sont des <div>, les <p> gardent leur balise
+     (m-0 / mb-0 : marge basse par défaut du moteur, remise à zéro par la préflight) ; la
+     couleur d'une icône (composant) est sur un <div> qui l'entoure. Les choix (sel ? … : …)
+     ont des classes avec /, une branche {#if} par état ; sel compare self.veille au choix.
+     Ajout de la traduction : le focus clavier d'un choix a le style de son survol
+     (focus-visible:). -->
+<div class="relative">
+    <button id="header.minuteur"
+            class="flex items-center justify-center rounded-full cursor-pointer transition-all duration-150 h-8"
+            class:text-emerald-500={self.veille.is_some()} class:hover:text-emerald-400={self.veille.is_some()}
+            class:gap-1={self.veille.is_some()} class:px-2={self.veille.is_some()}
+            class:w-8={self.veille.is_none()} class:text-neutral-500={self.veille.is_none()}
+            class:dark:text-neutral-400={self.veille.is_none()} class:hover:text-neutral-700={self.veille.is_none()}
+            class:dark:hover:text-neutral-200={self.veille.is_none()}
+            onclick={Msg::Menu(Menu::Minuteur)} aria-label="Minuteur de veille"
+            aria-haspopup="dialog" aria-expanded={self.open(Menu::Minuteur)} title={self.veille_titre()}>
+        <Icon icon="tabler:alarm-snooze" width={20} />
+        {#if self.veille_reste().is_some()}
+            <div class="text-[11px] font-semibold tabular-nums">{self.veille_reste().unwrap_or_default()}</div>
+        {/if}
+        {#if self.veille == Some(Veille::FinMorceau)}
+            <Icon icon="lucide:flag" width={11} />
+        {/if}
+    </button>
+
+    <!-- Panneau : absolute top-11 right-0 z-50 (placement du popover : 44 px sous le haut du
+         bouton de 32 px, offset 12). p-0 retire le retrait par défaut du panneau. -->
+    {#if self.open(Menu::Minuteur)}
+        <k-popover anchor="header.minuteur" placement="bottom-end" offset="12"
+                   aria-label="Minuteur de veille" onclose={Msg::CloseMenu}
+                   class="menu p-0 w-64 overflow-hidden
+                          rounded-2xl border border-neutral-200/80 dark:border-white/10
+                          bg-white/98 dark:bg-neutral-900/98 backdrop-blur-2xl
+                          shadow-2xl shadow-black/40">
+            <!-- Header -->
+            <div class="flex items-center gap-2.5 px-4 pt-3.5 pb-3
+                        border-b border-neutral-100 dark:border-white/5
+                        bg-linear-to-b from-emerald-500/5 to-transparent">
+                <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/12 text-emerald-500 dark:text-emerald-400">
+                    <Icon icon="tabler:alarm-snooze" width={17} />
+                </div>
+                <div class="min-w-0">
+                    <p class="text-[13px] font-semibold text-neutral-800 dark:text-neutral-100 leading-tight m-0">Minuteur de veille</p>
+                    {#if self.veille.is_some()}
+                        <p class="text-[10px] text-emerald-600 dark:text-emerald-400 leading-tight mt-0.5 mb-0">{self.veille_titre()}</p>
+                    {:else}
+                        <p class="text-[10px] text-neutral-400 dark:text-neutral-500 leading-tight mt-0.5 mb-0">Arrêter la lecture automatiquement</p>
+                    {/if}
+                </div>
+            </div>
+
+            <div class="p-2.5">
+                <!-- Grille de durées -->
+                <div class="grid grid-cols-2 gap-1.5">
+                    {#each [15, 30, 45, 60] as d (d)}
+                        {#if self.veille == Some(Veille::Minutes(d))}
+                            <button class="flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl text-sm font-medium cursor-pointer
+                                           border transition-all
+                                           bg-emerald-500/12 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                                    onclick={Msg::Veille(Some(Veille::Minutes(d)))}>
+                                <div class="flex shrink-0 text-emerald-500"><Icon icon="lucide:clock" width={13} /></div>
+                                <div>{d}</div>
+                                <div class="text-[10px] opacity-60">min</div>
+                            </button>
+                        {:else}
+                            <button class="flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl text-sm font-medium cursor-pointer
+                                           border transition-all
+                                           bg-neutral-50 dark:bg-white/3 border-neutral-200/60 dark:border-white/6 text-neutral-700 dark:text-neutral-300 hover:border-emerald-500/25 hover:bg-emerald-500/5
+                                           focus-visible:border-emerald-500/25 focus-visible:bg-emerald-500/5"
+                                    onclick={Msg::Veille(Some(Veille::Minutes(d)))}>
+                                <div class="flex shrink-0 text-neutral-400 dark:text-neutral-500"><Icon icon="lucide:clock" width={13} /></div>
+                                <div>{d}</div>
+                                <div class="text-[10px] opacity-60">min</div>
+                            </button>
+                        {/if}
+                    {/each}
+                </div>
+
+                <!-- Fin du morceau -->
+                {#if self.veille == Some(Veille::FinMorceau)}
+                    <button class="mt-1.5 w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer
+                                   border transition-all
+                                   bg-emerald-500/12 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                            onclick={Msg::Veille(Some(Veille::FinMorceau))}>
+                        <div class="flex shrink-0 text-emerald-500"><Icon icon="lucide:flag" width={14} /></div>
+                        <div>Fin du morceau</div>
+                        <div class="flex ml-auto text-emerald-500"><Icon icon="lucide:check" width={15} /></div>
+                    </button>
+                {:else}
+                    <button class="mt-1.5 w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium cursor-pointer
+                                   border transition-all
+                                   bg-neutral-50 dark:bg-white/3 border-neutral-200/60 dark:border-white/6 text-neutral-700 dark:text-neutral-300 hover:border-emerald-500/25 hover:bg-emerald-500/5
+                                   focus-visible:border-emerald-500/25 focus-visible:bg-emerald-500/5"
+                            onclick={Msg::Veille(Some(Veille::FinMorceau))}>
+                        <div class="flex shrink-0 text-neutral-400 dark:text-neutral-500"><Icon icon="lucide:flag" width={14} /></div>
+                        <div>Fin du morceau</div>
+                    </button>
+                {/if}
+
+                <!-- Personnalisé (rg-field : classe d'app.css, menus.css) -->
+                <div class="rg-field mt-1.5 flex items-center gap-2 px-3 py-2 rounded-xl bg-neutral-50 dark:bg-white/3 border border-neutral-200/60 dark:border-white/6">
+                    <div class="flex text-neutral-400 dark:text-neutral-500 shrink-0"><Icon icon="lucide:sliders-horizontal" width={13} /></div>
+                    <!-- h-5 p-0 border-0 : champ du moteur sans bordure ni retrait (ajout de la
+                         traduction). -->
+                    <input class="w-12 bg-transparent text-sm tabular-nums text-neutral-800 dark:text-neutral-200 focus:outline-none
+                                  h-5 p-0 border-0"
+                           type="text" value={self.veille_saisie.as_str()}
+                           oninput={Msg::VeilleSaisie} aria-label="Personnalisé" maxlength="3">
+                    <div class="text-[11px] text-neutral-400">min</div>
+                    <button class="ml-auto px-3 py-1 rounded-lg text-[11px] font-semibold cursor-pointer
+                                   bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+                            onclick={Msg::VeillePerso}>OK</button>
+                </div>
+
+                {#if self.veille.is_some()}
+                    <button class="mt-1.5 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium cursor-pointer
+                                   text-red-500 hover:bg-red-500/10 transition-colors"
+                            onclick={Msg::Veille(None)}>
+                        <Icon icon="lucide:x" width={13} />
+                        <div>Annuler le minuteur</div>
+                    </button>
+                {/if}
+            </div>
+        </k-popover>
+    {/if}
+</div>

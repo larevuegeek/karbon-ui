@@ -1,0 +1,30 @@
+<!-- Contenu d'une sortie du menu (PlayerSoundBar.ui, `i`, `s`), partagé par les deux
+     états de la ligne : choix (icône, nom, détail, palier, coche) et bouton des détails. -->
+<button class="flex-1 min-w-0 flex items-center gap-2.5 px-2.5 py-2 text-left cursor-pointer" onclick={Msg::ChoisirSortie(i)}>
+    {#if i == self.sortie}
+        <div class="flex shrink-0 text-(--rg-g)"><Icon icon={s.icone} width={20} /></div>
+    {:else}
+        <div class="flex shrink-0 text-(--lc-mu)"><Icon icon={s.icone} width={20} /></div>
+    {/if}
+    <div class="min-w-0 flex-1 leading-[1.2]">
+        <div class="block truncate text-[13px] font-semibold">{s.nom}</div>
+        <div class="block truncate text-[11px] text-(--lc-mu)">{s.detail}</div>
+    </div>
+    <!-- ui/text/Badge.svelte, ton du palier (amber Hi-Res, neutral Qualité CD). Neutre :
+         text-(--rg-mu) du contraste élevé sombre, #b0b9b4 (theme.css garde pour --rg-mu la
+         valeur normale des cartes de l'accueil). -->
+    {#if s.hires}
+        <div class="shrink-0 inline-flex items-center px-1.75 py-0.5 rounded-[5px] border text-[11px] font-bold leading-[1.2] whitespace-nowrap
+                    bg-(--rg-ambg) text-(--rg-am) border-(--rg-ambd)">Hi-Res</div>
+    {:else}
+        <div class="shrink-0 inline-flex items-center px-1.75 py-0.5 rounded-[5px] border text-[11px] font-bold leading-[1.2] whitespace-nowrap
+                    bg-(--rg-s2) text-[#b0b9b4] border-(--rg-bd2)">Qualité CD</div>
+    {/if}
+    <!-- TODO-TW: invisible — « CSS property 'visibility' is not implemented; it has
+                             not been ignored » : opacity-0. -->
+    <div class="flex shrink-0 text-(--rg-g)" class:opacity-0={i != self.sortie}><Icon icon="material-symbols-light:check-rounded" width={20} /></div>
+</button>
+<button class="shrink-0 w-8 flex items-center justify-center rounded-r-[10px] cursor-pointer text-(--lc-mu) hover:text-(--lc-tx)"
+        onclick={Msg::CloseMenu} title="Détails du périphérique" aria-label="Détails du périphérique">
+    <Icon icon="material-symbols-light:info-outline-rounded" width={18} />
+</button>

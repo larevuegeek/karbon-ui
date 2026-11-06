@@ -1,0 +1,7 @@
+/* Aperçus hors écran (previews.rs). */
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.line { font-size: 16px; line-height: 20px; margin: 0px; }
+.label { font-size: 14px; margin: 0px; }
+/* Aperçu survolé (BenchmarkOptions::pointer). */
+.survol { width: 120px; height: 40px; color: #000000; }
+.survol:hover { color: #ff0000; }

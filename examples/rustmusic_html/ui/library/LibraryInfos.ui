@@ -1,0 +1,23 @@
+<!-- Infos d'une bibliothèque de la liste (LibraryMenu.ui, une branche par état de la
+     ligne) : nom, repère « Défaut », nombre brut de titres et d'albums. -->
+<div class="flex-1 min-w-0 text-left">
+    <div class="flex items-center gap-1.5 min-w-0">
+        {#if i == self.bibliotheque}
+            <span class="text-[13px] font-medium truncate text-green-600 dark:text-green-400">{b.nom}</span>
+        {:else}
+            <span class="text-[13px] font-medium truncate text-neutral-700 dark:text-neutral-300">{b.nom}</span>
+        {/if}
+        <!-- Repère permanent : la marque doit se lire sans avoir à survoler quoi que ce soit. -->
+        {#if b.defaut}
+            <div title="Bibliothèque par défaut"
+                 class="shrink-0 flex items-center gap-0.5 px-1 py-px rounded
+                        text-[9px] font-semibold uppercase tracking-wide
+                        bg-green-500/15 text-green-600 dark:text-green-400">
+                <Icon icon="lucide:pin" width={9} />
+                <div>Défaut</div>
+            </div>
+        {/if}
+    </div>
+    <!-- Nombre brut, comme le Svelte : « {n} titre{s} · {m} albums ». -->
+    <div class="text-[10px] truncate text-neutral-400 dark:text-neutral-500">{format!("{} titre{} · {}", b.pistes, if b.pistes == 1 {""} else {"s"}, b.albums)}</div>
+</div>

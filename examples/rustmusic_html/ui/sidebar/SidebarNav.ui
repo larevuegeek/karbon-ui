@@ -1,0 +1,46 @@
+<!-- sidebar/SidebarNav.svelte : accueil + onglets affichés de la bibliothèque. Onglets
+     « en haut » seulement : plus aucune tuile ici. Repliée : une colonne de tuiles de
+     48 × 48, icône seule, le libellé en infobulle (title).
+     grid-cols-[48px] ne peut pas s'écrire class:nom={…} (crochets) : une branche par état
+     de la barre, chacune avec les classes statiques de son état. L'accueil est la tuile
+     active (bg-(--sb-gbg) border-(--sb-gbd) text-(--sb-g)), les onglets ne le sont pas.
+     text-center : text-align: center de la feuille par défaut des <button> du navigateur
+     (le libellé est centré dans sa boîte arrondie au pixel). -->
+{#if self.placement_onglets != 1 && self.sidebar_collapsed}
+    <nav class="grid grid-cols-[48px] gap-1.5 justify-center">
+        <button class="flex flex-col items-center justify-center gap-1 rounded-xl border cursor-pointer transition-colors
+                       text-xs font-semibold w-12 h-12 text-center bg-(--sb-gbg) border-(--sb-gbd) text-(--sb-g)"
+                onclick={Msg::Noop} title={data::ACCUEIL.1} aria-label={data::ACCUEIL.1}>
+            <Icon icon={data::ACCUEIL.2} width={22} epais />
+        </button>
+        {#each data::ONGLETS.iter().zip(self.onglets).filter(|(_, affiche)| *affiche).map(|(tuile, _)| tuile) as tuile (tuile.0)}
+            <button class="flex flex-col items-center justify-center gap-1 rounded-xl border cursor-pointer transition-colors
+                           text-xs font-semibold w-12 h-12 text-center
+                           bg-(--sb-s1) border-(--sb-bd) text-(--sb-tx2) hover:border-(--sb-bd2) hover:text-(--sb-tx)"
+                    onclick={Msg::Noop} title={tuile.1} aria-label={tuile.1}>
+                <Icon icon={tuile.2} width={22} epais />
+            </button>
+        {/each}
+    </nav>
+{:else if self.placement_onglets != 1}
+    <!-- span max-w-full truncate des libellés. w-auto : un <div> du
+         moteur prend toute la largeur de la colonne malgré items-center ; le libellé garde
+         la largeur de son texte, centré comme le span. -->
+    <nav class="grid grid-cols-3 gap-1.5">
+        <button class="flex flex-col items-center justify-center gap-1 rounded-xl border cursor-pointer transition-colors
+                       text-xs font-semibold h-16.5 px-1 text-center bg-(--sb-gbg) border-(--sb-gbd) text-(--sb-g)"
+                onclick={Msg::Noop} title={data::ACCUEIL.1} aria-label={data::ACCUEIL.1}>
+            <Icon icon={data::ACCUEIL.2} width={22} epais />
+            <span class="max-w-full truncate w-auto">{data::ACCUEIL.1}</span>
+        </button>
+        {#each data::ONGLETS.iter().zip(self.onglets).filter(|(_, affiche)| *affiche).map(|(tuile, _)| tuile) as tuile (tuile.0)}
+            <button class="flex flex-col items-center justify-center gap-1 rounded-xl border cursor-pointer transition-colors
+                           text-xs font-semibold h-16.5 px-1 text-center
+                           bg-(--sb-s1) border-(--sb-bd) text-(--sb-tx2) hover:border-(--sb-bd2) hover:text-(--sb-tx)"
+                    onclick={Msg::Noop} title={tuile.1} aria-label={tuile.1}>
+                <Icon icon={tuile.2} width={22} epais />
+                <span class="max-w-full truncate w-auto">{tuile.1}</span>
+            </button>
+        {/each}
+    </nav>
+{/if}

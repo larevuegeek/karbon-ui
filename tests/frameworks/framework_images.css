@@ -1,0 +1,25 @@
+/* Images SVG en URL data: d'une feuille de framework, statiques et par var(). */
+:root {
+    --icon: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCA4IDYnPjxyZWN0IHdpZHRoPSc4JyBoZWlnaHQ9JzYnIGZpbGw9JyMwMGZmMDAnLz48L3N2Zz4=");
+}
+.static-icon {
+    width: 100px;
+    height: 40px;
+    background: #ffffff url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") center / 10px 10px no-repeat;
+}
+.var-icon {
+    width: 100px;
+    height: 40px;
+    border: 2px solid #000000;
+    background-image: var(--icon);
+    background-position: right 4px center;
+    background-size: 8px auto;
+    background-repeat: no-repeat;
+}
+.var-icon.off { background-image: none; }
+.tiled {
+    width: 20px;
+    height: 10px;
+    background-image: var(--icon);
+    background-size: 8px 6px;
+}

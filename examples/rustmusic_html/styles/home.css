@@ -1,0 +1,51 @@
+/* routes/+page.svelte et components/home/*.svelte, mix/MixCard, playlist/PlaylistCard :
+   les templates portent les classes Tailwind des composants Svelte (variantes @xl: … @7xl:
+   sur le @container de la page). Restent ici les classes propres d'app.css de RustMusic,
+   dans l'état des captures (thème sombre, contraste élevé). */
+
+/* .home-maquette { font-family: 'Figtree Variable', 'Inter Variable', … } ; line-height: 1.5
+   de la feuille de base de Tailwind (html), que les tailles arbitraires héritent. */
+.home-maquette { font-family: var(--font-maquette); line-height: 1.5; }
+/* .dark .scrollbar-app (WebView2 lit ::-webkit-scrollbar) : gouttière de 10 px, pouce
+   rgba(255,255,255,.18) de 4 px, .28 au survol. */
+.scrollbar-app { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+
+/* ── HomeResume.svelte ── */
+/* .hero-reprise, puis :root[data-contrast="high"].dark .hero-reprise (bordure .1). */
+.hero-reprise { background: #121614; border: 1px solid rgb(255 255 255 / 0.1); }
+/* Marqueurs sans règle dans app.css (html[data-favoris="off"] .favori masque les cœurs). */
+.hero-fond { }
+.favori { }
+/* :root[data-contrast="high"] .hero-voile */
+.hero-voile {
+    background: linear-gradient(110deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0.72) 50%, rgba(0, 0, 0, 0.9) 100%);
+}
+/* :root[data-contrast="high"] .ensuite-panneau */
+.ensuite-panneau { background: rgba(0, 0, 0, 0.6); box-shadow: inset 0px 0px 0px 1px rgba(255, 255, 255, 0.14); }
+
+/* ── mix/MixCard.svelte ── */
+/* :root[data-contrast="high"] .mix-voile */
+.mix-voile { background: linear-gradient(to top, rgba(0, 0, 0, 0.94), rgba(0, 0, 0, 0.72) 40%, transparent 74%); }
+/* :root[data-contrast="high"] .mix-accent */
+.mix-accent { color: #ffffff; }
+/* :root[data-contrast="high"].dark .accent-teinte */
+.accent-teinte { color: oklch(0.92 0 0); }
+
+/* ── HomeGenres.svelte ── */
+/* .dark .genre-tuile : fond calculé en Rust (genre_tile, un dégradé ne lit pas encore les
+   variables à l'exécution) ; ombre de .dark .genre-tuile sans son liseré teinté. */
+.genre-tuile { box-shadow: 0px 14px 32px rgba(0, 0, 0, 0.35); }
+/* .dark .genre-icone (sans le drop-shadow teinté) */
+.genre-icone { color: oklch(0.88 0.1 var(--h, 150)); }
+/* :root[data-contrast="high"].dark .genre-titre */
+.genre-titre { color: #ffffff; }
+/* :root[data-contrast="high"].dark .genre-compte */
+.genre-compte { color: oklch(0.9 0.05 var(--h, 150)); }
+
+/* ── HomeRecents.svelte ── */
+/* :root[data-contrast="high"].dark .recent-vedette */
+.recent-vedette { border-color: rgb(255 255 255 / 0.3); }
+/* :root[data-contrast="high"] .vedette-voile */
+.vedette-voile {
+    background: linear-gradient(115deg, rgba(0, 0, 0, 0.38) 0%, rgba(0, 0, 0, 0.62) 55%, rgba(0, 0, 0, 0.8) 100%);
+}

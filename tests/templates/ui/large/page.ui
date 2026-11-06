@@ -1,0 +1,26 @@
+<main id="large" style="gap:40px; padding:24px">
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+    {@include "section.ui"}
+</main>

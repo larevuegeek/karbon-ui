@@ -1,0 +1,31 @@
+<!-- home/HomeMixes.svelte — « Pour vous » (aucun mix créé ; la rangée des décennies,
+     hors du premier écran, n'est pas traduite). Classes Tailwind de la source (constante
+     `lien` développée) ; <span> en <div>.
+     Écart : tête items-start, côté droit mt-[9.5px], au lieu de items-baseline : la ligne
+     de base des éléments flex est approchée par le moteur (8,4 px au lieu de 9,5 entre le
+     titre 24/32 et les liens 14/20). -->
+<section class="flex flex-col gap-4">
+    <div class="flex items-start justify-between gap-4">
+        <h2 class="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">Pour vous</h2>
+        <div class="flex items-center gap-4 mt-[9.5px]">
+            <!-- whitespace-nowrap : le paragraphe garde sa ligne dans la rangée flex. -->
+            <span class="hidden @3xl:inline text-sm text-neutral-500 dark:text-[#9aa39e] whitespace-nowrap">Générés depuis votre bibliothèque</span>
+            <button class="flex items-center gap-1.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400
+                           hover:text-emerald-500 dark:hover:text-emerald-300 cursor-pointer transition-colors"
+                    onclick={Msg::Noop}>
+                <Icon icon="lucide:refresh-cw" width={14} />
+                <!-- w-auto : le libellé garde la largeur de son texte dans la rangée flex. -->
+                <div class="w-auto whitespace-nowrap">Nouveaux mix</div>
+            </button>
+            <button class="shrink-0 text-sm font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                    onclick={Msg::Noop}><div>Tous les mix</div></button>
+        </div>
+    </div>
+
+    <!-- Étroit : deux cartes horizontales par ligne ; large : quatre carrés. -->
+    <div class="grid grid-cols-1 @xl:grid-cols-2 @4xl:grid-cols-4 gap-4 @4xl:gap-5">
+        {#each data::MIXES as (i, s) (s.cle)}
+            <MixCard mix={s} indice={i} menu={self.open(Menu::Mix(i))} />
+        {/each}
+    </div>
+</section>

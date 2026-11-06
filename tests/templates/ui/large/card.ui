@@ -1,0 +1,6 @@
+<div style="gap:6px; padding:8px; border-radius:12px; background:#181c1a">
+    <div style="width:100px; height:100px; border-radius:8px; background:#203040" title="Pochette"></div>
+    <p style="font-size:14px; margin:0px; color:#f5f5f5">Titre <b>en gras</b> n° {self.n}</p>
+    <span style="font-size:12px; color:#9aa39e">Artiste · Album</span>
+    <button onclick={Large::Play} style="padding:4px 10px">Lire</button>
+</div>

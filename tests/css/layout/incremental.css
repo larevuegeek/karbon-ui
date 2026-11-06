@@ -1,0 +1,40 @@
+/* Page de contrôle des mémoires du moteur (incremental.rs) : flex imbriqué, grille
+   automatique, limites relatives, ligne de base, requêtes média et de conteneur,
+   textes coupés, positionnés, transition de largeur. */
+.page { display: flex; flex-direction: row; height: 100%; }
+.side { flex-shrink: 0; width: 220px; display: flex; flex-direction: column; gap: 6px; padding: 8px; transition: width 200ms ease; }
+.side.narrow { width: 64px; }
+.item { display: flex; align-items: center; gap: 6px; min-width: 0; border-radius: 6px; overflow: hidden; }
+.label { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+.dot { flex-shrink: 0; width: 16px; height: 16px; border-radius: 8px; background: #3070f0; }
+.main { flex: 1 1 0px; display: flex; flex-direction: column; gap: 10px; padding: 12px; min-width: 0; overflow: auto; }
+.head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.title { margin: 0; font-size: 26px; }
+.count { margin: 0; font-size: 12px; }
+.search { width: 120px; }
+.hero { display: flex; gap: 12px; max-width: 70%; max-height: calc(100vh - 120px); }
+.cover { flex-shrink: 0; width: 25%; aspect-ratio: 1; background: #a04020; border-radius: 6px; box-shadow: 0 6px 18px #00000080; }
+.text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.line { margin: 0; font-size: 14px; }
+.clamp { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { padding: 2px 8px; border-radius: 10px; background: #303040; font-size: 11px; transition: background-color 120ms linear; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.card { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 8px; background: #202028; box-shadow: 0 2px 8px #00000060; }
+.name { margin: 0; font-size: 12px; }
+.card:hover { background: #404050; }
+.tag:hover { background: #6060a0; }
+.item:hover { background: #283040; }
+.badge { position: absolute; right: 4px; top: 4px; width: 14px; height: 14px; background: #e04040; }
+.panel { container-type: inline-size; container-name: panel; width: 60%; display: flex; gap: 8px; }
+.cell { margin: 0; font-size: 12px; }
+@container panel (max-width: 360px) { .panel { flex-direction: column; } }
+.columns { display: grid; grid-template-columns: min-content 1fr fit-content(160px); gap: 8px; font-size: 12px; }
+.col { margin: 0; }
+.justified { margin: 0; text-align: justify; font-size: 12px; }
+.centered { margin: 0; text-align: center; font-size: 12px; letter-spacing: 1px; }
+@media (max-width: 700px) {
+    .side { width: 64px; }
+    .hero { flex-direction: column; }
+    .grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+}

@@ -1,0 +1,18 @@
+<!-- sidebar/SidebarThumbnail.svelte : mosaïque dès quatre pochettes, une seule sinon,
+     et à défaut un carré de la couleur `--c` (.sb-vignette d'app.css, sidebar.css). -->
+<div class="sb-vignette relative" style:--c={hex(&self.couleur)}>
+    {#if self.couvertures.len() >= 4}
+        <div class="absolute inset-0 grid grid-cols-2 grid-rows-2">
+            <!-- w-full h-full object-cover : un height: 100% dans une cellule de grille vise
+                 la hauteur de la grille et non celle de la ligne ; la cellule carrée vient
+                 d'aspect-square à la place de h-full. -->
+            {#each self.couvertures.iter().take(4) as chemin (*chemin)}
+                <img class="w-full aspect-square object-cover" src={cx.resources.cover(chemin)} alt="">
+            {/each}
+        </div>
+    {:else if !self.couvertures.is_empty()}
+        <img class="absolute inset-0 w-full h-full object-cover" src={cx.resources.cover(self.couvertures[0])} alt="">
+    {:else if !self.icone.is_empty()}
+        <Icon icon={self.icone.as_str()} width={18} />
+    {/if}
+</div>

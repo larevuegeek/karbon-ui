@@ -1,0 +1,31 @@
+/* Feuille des tests Tailwind (tailwind/) : utilitaires Tailwind à côté de classes propres. */
+@import "tailwindcss";
+
+@theme {
+    --color-brand-500: #336699;
+    --color-accent-500: var(--acc-500, #22c55e);
+    --font-display: "Consolas", monospace;
+    --animate-glow: glow 1s ease-in-out infinite;
+    @keyframes glow {
+        50% { opacity: 0.5; }
+    }
+}
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root { --panel: #102030; }
+
+/* Classes de la feuille : prioritaires sur les utilitaires (hors couche, comme dans un
+   navigateur), y compris sur un utilitaire homonyme. */
+.card { padding: 20px; }
+.truncate { padding-left: 3px; }
+
+@keyframes slide {
+    0% { transform: translateX(-8px); }
+    100% { transform: translateX(0px); }
+}
+
+/* Sélecteurs de balise et d’attribut (variants.rs). */
+.liste > p.note:first-child { padding-top: 2px; }
+.note { padding-left: 1px; }
+.liste > .rang[data-rang="2"] { padding-top: 6px; }
+.rang { padding-left: 1px; }

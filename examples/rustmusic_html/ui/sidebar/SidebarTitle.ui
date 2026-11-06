@@ -1,0 +1,10 @@
+<!-- sidebar/SidebarTitle.svelte : titre cliquable (il mène à la page de la section).
+     h3.min-w-0 > button > span.truncate du Svelte réunis sur le <h3> (texte enrichi
+     cliquable) : classes du h3, du bouton (sauf sa mise en page interne : group max-w-full
+     flex items-center gap-0.5) et du span. La flèche « › » qui apparaît au survol n'est
+     pas reprise. -->
+<div class="flex items-center justify-between gap-2 pt-3 pb-1 px-1">
+    <h3 class="min-w-0 cursor-pointer text-xs font-bold uppercase tracking-[.08em] text-(--sb-hd) hover:text-(--sb-g) truncate"
+        onclick={Msg::Noop} title={self.aide.as_str()}>{self.titre}</h3>
+    <div class="flex gap-0.5"><slot name="actions" /></div>
+</div>

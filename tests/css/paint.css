@@ -1,0 +1,21 @@
+/* Peinture (paint.rs). */
+.cover { object-fit: cover; object-position: right top; }
+.contain { object-fit: contain; object-position: center; }
+.visual { width: 180px; height: 80px; border-radius: 20px 0px 12px 4px; border: 2px solid #80ff80; background: radial-gradient(circle farthest-corner at 25% 50%, #ff000080, transparent), linear-gradient(90deg, #102030, #304050), #112233; box-shadow: 0 6px 12px 2px #00000080, inset 0 2px 4px #ffffff40; }
+.visual:hover { opacity: .8; }
+.filtered { filter: blur(2px) saturate(120%) contrast(105%) drop-shadow(0 2px 1px #00ff0080); }
+.filtered:hover { filter: none; }
+
+/* Bordures par côté, contours, calage sur les pixels physiques. */
+.bottom-line { border-bottom: 2px solid #ff0000; height: 20px; }
+.sides { border-width: 1px 2px 3px 4px; border-color: #00ff00; border-left-color: #0000ff; height: 30px; }
+.tab { width: 40px; height: 16px; border: 1px solid #00ffff; border-bottom-width: 0px; border-radius: 8px 8px 0px 0px; }
+.snapped { border: 1px solid #ffffff; }
+.outlined { outline: 2px solid #ffff00; outline-offset: 3px; width: 20px; height: 20px; }
+
+/* Dégradés radiaux à rayons explicites, verre dépoli, masque, texte rempli. */
+.spot { width: 100px; height: 100px; background: radial-gradient(circle 40px at 25% 25%, #ffffff, #000000); }
+.oval { width: 100px; height: 100px; background: radial-gradient(80% 170% at 0% 50%, #ffffff, #000000); }
+.glass { width: 80px; height: 40px; backdrop-filter: blur(8px); border-radius: 12px; }
+.faded { height: 30px; mask-image: linear-gradient(to bottom, #000 60%, transparent); background: #ff0000; }
+.gradient-text { background: linear-gradient(90deg, #00ff00, #0000ff); background-clip: text; color: transparent; }

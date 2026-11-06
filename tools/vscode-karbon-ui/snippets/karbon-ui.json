@@ -1,0 +1,384 @@
+{
+  "Div": {
+    "prefix": [
+      "div",
+      "ui-div"
+    ],
+    "body": [
+      "<div class=\"${1:box}\">",
+      "\t$0",
+      "</div>"
+    ],
+    "description": "Conteneur bloc (empilement vertical par défaut)"
+  },
+  "Flex": {
+    "prefix": [
+      "flex",
+      "row",
+      "ui-flex"
+    ],
+    "body": [
+      "<div style=\"display:flex; gap:${1:12}px\">",
+      "\t$0",
+      "</div>"
+    ],
+    "description": "Conteneur horizontal (display:flex)"
+  },
+  "Section": {
+    "prefix": [
+      "section",
+      "ui-section"
+    ],
+    "body": [
+      "<${1|section,main,header,footer,nav,article,aside,form|} class=\"${2:section}\">",
+      "\t$0",
+      "</${1}>"
+    ],
+    "description": "Conteneur sémantique (section, main, header…)"
+  },
+  "Paragraph": {
+    "prefix": [
+      "p",
+      "paragraph",
+      "ui-p"
+    ],
+    "body": "<p>${1:Texte}</p>$0",
+    "description": "Paragraphe de texte"
+  },
+  "Heading": {
+    "prefix": [
+      "h1",
+      "heading",
+      "ui-h"
+    ],
+    "body": "<h${1|1,2,3,4,5,6|}>${2:Titre}</h${1}>$0",
+    "description": "Titre h1…h6"
+  },
+  "Span": {
+    "prefix": [
+      "span",
+      "ui-span"
+    ],
+    "body": "<span>${1:Texte}</span>$0",
+    "description": "Texte en ligne"
+  },
+  "Expression": {
+    "prefix": [
+      "expr",
+      "ui-expr"
+    ],
+    "body": "{${1:self.value}}$0",
+    "description": "Expression Rust affichée (Display)"
+  },
+  "Button": {
+    "prefix": [
+      "button",
+      "ui-button"
+    ],
+    "body": "<button onclick={Msg::${1:Save}}>${2:Valider}</button>$0",
+    "description": "Bouton émettant un message"
+  },
+  "Label": {
+    "prefix": [
+      "label",
+      "ui-label"
+    ],
+    "body": "<label for=\"${1:name}\">${2:Nom}</label>$0",
+    "description": "Libellé associé à un champ"
+  },
+  "Text input": {
+    "prefix": [
+      "input",
+      "input-text",
+      "ui-input"
+    ],
+    "body": "<input id=\"${1:name}\" type=\"${2|text,search,password|}\" value={${3:self.name.as_str()}} oninput={Msg::${4:Name}} placeholder=\"${5:Ex. David}\">$0",
+    "description": "Champ de saisie : oninput reçoit le texte (String)"
+  },
+  "Checkbox": {
+    "prefix": [
+      "checkbox",
+      "input-checkbox",
+      "ui-checkbox"
+    ],
+    "body": "<input type=\"checkbox\" checked={${1:self.enabled}} onchange={Msg::${2:Enabled}}> ${3:Actif}$0",
+    "description": "Case à cocher : onchange reçoit la nouvelle valeur (bool)"
+  },
+  "Switch": {
+    "prefix": [
+      "switch",
+      "input-switch",
+      "ui-switch"
+    ],
+    "body": "<input type=\"checkbox\" switch checked={${1:self.notifications}} onchange={Msg::${2:Notifications}}> ${3:Notifications}$0",
+    "description": "Interrupteur : onchange reçoit la nouvelle valeur (bool)"
+  },
+  "Radio": {
+    "prefix": [
+      "radio",
+      "input-radio",
+      "ui-radio"
+    ],
+    "body": "<input type=\"radio\" name=\"${1:choice}\" checked={${2:self.choice == 1}} onchange={Msg::${3:Choice(1)}}> ${4:Option}$0",
+    "description": "Bouton radio : name regroupe les choix exclusifs"
+  },
+  "Range": {
+    "prefix": [
+      "range",
+      "slider",
+      "input-range",
+      "ui-range"
+    ],
+    "body": "<input type=\"range\" min=\"${1:0}\" max=\"${2:100}\" value={${3:self.volume}} oninput={Msg::${4:Volume}} aria-label=\"${5:Volume}\">$0",
+    "description": "Slider : oninput reçoit la valeur (f64)"
+  },
+  "Select": {
+    "prefix": [
+      "select",
+      "ui-select"
+    ],
+    "body": [
+      "<select value={${1:self.selected}} onchange={Msg::${2:Selected}}>",
+      "\t<option value=\"${3:1}\">${4:Premier}</option>",
+      "\t<option value=\"${5:2}\">${6:Second}</option>$0",
+      "</select>"
+    ],
+    "description": "Liste déroulante : onchange reçoit la valeur de l'option (u64)"
+  },
+  "Option": {
+    "prefix": [
+      "option",
+      "ui-option"
+    ],
+    "body": "<option value=\"${1:1}\">${2:Choix}</option>$0",
+    "description": "Option d'un select (valeur u64)"
+  },
+  "Image": {
+    "prefix": [
+      "img",
+      "image",
+      "ui-img"
+    ],
+    "body": "<img src={${1:Arc::clone(&self.image)}} alt=\"${2:Description}\">$0",
+    "description": "Image (src = Arc<Image>, alt = nom accessible)"
+  },
+  "Dialog": {
+    "prefix": [
+      "dialog",
+      "modal",
+      "ui-dialog"
+    ],
+    "body": [
+      "{#if ${1:self.dialog}}",
+      "\t<dialog onclose={Msg::${2:Close}}>",
+      "\t\t<h2>${3:Titre}</h2>",
+      "\t\t$0",
+      "\t\t<button onclick={Msg::${2:Close}}>${4:Fermer}</button>",
+      "\t</dialog>",
+      "{/if}"
+    ],
+    "description": "Modale affichée selon une condition (focus piégé, Échap)"
+  },
+  "Unordered list": {
+    "prefix": [
+      "ul",
+      "list",
+      "ui-list"
+    ],
+    "body": [
+      "<ul>",
+      "\t{#each ${1:self.items} as ${2:item} (${3:$2.id})}",
+      "\t\t<li>{${4:$2.name}}</li>",
+      "\t{/each}",
+      "</ul>$0"
+    ],
+    "description": "Liste à clés stables"
+  },
+  "If": {
+    "prefix": [
+      "if",
+      "ui-if"
+    ],
+    "body": [
+      "{#if ${1:self.visible}}",
+      "\t$0",
+      "{/if}"
+    ],
+    "description": "Bloc conditionnel"
+  },
+  "If else": {
+    "prefix": [
+      "ifelse",
+      "ui-ifelse"
+    ],
+    "body": [
+      "{#if ${1:self.visible}}",
+      "\t$2",
+      "{:else}",
+      "\t$0",
+      "{/if}"
+    ],
+    "description": "Bloc conditionnel avec alternative"
+  },
+  "Else if": {
+    "prefix": [
+      "elseif",
+      "ui-elseif"
+    ],
+    "body": "{:else if ${1:condition}}",
+    "description": "Branche alternative conditionnelle"
+  },
+  "Each": {
+    "prefix": [
+      "each",
+      "for",
+      "ui-each"
+    ],
+    "body": [
+      "{#each ${1:self.items} as ${2:item} (${3:$2.id})}",
+      "\t$0",
+      "{/each}"
+    ],
+    "description": "Boucle à clés stables (clé obligatoire)"
+  },
+  "Each indexed": {
+    "prefix": [
+      "eachi",
+      "ui-eachi"
+    ],
+    "body": [
+      "{#each ${1:self.items} as (${2:index}, ${3:item}) (${4:$3.id})}",
+      "\t$0",
+      "{/each}"
+    ],
+    "description": "Boucle avec index et clé stable"
+  },
+  "Include": {
+    "prefix": [
+      "include",
+      "ui-include"
+    ],
+    "body": "{@include \"${1:form.ui}\"}$0",
+    "description": "Inclure un fragment .ui à la compilation"
+  },
+  "Include slot": {
+    "prefix": [
+      "include-slot",
+      "ui-include-slot"
+    ],
+    "body": "{@include \"${1:form.ui}\" slot=\"${2:header}\"}$0",
+    "description": "Inclure un fragment dans un slot nommé"
+  },
+  "Element": {
+    "prefix": [
+      "element",
+      "ui-element"
+    ],
+    "body": "{@element ${1:widget(&cx)}}$0",
+    "description": "Insérer un Element ou un Widget Rust existant"
+  },
+  "Slot": {
+    "prefix": [
+      "slot",
+      "ui-slot"
+    ],
+    "body": "<slot name=\"${1:header}\" />$0",
+    "description": "Emplacement nommé d'un composant (layout)"
+  },
+  "Default slot": {
+    "prefix": [
+      "slot-default",
+      "ui-slot-default"
+    ],
+    "body": "<slot />$0",
+    "description": "Emplacement par défaut d'un composant"
+  },
+  "Component": {
+    "prefix": [
+      "component",
+      "ui-component"
+    ],
+    "body": [
+      "<${1:Card} ${2:title}=\"${3:Titre}\">",
+      "\t$0",
+      "</${1}>"
+    ],
+    "description": "Composant Rust (impl Component)"
+  },
+  "Split": {
+    "prefix": [
+      "k-split",
+      "split",
+      "ui-split"
+    ],
+    "body": [
+      "<k-split axis=\"${1|horizontal,vertical|}\" fraction=\"${2:0.5}\">",
+      "\t<div>$3</div>",
+      "\t<div>$0</div>",
+      "</k-split>"
+    ],
+    "description": "Deux panneaux redimensionnables"
+  },
+  "Popover": {
+    "prefix": [
+      "k-popover",
+      "popover",
+      "ui-popover"
+    ],
+    "body": [
+      "<k-popover anchor=\"${1:menu-button}\" aria-label=\"${2:Menu}\" onclose={Msg::${3:CloseMenu}}>",
+      "\t$0",
+      "</k-popover>"
+    ],
+    "description": "Popover / menu ancré sur un élément (anchor = id, aria-label obligatoire)"
+  },
+  "Virtual list": {
+    "prefix": [
+      "k-virtual-list",
+      "virtual-list",
+      "ui-virtual-list"
+    ],
+    "body": [
+      "<k-virtual-list items={${1:self.rows.clone()}} item=\"${2:row}\" row-height=\"${3:32}\">",
+      "\t<div>{${4:$2.name}}</div>$0",
+      "</k-virtual-list>"
+    ],
+    "description": "Liste virtualisée : items, item (nom de la ligne), row-height, un seul gabarit de ligne en enfant"
+  },
+  "Scroll": {
+    "prefix": [
+      "scroll",
+      "ui-scroll"
+    ],
+    "body": [
+      "<div style=\"overflow:auto; height:${1:240}px\">",
+      "\t$0",
+      "</div>"
+    ],
+    "description": "Conteneur défilant (overflow:auto)"
+  },
+  "Exit animation": {
+    "prefix": [
+      "data-exit",
+      "ui-exit"
+    ],
+    "body": "data-exit=\"${1|fade-out,slide-out-up,slide-out-down,slide-out-left,slide-out-right,scale-out|} ${2:200}ms\"",
+    "description": "Animation de sortie quand l'élément disparaît"
+  },
+  "Class directive": {
+    "prefix": [
+      "class:",
+      "ui-class"
+    ],
+    "body": "class:${1:active}={${2:self.active}}",
+    "description": "Classe CSS conditionnelle"
+  },
+  "Comment": {
+    "prefix": [
+      "comment",
+      "ui-comment"
+    ],
+    "body": "<!-- ${1:commentaire} -->$0",
+    "description": "Commentaire HTML"
+  }
+}

@@ -1,0 +1,16 @@
+[package]
+name = "karbon-ui-macros"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Compiler of karbon-ui templates (.ui) and CSS: procedural macros ui!, ui_file!, styles!, css_file!"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/larevuegeek/karbon-ui"
+readme = "README.md"
+keywords = ["gui", "ui", "templates", "css", "proc-macro"]
+categories = ["gui", "development-tools::procedural-macro-helpers"]
+
+[lib]
+proc-macro = true
+
+[dependencies]

@@ -1,0 +1,49 @@
+/* Sélecteurs et états (selectors.rs). */
+.feedback {
+    opacity: 0.8;
+    transform: translateX(4px);
+    transition: transform 100ms linear, opacity 100ms linear;
+}
+.feedback:hover { opacity: 0.5; transform: scale(1.1); }
+.feedback:active { opacity: 0.3; }
+
+.control { background: #102030; border: 3px solid #abcdef; padding: 6px; color: #ffffff; }
+.control:hover { background: #304050; color: #80ff80; }
+.control:active { background: #405060; }
+.control:focus { border-color: #ffff00; }
+.control:disabled { background: #202020; color: #888888; }
+.control:checked { accent-color: #ff0080; }
+
+.compound { color: #101010; }
+.compound.primary { color: #204060; }
+.compound.primary:hover:not(:disabled) { color: #20ff40; }
+.compound:focus-visible { background: #ff00ff; }
+.compound:nth-child(2n+1) { border: 2px solid #00ffff; }
+.placeholder:placeholder-shown { background: #ffff00; }
+
+/* Raccourcis d'une règle d'état : remise à zéro des côtés et des axes déclarés avant. */
+.state-box { padding: 4px; row-gap: 10px; }
+.state-box:hover { padding-left: 24px; padding: 8px; padding-right: 12px; row-gap: 5px; gap: 3px; margin-left: auto; margin: 2px; margin-right: 5px; }
+.tristate:checked { color: #ff0000; }
+.tristate:indeterminate { color: #00ff00; }
+
+/* Combinateurs, :hover d'un ancêtre, :focus-within. */
+.card .title { color: #ff0000; }
+.card > .direct { color: #00ff00; }
+.item + .item { background: #0000ff; }
+.marker ~ .after { background: #ff00ff; }
+.list .row:first-child { background: #111111; }
+.list > .row:nth-child(2) { background: #222222; }
+.group { width: 100px; height: 40px; }
+.reveal { width: 20px; height: 20px; opacity: 0; background: #ffffff; }
+.group:hover .reveal { opacity: 1; transform: scale(1.5); }
+.group:focus-within .ring { border: 2px solid #ffff00; }
+.card .title.strong { color: #00ffff; }
+
+/* Pseudo-éléments. */
+.badge { position: relative; width: 60px; height: 20px; }
+.badge::after { content: ""; position: absolute; left: 28px; bottom: -6px; width: 4px; height: 4px; background: #ff0000; }
+.badge:hover::after { background: #00ff00; }
+.label { display: flex; }
+.label::before { content: "*"; color: #ffcc00; width: 12px; }
+.label:after { content: none; }

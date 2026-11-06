@@ -1,0 +1,585 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Karbon UI",
+  "scopeName": "text.karbon-ui",
+  "patterns": [
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#control"
+    },
+    {
+      "include": "#tag-close"
+    },
+    {
+      "include": "#tag-open"
+    },
+    {
+      "include": "#entity"
+    },
+    {
+      "include": "#rust-expression"
+    }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.block.html.karbon-ui",
+      "begin": "<!--",
+      "end": "-->",
+      "captures": {
+        "0": {
+          "name": "punctuation.definition.comment.karbon-ui"
+        }
+      }
+    },
+    "entity": {
+      "patterns": [
+        {
+          "name": "constant.character.entity.karbon-ui",
+          "match": "(&)(?:[A-Za-z][A-Za-z0-9]*|#[0-9]+|#[xX][0-9A-Fa-f]+)(;)",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.entity.karbon-ui"
+            },
+            "2": {
+              "name": "punctuation.definition.entity.karbon-ui"
+            }
+          }
+        }
+      ]
+    },
+    "control": {
+      "patterns": [
+        {
+          "name": "meta.block.control.karbon-ui",
+          "begin": "(\\{)\\s*(#if)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.section.block.begin.karbon-ui"
+            },
+            "2": {
+              "name": "keyword.control.conditional.karbon-ui"
+            }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.block.end.karbon-ui"
+            }
+          },
+          "contentName": "meta.embedded.block.rust source.rust",
+          "patterns": [
+            {
+              "include": "#rust-content"
+            }
+          ]
+        },
+        {
+          "name": "meta.block.control.karbon-ui",
+          "begin": "(\\{)\\s*(:else\\s+if)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.section.block.begin.karbon-ui"
+            },
+            "2": {
+              "name": "keyword.control.conditional.karbon-ui"
+            }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.block.end.karbon-ui"
+            }
+          },
+          "contentName": "meta.embedded.block.rust source.rust",
+          "patterns": [
+            {
+              "include": "#rust-content"
+            }
+          ]
+        },
+        {
+          "name": "meta.block.control.karbon-ui",
+          "match": "(\\{)\\s*(:else)\\s*(\\})",
+          "captures": {
+            "1": {
+              "name": "punctuation.section.block.begin.karbon-ui"
+            },
+            "2": {
+              "name": "keyword.control.conditional.karbon-ui"
+            },
+            "3": {
+              "name": "punctuation.section.block.end.karbon-ui"
+            }
+          }
+        },
+        {
+          "name": "meta.block.control.karbon-ui",
+          "match": "(\\{)\\s*(/(?:if|each))\\s*(\\})",
+          "captures": {
+            "1": {
+              "name": "punctuation.section.block.begin.karbon-ui"
+            },
+            "2": {
+              "name": "keyword.control.karbon-ui"
+            },
+            "3": {
+              "name": "punctuation.section.block.end.karbon-ui"
+            }
+          }
+        },
+        {
+          "name": "meta.block.control.karbon-ui",
+          "begin": "(\\{)\\s*(#each)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.section.block.begin.karbon-ui"
+            },
+            "2": {
+              "name": "keyword.control.loop.karbon-ui"
+            }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.block.end.karbon-ui"
+            }
+          },
+          "contentName": "meta.embedded.block.rust source.rust",
+          "patterns": [
+            {
+              "match": "\\bas\\b",
+              "name": "keyword.control.loop.as.karbon-ui"
+            },
+            {
+              "include": "#rust-content"
+            }
+          ]
+        },
+        {
+          "name": "meta.block.include.karbon-ui",
+          "begin": "(\\{)\\s*(@include)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.section.block.begin.karbon-ui"
+            },
+            "2": {
+              "name": "keyword.control.import.karbon-ui"
+            }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.block.end.karbon-ui"
+            }
+          },
+          "patterns": [
+            {
+              "match": "\\bslot\\b",
+              "name": "entity.other.attribute-name.karbon-ui"
+            },
+            {
+              "match": "=",
+              "name": "punctuation.separator.key-value.karbon-ui"
+            },
+            {
+              "include": "#string-double"
+            }
+          ]
+        },
+        {
+          "name": "meta.block.control.karbon-ui",
+          "begin": "(\\{)\\s*(@element)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.section.block.begin.karbon-ui"
+            },
+            "2": {
+              "name": "keyword.control.element.karbon-ui"
+            }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.block.end.karbon-ui"
+            }
+          },
+          "contentName": "meta.embedded.block.rust source.rust",
+          "patterns": [
+            {
+              "include": "#rust-content"
+            }
+          ]
+        },
+        {
+          "name": "meta.block.control.karbon-ui",
+          "begin": "(\\{)\\s*([#:/@][A-Za-z_][A-Za-z0-9_]*)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.section.block.begin.karbon-ui"
+            },
+            "2": {
+              "name": "keyword.control.karbon-ui"
+            }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.block.end.karbon-ui"
+            }
+          },
+          "contentName": "meta.embedded.block.rust source.rust",
+          "patterns": [
+            {
+              "include": "#rust-content"
+            }
+          ]
+        }
+      ]
+    },
+    "tag-close": {
+      "name": "meta.tag.end.karbon-ui",
+      "match": "(</)(?:((?:[A-Za-z_][A-Za-z0-9_]*::)*[A-Z][A-Za-z0-9_]*)|([a-z][a-z0-9]*(?:-[a-z0-9]+)+)|(slot)|(div|section|main|header|footer|nav|article|aside|form|ul|ol|li|p|h[1-6]|blockquote|pre|span|b|strong|i|em|u|s|a|code|small|label|br|button|input|select|option|img|dialog|hr)|([A-Za-z][A-Za-z0-9_-]*(?:::[A-Za-z_][A-Za-z0-9_]*)*))\\s*(>)",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.tag.begin.karbon-ui"
+        },
+        "2": {
+          "name": "entity.name.tag.component.karbon-ui support.class.component.karbon-ui",
+          "patterns": [
+            {
+              "match": "::",
+              "name": "punctuation.separator.namespace.karbon-ui"
+            },
+            {
+              "match": "[A-Za-z_][A-Za-z0-9_]*(?=::)",
+              "name": "entity.name.namespace.karbon-ui"
+            }
+          ]
+        },
+        "3": {
+          "name": "entity.name.tag.custom.karbon-ui"
+        },
+        "4": {
+          "name": "entity.name.tag.slot.karbon-ui"
+        },
+        "5": {
+          "name": "entity.name.tag.html.karbon-ui"
+        },
+        "6": {
+          "name": "entity.name.tag.other.karbon-ui"
+        },
+        "7": {
+          "name": "punctuation.definition.tag.end.karbon-ui"
+        }
+      }
+    },
+    "tag-open": {
+      "name": "meta.tag.start.karbon-ui",
+      "begin": "(<)(?:((?:[A-Za-z_][A-Za-z0-9_]*::)*[A-Z][A-Za-z0-9_]*)|([a-z][a-z0-9]*(?:-[a-z0-9]+)+)|(slot)|(div|section|main|header|footer|nav|article|aside|form|ul|ol|li|p|h[1-6]|blockquote|pre|span|b|strong|i|em|u|s|a|code|small|label|br|button|input|select|option|img|dialog|hr)|([A-Za-z][A-Za-z0-9_-]*(?:::[A-Za-z_][A-Za-z0-9_]*)*))(?=[\\s/>]|$)",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.tag.begin.karbon-ui"
+        },
+        "2": {
+          "name": "entity.name.tag.component.karbon-ui support.class.component.karbon-ui",
+          "patterns": [
+            {
+              "match": "::",
+              "name": "punctuation.separator.namespace.karbon-ui"
+            },
+            {
+              "match": "[A-Za-z_][A-Za-z0-9_]*(?=::)",
+              "name": "entity.name.namespace.karbon-ui"
+            }
+          ]
+        },
+        "3": {
+          "name": "entity.name.tag.custom.karbon-ui"
+        },
+        "4": {
+          "name": "entity.name.tag.slot.karbon-ui"
+        },
+        "5": {
+          "name": "entity.name.tag.html.karbon-ui"
+        },
+        "6": {
+          "name": "entity.name.tag.other.karbon-ui"
+        }
+      },
+      "end": "/?>",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.tag.end.karbon-ui"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#attributes"
+        }
+      ]
+    },
+    "attributes": {
+      "patterns": [
+        {
+          "name": "meta.attribute.style.karbon-ui",
+          "begin": "(?<![\\w:.@-])(style)\\s*(=)\\s*([\"'])",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.other.attribute-name.style.karbon-ui"
+            },
+            "2": {
+              "name": "punctuation.separator.key-value.karbon-ui"
+            },
+            "3": {
+              "name": "string.quoted.karbon-ui punctuation.definition.string.begin.karbon-ui"
+            }
+          },
+          "end": "\\3",
+          "endCaptures": {
+            "0": {
+              "name": "string.quoted.karbon-ui punctuation.definition.string.end.karbon-ui"
+            }
+          },
+          "contentName": "string.quoted.karbon-ui",
+          "patterns": [
+            {
+              "include": "#entity"
+            },
+            {
+              "include": "#css-declarations"
+            }
+          ]
+        },
+        {
+          "match": "(?<![\\w:.@-])(class)(:)([A-Za-z_-][\\w-]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.directive.karbon-ui"
+            },
+            "2": {
+              "name": "punctuation.separator.directive.karbon-ui"
+            },
+            "3": {
+              "name": "entity.other.attribute-name.class.karbon-ui"
+            }
+          }
+        },
+        {
+          "match": "(?<![\\w:.@-])(style)(:)([A-Za-z_-][\\w-]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.directive.karbon-ui"
+            },
+            "2": {
+              "name": "punctuation.separator.directive.karbon-ui"
+            },
+            "3": {
+              "name": "support.type.property-name.css.karbon-ui"
+            }
+          }
+        },
+        {
+          "match": "(?<![\\w:.@-])on[a-z][a-z0-9]*(?![\\w:.@-])",
+          "name": "entity.other.attribute-name.event.karbon-ui entity.name.function.event.karbon-ui"
+        },
+        {
+          "match": "(?<![\\w:.@-])(data)(-)([\\w.-]*)",
+          "name": "entity.other.attribute-name.data.karbon-ui",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.data.karbon-ui"
+            },
+            "2": {
+              "name": "punctuation.separator.data.karbon-ui"
+            }
+          }
+        },
+        {
+          "match": "(?<![\\w:.@-])aria-[\\w-]*",
+          "name": "entity.other.attribute-name.aria.karbon-ui"
+        },
+        {
+          "match": "(?<![\\w:.@-])[A-Za-z_@][\\w:.@-]*",
+          "name": "entity.other.attribute-name.karbon-ui"
+        },
+        {
+          "match": "(=)\\s*([-+]?[0-9][0-9_]*(?:\\.[0-9_]*)?)(?=[\\s/>]|$)",
+          "captures": {
+            "1": {
+              "name": "punctuation.separator.key-value.karbon-ui"
+            },
+            "2": {
+              "name": "constant.numeric.karbon-ui"
+            }
+          }
+        },
+        {
+          "match": "(=)\\s*((?:[^\\s\"'=<>`{}/]|/(?!>))+)",
+          "captures": {
+            "1": {
+              "name": "punctuation.separator.key-value.karbon-ui"
+            },
+            "2": {
+              "name": "string.unquoted.karbon-ui"
+            }
+          }
+        },
+        {
+          "match": "=",
+          "name": "punctuation.separator.key-value.karbon-ui"
+        },
+        {
+          "include": "#string-double"
+        },
+        {
+          "include": "#string-single"
+        },
+        {
+          "include": "#rust-expression"
+        },
+        {
+          "include": "#comment"
+        }
+      ]
+    },
+    "css-declarations": {
+      "patterns": [
+        {
+          "match": "([A-Za-z-][\\w-]*)\\s*(:)",
+          "captures": {
+            "1": {
+              "name": "support.type.property-name.css.karbon-ui"
+            },
+            "2": {
+              "name": "punctuation.separator.key-value.css.karbon-ui"
+            }
+          }
+        },
+        {
+          "match": ";",
+          "name": "punctuation.terminator.rule.css.karbon-ui"
+        },
+        {
+          "match": "#[0-9A-Fa-f]{3,8}\\b",
+          "name": "constant.other.color.rgb-value.css.karbon-ui"
+        },
+        {
+          "match": "(?<![\\w-])([-+]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+))(px|em|rem|%|fr|ms|s|deg|vw|vh)?\\b",
+          "captures": {
+            "1": {
+              "name": "constant.numeric.css.karbon-ui"
+            },
+            "2": {
+              "name": "keyword.other.unit.css.karbon-ui"
+            }
+          }
+        },
+        {
+          "match": "!important\\b",
+          "name": "keyword.other.important.css.karbon-ui"
+        },
+        {
+          "match": "[A-Za-z-][\\w-]*(?=\\()",
+          "name": "support.function.css.karbon-ui"
+        },
+        {
+          "match": "[A-Za-z-][\\w-]*",
+          "name": "support.constant.property-value.css.karbon-ui"
+        }
+      ]
+    },
+    "string-double": {
+      "name": "string.quoted.double.karbon-ui",
+      "begin": "\"",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.karbon-ui"
+        }
+      },
+      "end": "\"",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.karbon-ui"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#entity"
+        }
+      ]
+    },
+    "string-single": {
+      "name": "string.quoted.single.karbon-ui",
+      "begin": "'",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.karbon-ui"
+        }
+      },
+      "end": "'",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.karbon-ui"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#entity"
+        }
+      ]
+    },
+    "rust-expression": {
+      "name": "meta.embedded.block.rust",
+      "contentName": "source.rust",
+      "begin": "\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.embedded.begin.karbon-ui"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.embedded.end.karbon-ui"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#rust-content"
+        }
+      ]
+    },
+    "rust-content": {
+      "patterns": [
+        {
+          "include": "#rust-braces"
+        },
+        {
+          "include": "source.rust"
+        }
+      ]
+    },
+    "rust-braces": {
+      "name": "meta.block.rust",
+      "begin": "\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.brackets.curly.rust"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.brackets.curly.rust"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#rust-content"
+        }
+      ]
+    }
+  }
+}

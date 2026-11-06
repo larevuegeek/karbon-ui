@@ -1,0 +1,7 @@
+<!-- whatsnew/WhatsNewButton.svelte, avec les classes Tailwind de la source (nouveautés
+     déjà vues : pas de pastille). -->
+<button class="relative w-8 h-8 flex items-center justify-center rounded-full cursor-pointer transition-colors
+               text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+        onclick={Msg::Noop} aria-label="Nouveautés" title="Nouveautés">
+    <Icon icon="material-symbols:campaign-outline-rounded" width={22} />
+</button>
