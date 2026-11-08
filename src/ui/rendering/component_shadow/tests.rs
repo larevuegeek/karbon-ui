@@ -49,7 +49,7 @@ fn soft_shadow_is_premultiplied_hollow_and_offset_and_inset_are_distinct() {
     assert!(pixel(&inset, 40., 2.)[3] > pixel(&inset, 40., 25.)[3]);
 }
 #[test]
-fn cached_shadow_reuses_images_when_translated_and_releases_removed_shadows() {
+fn cached_shadow_reuses_images_when_translated_and_shares_them_between_elements() {
     let shadows = Shadows::new(&[SHADOW]);
     let mut cache = Cache::default();
     cache
@@ -71,7 +71,19 @@ fn cached_shadow_reuses_images_when_translated_and_releases_removed_shadows() {
             false,
         )
         .unwrap();
-    assert!(first.upgrade().is_none());
+    // Ombre retirée : l'élément ne la garde plus, seule la réserve partagée (bornée) la tient.
+    assert!(cache.frames.is_empty());
+    assert_eq!(first.strong_count(), 1);
+    // Même géométrie sur un autre élément : la même image, donc une seule texture pour
+    // toutes les pochettes d'une liste.
+    let mut other = Cache::default();
+    other
+        .prepare(RectF::new(5., 5., 80., 50.), [10.; 4], shadows, false)
+        .unwrap();
+    assert!(Arc::ptr_eq(
+        &first.upgrade().unwrap(),
+        image(&other.frames[0])
+    ));
     assert!(generate(10000., 10000., [10.; 4], SHADOW, 1.).is_err());
 }
 #[test]

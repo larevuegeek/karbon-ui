@@ -21,12 +21,31 @@ impl StyleSignature {
 }
 
 pub(super) struct Invalidation {
+    /// Éléments `fixed` et leurs ancêtres, relevés au dernier layout (peinture).
+    pub(super) fixed_paths: crate::ui::core::hash::FastMap<ElementId, ()>,
+    /// L'arbre contient une liste virtuelle (relevé au dernier layout).
+    pub(super) virtual_lists: bool,
+    /// Élément focalisé et élément appuyé lors de la dernière résolution des styles.
+    pub(super) style_targets: [Option<ElementId>; 2],
     pub(super) rebuild: bool,
     pub(super) relayout: bool,
+    /// Layout sans résolution des styles : un élément `content-visibility: auto` s'est
+    /// approché de la vue (voir `layout::containment`).
+    pub(super) reflow: bool,
+    /// Le contenu a défilé : la proximité des éléments `content-visibility: auto` est à
+    /// constater de nouveau.
+    pub(super) containment_check: bool,
+    /// Proximité et tailles retenues des éléments `content-visibility: auto`.
+    pub(super) containment: crate::ui::layout::containment::Containment,
     pub(super) repaint: bool,
     pub(super) style_signature: Option<StyleSignature>,
     /// L'arbre porte des styles d'état : le backend doit repeindre au survol.
     pub(super) dynamic_styles: bool,
+    /// Images livrées aux `ImageSlot` lors de la dernière vérification (voir
+    /// `UiRuntime::images_arrived`).
+    pub(super) image_arrivals: u64,
+    /// Somme des révisions des `ImageSlot` de l'arbre à la dernière vérification.
+    pub(super) image_revisions: u64,
     /// Révision des informations d'accessibilité non portées par l'arbre (popups, bulles…).
     pub(super) accessibility_revision: u64,
     /// Mémoires de la préparation actives (voir `UiRuntime::set_incremental`).
@@ -34,20 +53,35 @@ pub(super) struct Invalidation {
     /// Faits du pointeur lus par la dernière résolution des styles.
     pub(super) pointer_facts: Option<crate::ui::styling::resolve::PointerFacts>,
     pub(super) stats: RuntimeStats,
+    /// Anciens arbres remplacés par une reconstruction, libérés par tranches hors des
+    /// images qui reconstruisent (voir `UiRuntime::bury`).
+    pub(super) graveyard: Vec<Element>,
+    /// Prochaine tranche de libération au repos.
+    pub(super) graveyard_wake: Option<Instant>,
 }
 impl Default for Invalidation {
     /// Tout est à construire au premier `prepare`.
     fn default() -> Self {
         Self {
+            fixed_paths: Default::default(),
+            virtual_lists: false,
+            style_targets: [None; 2],
             rebuild: true,
             relayout: true,
+            reflow: false,
+            containment_check: false,
+            containment: Default::default(),
             repaint: true,
             style_signature: None,
             dynamic_styles: false,
+            image_arrivals: crate::ui::template::ImageSlot::arrivals(),
+            image_revisions: 0,
             accessibility_revision: 0,
             incremental: true,
             pointer_facts: None,
             stats: RuntimeStats::default(),
+            graveyard: Vec::new(),
+            graveyard_wake: None,
         }
     }
 }

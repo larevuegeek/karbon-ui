@@ -1,6 +1,11 @@
 //! État natif par fenêtre. Le scope restaure le contexte après un message réentrant.
 use super::{
-    super::{accessibility, events::text, ffi::Hwnd, present},
+    super::{
+        accessibility,
+        events::{grip, text},
+        ffi::Hwnd,
+        present,
+    },
     shadow, tasks,
 };
 use crate::{
@@ -33,8 +38,11 @@ pub(crate) struct WindowState {
     pub frame_posted: Cell<bool>,
     /// Une image vient d'être présentée : la suivante peut être demandée par FRAME_WAKE.
     pub frame_ready: Cell<bool>,
-    /// Redimensionnement ou déplacement à la souris en cours (WM_ENTERSIZEMOVE).
+    /// Redimensionnement ou déplacement à la souris en cours (WM_ENTERSIZEMOVE, ou
+    /// geste d'une poignée de l'application).
     pub sizing: Cell<bool>,
+    /// Geste en cours sur une poignée de l'application (`events/grip.rs`).
+    pub grip: Cell<Option<grip::Grip>>,
     /// Dernière synchronisation UI Automation et focus alors annoncé.
     pub accessibility_synced: Cell<accessibility::Synced>,
     /// Une synchronisation UI Automation attend son minuteur.
@@ -42,6 +50,15 @@ pub(crate) struct WindowState {
     pub tasks: RefCell<Option<tasks::NativeTasks>>,
     /// Une panique a interrompu un message : l'application n'est plus appelée.
     pub poisoned: Cell<bool>,
+    /// Commandes d'une fenêtre ouverte (`window/change.rs`) : redimensionnable par ses
+    /// bords, taille maximale et proportions imposées (unités logiques).
+    pub resizable: Cell<bool>,
+    pub max_size: Cell<Option<(i32, i32)>>,
+    pub aspect: Cell<Option<(u32, u32)>>,
+    /// Plein écran : rectangle et état agrandi d'avant, rétablis à la sortie.
+    pub fullscreen: Cell<Option<super::change::Restore>>,
+    /// Dernier état remis à `Application::window_changed`.
+    pub reported: Cell<Option<crate::window::WindowState>>,
 }
 impl WindowState {
     pub fn new(id: WindowId, options: WindowOptions) -> Rc<Self> {
@@ -63,10 +80,16 @@ impl WindowState {
             frame_posted: Cell::new(false),
             frame_ready: Cell::new(false),
             sizing: Cell::new(false),
+            grip: Cell::new(None),
             accessibility_synced: Cell::new(None),
             accessibility_pending: Cell::new(false),
             tasks: RefCell::new(None),
             poisoned: Cell::new(false),
+            resizable: Cell::new(true),
+            max_size: Cell::new(None),
+            aspect: Cell::new(None),
+            fullscreen: Cell::new(None),
+            reported: Cell::new(None),
         })
     }
 }

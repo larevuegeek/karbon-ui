@@ -59,6 +59,7 @@ impl Shadows {
     }
 }
 /// What a shadow layer paints, relative to the element's top-left corner.
+#[derive(Clone)]
 enum Paint {
     Image(Arc<Image>),
     /// Rectangle filled with the shadow colour.
@@ -70,6 +71,7 @@ enum Paint {
         color: Color,
     },
 }
+#[derive(Clone)]
 struct Frame {
     /// Index de la couche `box-shadow` qui a produit ce cadre.
     layer: usize,
@@ -192,7 +194,7 @@ impl Cache {
                 }
                 let frame = Frame {
                     layer,
-                    ..generate(w, h, radii, *shadow, shadows.scale)?
+                    ..shared(w, h, radii, *shadow, shadows.scale)?
                 };
                 if let Paint::Image(image) = &frame.paint {
                     bytes += image.pixels.len();
@@ -246,13 +248,30 @@ impl Cache {
 }
 /// `stretch` : redimensionnement de fenêtre en cours, les ombres floutées d'un élément qui
 /// change seulement de taille sont étirées au lieu d'être recalculées.
-pub(crate) fn prepare(node: &mut Element, stretch: bool) -> crate::Result<()> {
+/// Prépare les ombres floutées des éléments visibles. Un sous-arbre entièrement rogné
+/// (hors de la vue d'un défilement) est sauté, ses ombres gardées pour son retour, sauf
+/// s'il contient un élément `fixed` (`fixed`, ses ancêtres compris), qui échappe au
+/// rognage.
+///
+/// `clip` donne la découpe de peinture d'un élément : celle du layout, ou celle recalculée
+/// sous la transformation d'un ancêtre (diapo d'un carrousel amenée dans la vue par une
+/// piste translatée, que la découpe du layout dit rognée).
+pub(crate) fn prepare(
+    node: &mut Element,
+    stretch: bool,
+    fixed: &crate::ui::core::hash::FastMap<crate::ui::element::ElementId, ()>,
+    clip: &dyn Fn(&Element) -> RectF,
+) -> crate::Result<()> {
+    let node_clip = clip(node);
+    let visible = layout::width(node_clip) > 0. && layout::height(node_clip) > 0.;
+    if !visible && !fixed.contains_key(&node.id) {
+        return Ok(());
+    }
     if let Some(styles) = &mut node.styles {
         if let Some(shadows) = styles.computed.local.shadows.filter(|_| {
-            layout::width(node.clip) > 0.
-                && layout::height(node.clip) > 0.
-                && layout::width(layout::intersect(node.rect, node.clip)) > 0.
-                && layout::height(layout::intersect(node.rect, node.clip)) > 0.
+            visible
+                && layout::width(layout::intersect(node.rect, node_clip)) > 0.
+                && layout::height(layout::intersect(node.rect, node_clip)) > 0.
         }) {
             let radii = styles
                 .computed
@@ -267,9 +286,43 @@ pub(crate) fn prepare(node: &mut Element, stretch: bool) -> crate::Result<()> {
         }
     }
     for child in &mut node.children {
-        prepare(child, stretch)?;
+        prepare(child, stretch, fixed, clip)?;
     }
     Ok(())
+}
+/// Géométrie d'une ombre floutée : taille, rayons, ombre et échelle (bits des nombres).
+type RasterKey = ([u32; 2], [u32; 4], [u32; 4], [u8; 4], bool, u32);
+thread_local! {
+    /// Ombres floutées déjà calculées, partagées par les éléments de même géométrie : les
+    /// pochettes d'une liste de morceaux ont toutes la même ombre, calculée une fois (le
+    /// flou est le plus coûteux) et envoyée une fois au GPU au lieu d'une par ligne.
+    static RASTERS: std::cell::RefCell<crate::ui::core::hash::FastMap<RasterKey, Frame>> =
+        Default::default();
+}
+/// Entrées gardées au plus dans [`RASTERS`] (vidé au-delà).
+const SHARED_RASTERS: usize = 64;
+/// [`generate`], partagé entre éléments de même géométrie.
+fn shared(w: f32, h: f32, radii: [f32; 4], s: BoxShadow, scale: f32) -> crate::Result<Frame> {
+    let key = (
+        [w.to_bits(), h.to_bits()],
+        radii.map(f32::to_bits),
+        [s.x, s.y, s.blur, s.spread].map(f32::to_bits),
+        [s.color.red, s.color.green, s.color.blue, s.color.alpha],
+        s.inset,
+        scale.to_bits(),
+    );
+    if let Some(frame) = RASTERS.with(|r| r.borrow().get(&key).cloned()) {
+        return Ok(frame);
+    }
+    let frame = generate(w, h, radii, s, scale)?;
+    RASTERS.with(|r| {
+        let mut r = r.borrow_mut();
+        if r.len() >= SHARED_RASTERS {
+            r.clear();
+        }
+        r.insert(key, frame.clone());
+    });
+    Ok(frame)
 }
 fn normalized(w: f32, h: f32, mut r: [f32; 4]) -> [f32; 4] {
     let mut f = 1f32;

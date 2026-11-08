@@ -10,6 +10,8 @@
 //! emprunt des sessions n'est tenu pendant un appel AppKit qui peut ré-entrer (fermeture,
 //! zoom, déplacement de la fenêtre).
 pub(super) mod accessible;
+mod change;
+mod dialog;
 mod events;
 mod menu;
 mod session;
@@ -125,6 +127,25 @@ fn window_of(id: WindowId) -> Option<objc2::rc::Retained<NSWindow>> {
     })
 }
 fn pointer(id: WindowId, kind: Pointer, point: PointF, event: &NSEvent) {
+    // Geste sur une poignée de redimensionnement : l'UI ne reçoit ni mouvement ni
+    // relâchement.
+    match kind {
+        Pointer::Move => {
+            if let Some(window) = window_of(id)
+                && change::grip_drag(id, &window)
+            {
+                return;
+            }
+        }
+        Pointer::Up if change::grip_end(id) => {
+            with(id, |s| {
+                s.report(MainThreadMarker::from(&*s.window));
+                Ok(())
+            });
+            return;
+        }
+        _ => {}
+    }
     let m = events::modifiers(event);
     let ui = match kind {
         Pointer::Move => UiEvent::PointerMove(point),
@@ -132,23 +153,40 @@ fn pointer(id: WindowId, kind: Pointer, point: PointF, event: &NSEvent) {
         Pointer::Leave => UiEvent::PointerLeave,
         Pointer::Context => UiEvent::ContextMenu(Some(point)),
         Pointer::Scroll => {
-            let (delta_x, delta_y) = events::scroll(event);
-            UiEvent::Scroll {
-                position: point,
-                delta_x,
-                delta_y,
+            let (delta_x, delta_y, notched) = events::scroll(event);
+            if notched {
+                UiEvent::Wheel {
+                    position: point,
+                    delta_x,
+                    delta_y,
+                }
+            } else {
+                UiEvent::Scroll {
+                    position: point,
+                    delta_x,
+                    delta_y,
+                }
             }
         }
         Pointer::Down => {
+            // Poignée de redimensionnement de l'application : le geste est suivi à la main.
+            let grip = with(id, |s| {
+                s.prepare()?;
+                Ok(s.resize_region_at(point))
+            });
+            if let (Some(Some(edge)), Some(window)) = (grip, window_of(id)) {
+                change::grip_start(id, &window, edge);
+                return;
+            }
             // Zone de déplacement de l'application : la fenêtre se déplace (double clic :
             // zoom) et l'UI ne reçoit pas le clic, comme HTCAPTION sous Windows.
-            let drag = with(id, |s| {
-                s.prepare()?;
-                Ok(s.drag_region_at(point))
-            });
+            let drag = with(id, |s| Ok(s.drag_region_at(point)));
             if drag == Some(true) {
                 if let Some(window) = window_of(id) {
-                    if event.clickCount() == 2 {
+                    let zoomable = window
+                        .styleMask()
+                        .contains(objc2_app_kit::NSWindowStyleMask::Resizable);
+                    if event.clickCount() == 2 && zoomable {
                         window.zoom(None);
                     } else {
                         window.performWindowDragWithEvent(event);
@@ -307,6 +345,21 @@ fn execute(command: WindowCommand, mtm: MainThreadMarker) {
                 window.zoom(None);
             }
         }
+        WindowCommand::Change(id, change) => {
+            if let Some(reason) = crate::window::change::invalid_change(&change) {
+                record_error(crate::Error::invalid_window_options(reason));
+            } else {
+                with(id, |s| {
+                    s.change(change, mtm);
+                    Ok(())
+                });
+            }
+        }
+        WindowCommand::FileDialog(id, task, file_dialog) => {
+            if let Some(window) = window_of(id) {
+                dialog::show(id, &window, task, &file_dialog, mtm);
+            }
+        }
         WindowCommand::Exit => EXIT.with(|e| e.set(true)),
     }
 }
@@ -324,11 +377,19 @@ fn service(policy: ExitPolicy, mtm: MainThreadMarker) -> bool {
             EXIT.with(|e| e.set(true));
         }
     }
+    // Choix des dialogues de fichiers, livrés comme des résultats de tâches.
+    for (id, result) in dialog::take_finished() {
+        with(id, |s| {
+            s.dirty |= s.runtime.task_completed(result);
+            Ok(())
+        });
+    }
     let now = Instant::now();
     for id in ids() {
         let commands = with(id, |s| {
             EXECUTOR.with(|e| s.tasks(&mut e.borrow_mut()));
             s.tick(now)?;
+            s.report(mtm);
             Ok(s.take_window_commands())
         });
         PENDING.with(|p| p.borrow_mut().extend(commands.unwrap_or_default()));
@@ -376,6 +437,7 @@ impl Drop for RunGuard {
         drop(sessions);
         PENDING.with(|p| p.borrow_mut().clear());
         CLOSED.with(|c| c.borrow_mut().clear());
+        drop(dialog::take_finished());
         EXIT.with(|e| e.set(false));
         EXECUTOR.with(|e| e.borrow_mut().take());
         RUNNING.with(|r| r.set(false));

@@ -4,11 +4,15 @@ use super::*;
 impl Canvas {
     pub(super) fn prepare_images(&mut self, scene: &Scene) -> crate::Result<()> {
         // Garder seulement les images de la scène courante ; les Arc empêchent la réutilisation d'une adresse encore en cache.
-        self.bitmaps.retain(|key, _| {
-            scene.commands.iter().any(
-                |c| matches!(c,DrawCommand::Image {image,..} if Arc::as_ptr(image) as usize==*key),
-            )
-        });
+        let used: std::collections::HashSet<usize> = scene
+            .commands
+            .iter()
+            .filter_map(|c| match c {
+                DrawCommand::Image { image, .. } => Some(Arc::as_ptr(image) as usize),
+                _ => None,
+            })
+            .collect();
+        self.bitmaps.retain(|key, _| used.contains(key));
         for command in &scene.commands {
             if let DrawCommand::Image { image, .. } = command {
                 let key = Arc::as_ptr(image) as usize;

@@ -173,6 +173,20 @@ impl Wayland {
             }
             WindowCommand::Close(id) => self.closed.push(id),
             WindowCommand::Action(id, action) => self.action(id, action),
+            WindowCommand::Change(id, change) => {
+                if let Some(reason) = crate::window::change::invalid_change(&change) {
+                    self.record(crate::Error::invalid_window_options(reason));
+                } else if let Some(window) = self.windows.iter_mut().find(|w| w.session.id == id) {
+                    window.change(change);
+                }
+            }
+            WindowCommand::FileDialog(id, task, dialog) => {
+                // Sans `zxdg_foreign_v2`, le portail ne connaît pas la fenêtre parente :
+                // identifiant vide (dialogue non rattaché).
+                if let Some(window) = self.windows.iter().find(|w| w.session.id == id) {
+                    window.session.file_dialog(task, dialog, String::new());
+                }
+            }
             WindowCommand::Exit => self.exit = true,
         }
     }
@@ -239,6 +253,7 @@ impl Wayland {
                     let outcome = catch_unwind(AssertUnwindSafe(|| {
                         window.session.tasks(executor);
                         window.session.tick(now)?;
+                        window.session.report();
                         Ok(window.session.take_window_commands())
                     }));
                     match outcome {

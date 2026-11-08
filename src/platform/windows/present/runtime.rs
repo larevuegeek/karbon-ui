@@ -245,6 +245,47 @@ pub(crate) fn drag_region_at(point: crate::ui::scene::PointF) -> bool {
         })
     })
 }
+/// Image d'animation : attend sa place dans la file de présentation avant que l'horloge
+/// soit lue (voir `graphics::swapchain::FrameSlot`), pour que chaque image soit
+/// échantillonnée à la même distance de son affichage.
+pub(crate) fn wait_for_frame() {
+    DRAWING.with(|slot| {
+        if let Ok(mut state) = slot.try_borrow_mut()
+            && let Some(state) = state.as_mut()
+            && matches!(
+                state.presenter,
+                super::composition::Presenter::Composition(_)
+            )
+        {
+            state.renderer.wait_for_frame();
+        }
+    });
+}
+/// Poignée de redimensionnement de l'application (`data-resize-region`) sous `point`.
+pub(crate) fn resize_region_at(
+    point: crate::ui::scene::PointF,
+) -> Option<crate::window::ResizeEdge> {
+    DRAWING.with(|slot| {
+        let state = slot.try_borrow().ok()?;
+        state.as_ref()?.runtime.resize_region_at(point)
+    })
+}
+/// Remet l'état de la fenêtre à l'application ; `false` si elle n'est pas joignable
+/// (runtime en cours d'usage ou pas encore initialisé), l'état est alors renvoyé plus tard.
+pub(crate) fn window_changed(window: Hwnd, state: crate::window::WindowState) -> bool {
+    let delivered = DRAWING.with(|slot| {
+        let Ok(mut value) = slot.try_borrow_mut() else {
+            return None;
+        };
+        value
+            .as_mut()
+            .map(|drawing| drawing.runtime.window_changed(state))
+    });
+    if delivered == Some(true) {
+        invalidate(window);
+    }
+    delivered.is_some()
+}
 /// Test de contenu pour WM_NCHITTEST. Seule la composition en a besoin : une fenêtre
 /// layered laisse déjà Windows ignorer ses pixels transparents. Sans scène lisible
 /// (peinture en cours, fenêtre non initialisée), le point est considéré couvert.

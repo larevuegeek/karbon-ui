@@ -177,14 +177,21 @@ impl Wayland {
             return;
         };
         let position = self.seat.position;
-        self.send(
-            id,
+        // Crans de molette : glissement doux ; pixels d'un pavé tactile : immédiats.
+        let event = if value120 != [0, 0] {
+            UiEvent::Wheel {
+                position,
+                delta_x: x,
+                delta_y: y,
+            }
+        } else {
             UiEvent::Scroll {
                 position,
                 delta_x: x,
                 delta_y: y,
-            },
-        );
+            }
+        };
+        self.send(id, event);
     }
     pub(super) fn keyboard_event(&mut self, mut event: Event) {
         match event.opcode {

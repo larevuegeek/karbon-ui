@@ -37,6 +37,9 @@ macro_rules! choice_widget {
             fn choice(&self) -> Option<ChoiceState> {
                 Some(($state)(self))
             }
+            fn paints_natural_size(&self) -> bool {
+                true
+            }
             fn semantics(&self) -> Semantics<'_> {
                 Semantics {
                     role: $role,

@@ -42,7 +42,7 @@ pub(super) struct Session {
     path: Path,
     /// Diagnostic `KARBON_METAL_COMPARE` (voir `metal/compare.rs`).
     compare: metal::Comparison,
-    options: WindowOptions,
+    pub(super) options: WindowOptions,
     scope: TaskScope,
     surface: Option<Bitmap>,
     /// Surface en demi-résolution des images de mouvement (voir `paint`).
@@ -64,6 +64,8 @@ pub(super) struct Session {
     memory_line: String,
     /// Allègement des ressources GPU attendu (une seconde après la dernière image).
     trim_at: Option<Instant>,
+    /// Dernier état remis à `Application::window_changed` (`change.rs`).
+    pub(super) reported: Option<crate::window::WindowState>,
 }
 impl Session {
     /// Charge l'application, puis ouvre sa fenêtre (au centre de l'écran).
@@ -172,6 +174,7 @@ impl Session {
             trim_at: None,
             marked: None,
             access: Default::default(),
+            reported: None,
         })
     }
     pub fn show(&self) {
@@ -229,7 +232,7 @@ impl Session {
         if !deferred {
             self.prepare()?;
         }
-        if matches!(event, UiEvent::Scroll { .. }) {
+        if matches!(event, UiEvent::Scroll { .. } | UiEvent::Wheel { .. }) {
             self.scrolling_until = Some(Instant::now() + std::time::Duration::from_millis(150));
         }
         let paints = self.runtime.stats().paints;

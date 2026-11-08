@@ -27,7 +27,16 @@ impl UiRuntime {
             return reply;
         }
         if let UiEvent::Timer(now) = event {
+            if self
+                .invalidation
+                .graveyard_wake
+                .is_some_and(|wake| wake <= now)
+            {
+                self.bury(std::time::Duration::from_millis(4));
+            }
             self.invalidation.repaint |= self.motions.tick(now);
+            self.invalidation.repaint |= self.smooth_scroll_tick(now);
+            self.invalidation.repaint |= self.thaw_hover(now);
             if self.components.tooltips.tick(now) {
                 self.invalidation.repaint_semantics();
             }
@@ -72,6 +81,7 @@ impl UiRuntime {
                 | UiEvent::Text(_)
                 | UiEvent::Edit(_)
                 | UiEvent::Scroll { .. }
+                | UiEvent::Wheel { .. }
                 | UiEvent::CompositionStart
                 | UiEvent::Cancel
         ) && self.components.tooltips.dismiss()
@@ -235,7 +245,7 @@ impl UiRuntime {
         if let Some(popup) = self.root.as_ref().and_then(popover::top) {
             if let UiEvent::FocusChanged(false) = event {
                 self.dismiss_popover();
-            } else if let UiEvent::Scroll { position, .. } = event
+            } else if let UiEvent::Scroll { position, .. } | UiEvent::Wheel { position, .. } = event
                 && !layout::contains(popup.clip, position.x, position.y)
             {
                 self.dismiss_popover();
@@ -422,6 +432,18 @@ impl UiRuntime {
                     return result;
                 }
             }
+            UiEvent::Wheel {
+                position,
+                delta_x,
+                delta_y,
+            } => {
+                self.components.scrolls.wheel_smooth = !self.motions.reduced;
+                let done = self.wheel_event(position, delta_x, delta_y, &mut result);
+                self.components.scrolls.wheel_smooth = false;
+                if !done {
+                    return result;
+                }
+            }
 
             UiEvent::PointerMove(p) => self.pointer_move_event(p, &mut result),
 
@@ -469,7 +491,9 @@ impl UiRuntime {
             .is_some_and(|r| modal::config(layers::active(r)).is_some())
             && matches!(
                 event,
-                UiEvent::KeyDown { key: Key::Tab, .. } | UiEvent::Scroll { .. }
+                UiEvent::KeyDown { key: Key::Tab, .. }
+                    | UiEvent::Scroll { .. }
+                    | UiEvent::Wheel { .. }
             )
         {
             result.handled = true;

@@ -235,3 +235,20 @@ fn a_large_included_template_builds_on_a_one_megabyte_stack() {
         .unwrap();
     assert!(built > 1500, "{built}");
 }
+
+/// `title=""` (littéral ou calculé) n'affiche aucune infobulle et ne bloque pas la vue,
+/// comme en HTML.
+#[test]
+fn an_empty_title_shows_no_tooltip() {
+    let empty = String::new();
+    let node = ui! {
+        <div>
+            <div title={empty.as_str()}>Un</div>
+            <button title="" onclick={Msg::Click(1)}>Deux</button>
+            <button title={" "} onclick={Msg::Click(2)}><div>Trois</div></button>
+        </div>
+    };
+    assert!(layout::validate(&node).is_ok());
+    // Le constructeur Rust garde son contrôle : une infobulle vide y est une erreur.
+    assert!(layout::validate(&Element::column(9, Vec::new()).tooltip("")).is_err());
+}

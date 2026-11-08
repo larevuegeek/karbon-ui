@@ -84,4 +84,35 @@ impl<W: Widget + 'static> Node<W> {
         self.element = self.element.reveal(value);
         self
     }
+    /// Overrides the delay of the animation set by the node's classes, like an inline
+    /// CSS `animation-delay`: a negative `ms` starts it already advanced. On a list of
+    /// animations the delay applies to the whole list. Without an animation, nothing
+    /// changes.
+    pub fn animation_delay(mut self, ms: i64) -> Self {
+        if let Some(a) = self.animation_mut() {
+            *a = a.with_delay(ms);
+        }
+        self
+    }
+    /// Overrides the duration (ms) of the animation set by the node's classes, like an
+    /// inline CSS `animation-duration` (each animation of a list keeps its own).
+    pub fn animation_duration(mut self, ms: u32) -> Self {
+        if let Some(a) = self.animation_mut()
+            && a.group.is_empty()
+        {
+            *a = a.duration(ms);
+        }
+        self
+    }
+    /// Pauses or resumes the animation set by the node's classes, like an inline CSS
+    /// `animation-play-state`.
+    pub fn animation_paused(mut self, paused: bool) -> Self {
+        if let Some(a) = self.animation_mut() {
+            *a = a.paused(paused);
+        }
+        self
+    }
+    fn animation_mut(&mut self) -> Option<&mut Animation> {
+        self.element.motion.as_mut()?.animation.as_mut()
+    }
 }

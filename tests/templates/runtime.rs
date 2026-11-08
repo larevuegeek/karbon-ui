@@ -257,3 +257,53 @@ fn prepare_headless(ui: &mut UiRuntime, time: Instant) {
     )
     .unwrap();
 }
+
+thread_local! {
+    static BUILT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+/// Compte les lignes construites (texte d'une ligne mémorisée).
+fn built(n: u64) -> String {
+    BUILT.with(|b| b.set(b.get() + 1));
+    format!("Ligne {n}")
+}
+/// `memo={…}` : une ligne dont la clé n'a pas changé n'est pas reconstruite, le
+/// sous-arbre de la vue précédente reprend sa place.
+struct Memo(Rc<std::cell::Cell<u64>>);
+impl Application for Memo {
+    type Message = Msg;
+    fn view(&self, _: &ViewContext) -> Element {
+        let playing = self.0.get();
+        let rows = [1u64, 2, 3];
+        ui! {
+            <div style="gap:2px">
+                {#each rows as n (*n)}
+                    <div memo={(*n, *n == playing)} style="height:30px; padding:4px">
+                        <span>{built(*n)}</span>
+                    </div>
+                {/each}
+            </div>
+        }
+    }
+    fn update(&mut self, _: Msg) -> bool {
+        false
+    }
+}
+
+#[test]
+fn memo_rebuilds_only_the_rows_whose_key_changed() {
+    let playing = Rc::new(std::cell::Cell::new(0));
+    let mut ui = UiRuntime::new(Memo(playing.clone()), &Services).unwrap();
+    let start = Instant::now();
+    prepare(&mut ui, start);
+    assert_eq!(BUILT.with(std::cell::Cell::get), 3);
+    ui.invalidate();
+    prepare(&mut ui, start);
+    assert_eq!(BUILT.with(std::cell::Cell::get), 3);
+    playing.set(2);
+    ui.invalidate();
+    prepare(&mut ui, start);
+    assert_eq!(BUILT.with(std::cell::Cell::get), 4);
+    let column = ui.root().unwrap();
+    assert_eq!(column.children.len(), 3);
+    assert!(column.children.iter().all(|row| row.children.len() == 1));
+}

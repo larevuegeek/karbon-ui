@@ -262,9 +262,10 @@ impl X11 {
                     (0., sign * NOTCH[0])
                 };
                 if let Some((x, y)) = crate::platform::linux::shell::scroll::delta(x, y, shift) {
+                    // Boutons 4 à 7 : crans de molette, glissement doux.
                     self.send(
                         id,
-                        UiEvent::Scroll {
+                        UiEvent::Wheel {
                             position,
                             delta_x: x,
                             delta_y: y,

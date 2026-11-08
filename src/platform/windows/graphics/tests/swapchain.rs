@@ -84,6 +84,15 @@ pub(super) fn verify_swap_chain(mode: RenderMode) {
     renderer.present().unwrap();
     let first = renderer.swap_chain().unwrap().clone();
     assert_eq!(swapchain::describe(&first), (96, 64, true));
+    // Latence d'une image (objet attendable) : la place dans la file se prend une fois par
+    // image, sans bloquer au-delà de l'attente bornée, et `Present` la rend.
+    let waitable: windows::Win32::Graphics::Dxgi::IDXGISwapChain2 = first.cast().unwrap();
+    // SAFETY: chaîne valide créée par le renderer.
+    assert_eq!(unsafe { waitable.GetMaximumFrameLatency() }.unwrap(), 1);
+    let started = std::time::Instant::now();
+    renderer.wait_for_frame();
+    renderer.wait_for_frame();
+    assert!(started.elapsed() < std::time::Duration::from_millis(500));
 
     // Redimensionnement : même chaîne, tampons et cible Direct2D recréés.
     assert_eq!(

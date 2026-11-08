@@ -92,12 +92,40 @@ fn colour_properties_are_animatable() {
 }
 
 #[test]
-fn refused_keyframes_report_the_offending_declaration() {
-    let css = "@keyframes k { 0% { opacity: 0 } 100% { width: 10px } }";
-    let (at, message) = keyframes(css).unwrap_err();
-    assert_eq!(at, css.find("width"), "{message}");
+fn size_properties_are_animatable() {
+    // `eq-bar-1` de RustMusic et la barre de progression d'un toast.
+    let code =
+        keyframes("@keyframes k { 0%, 100% { height: 4px } 50% { height: 18px; width: 120% } }")
+            .unwrap();
+    let length = "__ui_root::ui::element::Length";
     assert!(
-        message.contains("Keyframe property 'width' is not animatable"),
+        code.contains(&format!("Keyframe::at(0.0).height({length}::Px(4.0))")),
+        "{code}"
+    );
+    assert!(
+        code.contains(&format!(".height({length}::Px(18.0))")),
+        "{code}"
+    );
+    assert!(
+        code.contains(&format!(".width({length}::Percent(120.0))")),
+        "{code}"
+    );
+    let code = keyframes("@keyframes k { from { width: 100% } to { width: 0 } }").unwrap();
+    assert!(
+        code.contains(&format!(".width({length}::Px(0.0))")),
+        "{code}"
+    );
+    let code = keyframes("@keyframes k { to { height: auto } }").unwrap();
+    assert!(code.contains(&format!(".height({length}::Auto)")), "{code}");
+}
+
+#[test]
+fn refused_keyframes_report_the_offending_declaration() {
+    let css = "@keyframes k { 0% { opacity: 0 } 100% { padding: 10px } }";
+    let (at, message) = keyframes(css).unwrap_err();
+    assert_eq!(at, css.find("padding"), "{message}");
+    assert!(
+        message.contains("Keyframe property 'padding' is not animatable"),
         "{message}"
     );
     for (css, expected) in [
@@ -122,6 +150,8 @@ fn refused_keyframes_report_the_offending_declaration() {
             "@keyframes k { to { color: currentColor } }",
             "currentColor",
         ),
+        ("@keyframes k { to { width: -4px } }", "cannot be negative"),
+        ("@keyframes k { to { height: 2em } }", "expects pixels"),
         (
             "@keyframes k { to { opacity: 1; animation-timing-function: steps(4) } }",
             "Unsupported animation timing function",
@@ -242,4 +272,32 @@ fn refused_animation_values_are_explicit() {
             .unwrap_err()
             .contains("Unknown @keyframes 'missing'")
     );
+}
+
+#[test]
+fn state_rules_override_timing_longhands_but_not_the_keyframes() {
+    use super::state_override;
+    assert_eq!(
+        state_override("animation-delay", "-1.4s").unwrap().1,
+        "delay:Some(-1400),"
+    );
+    assert_eq!(
+        state_override("animation-direction", "alternate-reverse")
+            .unwrap()
+            .1,
+        "direction:Some((true,true)),"
+    );
+    assert_eq!(
+        state_override("animation-play-state", "paused").unwrap().1,
+        "paused:Some(true),"
+    );
+    assert_eq!(state_override("animation", "none").unwrap().1, "none:true,");
+    for (name, value) in [
+        ("animation-name", "spin"),
+        ("animation", "spin 1s"),
+        ("animation-delay", "1s, 2s"),
+        ("animation-direction", "sideways"),
+    ] {
+        assert!(state_override(name, value).is_err(), "{name}: {value}");
+    }
 }

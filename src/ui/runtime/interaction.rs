@@ -28,6 +28,9 @@ pub(super) struct Interaction {
     pub(super) window_active: bool,
     /// Les bulles suivent le focus clavier plutôt que le pointeur.
     pub(super) tooltip_keyboard: bool,
+    /// Survol figé pendant un défilement sous un pointeur immobile, jusqu'à cet instant
+    /// (voir `UiRuntime::refresh_hover`).
+    pub(super) hover_frozen: Option<Instant>,
 }
 impl Default for Interaction {
     fn default() -> Self {
@@ -49,6 +52,7 @@ impl Default for Interaction {
             layer_focus: LayerFocus::default(),
             window_active: true,
             tooltip_keyboard: false,
+            hover_frozen: None,
         }
     }
 }

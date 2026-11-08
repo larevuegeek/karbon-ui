@@ -92,6 +92,7 @@ fn offset(
         Some(Length::Percent(n)) => reference * n / 100.,
         Some(Length::Computed(n)) => n.evaluate(context, reference, variables),
         Some(Length::Fill(_)) => return Err(invalid("an offset cannot be a fraction")),
+        Some(Length::MaxContent) => return Err(invalid("an offset cannot be max-content")),
     };
     if !n.is_finite() {
         return Err(invalid("non-finite offset"));
@@ -187,6 +188,10 @@ pub(super) fn placed(
             Length::Auto
         };
     }
+    // Hauteur `auto` : celle du contenu, qui peut déborder du bloc conteneur comme en
+    // CSS (une colonne flexible n'est pas rétrécie) ; seule une zone qui défile
+    // verticalement garde la place restante pour borne, afin de défiler.
+    let scrolls = matches!(r.overflow_y, Overflow::Auto | Overflow::Scroll);
     let result = (|| {
         if auto_w {
             node.style.max_width = node.style.max_width.min(
@@ -201,7 +206,7 @@ pub(super) fn placed(
                 .max(node.style.min_width),
             );
         }
-        if auto_h {
+        if auto_h && scrolls {
             node.style.max_height = node.style.max_height.min(
                 (h - top.unwrap_or(0.)
                     - bottom.unwrap_or(0.)

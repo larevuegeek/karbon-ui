@@ -178,6 +178,10 @@ impl Generator {
         {
             let message = self.message(click)?;
             props += &format!("let __ui_node=__ui_node.on_click({message});");
+            if e.name == "button" && e.attr("disabled").is_some() {
+                let disabled = self.disabled(e)?;
+                props += &format!("let __ui_node=__ui_node.disabled({disabled});");
+            }
         } else if e.name == "label"
             && let Some(Attr {
                 value: Value::Text(id),
@@ -213,6 +217,7 @@ impl Generator {
         post += &self.aria_hidden(e)?;
         post += &self.aria_role(e)?;
         post += &self.drag_region(e)?;
+        post += &self.resize_region(e)?;
         if let Some(a) = e.attr("draggable") {
             let value = match &a.value {
                 Value::Expr(t) => self.out.value(t),
@@ -248,6 +253,14 @@ impl Generator {
         if let Some(a) = e.attr("oncontextmenu") {
             let handler = self.message(a)?;
             post += &format!("__ui_el=__ui_el.context_menu({handler});");
+        }
+        if let Some(a) = e.attr("onscroll") {
+            let handler = self.message(a)?;
+            post += &format!("__ui_el=__ui_el.on_scroll({handler});");
+        }
+        if let Some(a) = e.attr("onwheel") {
+            let handler = self.message(a)?;
+            post += &format!("__ui_el=__ui_el.on_wheel({handler});");
         }
         if let Some(a) = e.attr("data-exit") {
             post += &format!("__ui_el=__ui_el.exit_animation({});", self.exit(a)?);

@@ -38,6 +38,10 @@ pub struct BenchmarkOptions {
     /// Pointer position in logical pixels for [`render_preview`] and [`inspect_preview`]:
     /// the page is rendered with this point hovered (`:hover` styles). `None` by default.
     pub pointer: Option<(f32, f32)>,
+    /// Point clicked (press and release, in logical pixels) at the start of the
+    /// `"animation"` phase of [`render_benchmark`], to measure the transition it starts.
+    /// `None` by default: the phase measures the animations already running.
+    pub click: Option<(f32, f32)>,
 }
 impl Default for BenchmarkOptions {
     fn default() -> Self {
@@ -52,6 +56,7 @@ impl Default for BenchmarkOptions {
             theme: crate::ui::theme::Theme::DARK,
             transparent: false,
             pointer: None,
+            click: None,
         }
     }
 }
@@ -71,7 +76,11 @@ pub struct ProcessSample {
 }
 /// Measurements of one benchmark phase (for example a static repaint or a scroll).
 pub struct BenchmarkPhase {
-    /// Phase name, e.g. `"static-repaint"` or `"scroll"`.
+    /// Phase name: `"static-repaint"`, `"scroll"`, `"rebuild"` (view rebuilt every frame),
+    /// `"hover"` (the pointer moves between two rows every frame), `"animation"` (the
+    /// clock advances by one 60 Hz frame per frame, after the optional
+    /// [`BenchmarkOptions::click`]) or `"wheel"` (smooth wheel notches under a resting
+    /// pointer, one every four frames, down then up, on the real clock).
     pub name: &'static str,
     /// Number of measured frames.
     pub frames: usize,
@@ -81,6 +90,13 @@ pub struct BenchmarkPhase {
     pub p95_ms: f64,
     /// Slowest frame time, in milliseconds.
     pub max_ms: f64,
+    /// Median time spent in the UI runtime alone (input event, rebuild, styles,
+    /// layout, scene), rendering and readback excluded, in milliseconds.
+    pub prepare_p50_ms: f64,
+    /// 95th percentile of the UI runtime time, in milliseconds.
+    pub prepare_p95_ms: f64,
+    /// Slowest UI runtime time, in milliseconds.
+    pub prepare_max_ms: f64,
     /// Wall-clock duration of the phase.
     pub wall: Duration,
     /// Process CPU time spent during the phase, in milliseconds.
@@ -97,6 +113,18 @@ pub struct BenchmarkPhase {
     pub layouts: u64,
     /// Number of scene repaints during the phase.
     pub scene_paints: u64,
+    /// Mean time per frame building the view, in milliseconds.
+    pub view_ms: f64,
+    /// Mean time per frame resolving styles, in milliseconds.
+    pub style_ms: f64,
+    /// Mean time per frame in layout, in milliseconds.
+    pub layout_ms: f64,
+    /// Mean time per frame painting the scene, in milliseconds.
+    pub paint_ms: f64,
+    /// Frames after which the runtime asked for the next one (its next wake falls within
+    /// one 60 Hz frame). A running animation keeps it equal to the number of frames in the
+    /// `"animation"` phase; it is zero in the other phases.
+    pub frame_requests: u64,
 }
 /// Result of [`render_benchmark`].
 pub struct BenchmarkReport {
@@ -148,7 +176,7 @@ impl BenchmarkReport {
             if index > 0 {
                 output.push(',');
             }
-            output.push_str(&format!("\n    {{\"name\": \"{}\", \"frames\": {}, \"p50_ms\": {:.3}, \"p95_ms\": {:.3}, \"max_ms\": {:.3}, \"wall_ms\": {:.3}, \"cpu_ms\": {:.3}, \"cpu_one_core_percent\": {:.2}, \"working_set_before_bytes\": {}, \"working_set_after_bytes\": {}, \"private_after_bytes\": {}, \"peak_working_set_bytes\": {}, \"view_rebuilds\": {}, \"layouts\": {}, \"scene_paints\": {}}}",json_string(phase.name),phase.frames,phase.p50_ms,phase.p95_ms,phase.max_ms,phase.wall.as_secs_f64()*1000.,phase.cpu_ms,phase.cpu_one_core_percent,phase.before.working_set_bytes,phase.after.working_set_bytes,phase.after.private_bytes,phase.after.peak_working_set_bytes,phase.view_rebuilds,phase.layouts,phase.scene_paints));
+            output.push_str(&format!("\n    {{\"name\": \"{}\", \"frames\": {}, \"p50_ms\": {:.3}, \"p95_ms\": {:.3}, \"max_ms\": {:.3}, \"prepare_p50_ms\": {:.3}, \"prepare_p95_ms\": {:.3}, \"prepare_max_ms\": {:.3}, \"wall_ms\": {:.3}, \"cpu_ms\": {:.3}, \"cpu_one_core_percent\": {:.2}, \"working_set_before_bytes\": {}, \"working_set_after_bytes\": {}, \"private_after_bytes\": {}, \"peak_working_set_bytes\": {}, \"view_rebuilds\": {}, \"layouts\": {}, \"scene_paints\": {}, \"view_ms\": {:.3}, \"style_ms\": {:.3}, \"layout_ms\": {:.3}, \"paint_ms\": {:.3}, \"frame_requests\": {}}}",json_string(phase.name),phase.frames,phase.p50_ms,phase.p95_ms,phase.max_ms,phase.prepare_p50_ms,phase.prepare_p95_ms,phase.prepare_max_ms,phase.wall.as_secs_f64()*1000.,phase.cpu_ms,phase.cpu_one_core_percent,phase.before.working_set_bytes,phase.after.working_set_bytes,phase.after.private_bytes,phase.after.peak_working_set_bytes,phase.view_rebuilds,phase.layouts,phase.scene_paints,phase.view_ms,phase.style_ms,phase.layout_ms,phase.paint_ms,phase.frame_requests));
         }
         output.push_str(&format!(
             "\n  ],\n  \"title_bar\": {},\n  \"reduced_motion\": {}\n}}\n",
@@ -167,9 +195,10 @@ pub(crate) fn validate(options: BenchmarkOptions) -> crate::Result<()> {
         || !(0.5..=2.).contains(&options.scale)
         || options.width as f64 * options.height as f64 * f64::from(options.scale).powi(2)
             > 16_777_216.
-        || options
-            .pointer
-            .is_some_and(|(x, y)| !x.is_finite() || !y.is_finite())
+        || [options.pointer, options.click]
+            .into_iter()
+            .flatten()
+            .any(|(x, y)| !x.is_finite() || !y.is_finite())
     {
         return Err(crate::Error::invalid_input("invalid benchmark options"));
     }
@@ -204,7 +233,8 @@ pub fn write_png(image: &crate::ui::scene::Image, path: &std::path::Path) -> cra
 /// [`Error::InvalidInput`](crate::Error::InvalidInput) for out-of-range
 /// [`BenchmarkOptions`], any error returned by
 /// [`Application::load`](crate::application::Application::load),
-/// [`Error::Unsupported`](crate::Error::Unsupported) when the application opens windows,
+/// [`Error::Unsupported`](crate::Error::Unsupported) when the application opens windows
+/// (its other window commands are ignored: the simulated window keeps its size),
 /// [`Error::TimedOut`](crate::Error::TimedOut) when its background tasks take more than
 /// ten seconds, and [`Error::Platform`](crate::Error::Platform) when rendering fails.
 pub fn render_preview(
@@ -237,8 +267,10 @@ pub fn inspect_preview<R>(
 /// Render the application offscreen for a fixed number of frames and measure frame
 /// times, CPU and memory.
 ///
-/// Three warm-up frames are rendered first, then a static repaint phase and a scroll
-/// phase of [`BenchmarkOptions::frames`] frames each. On targets without a native backend
+/// Three warm-up frames are rendered first, then static repaint, scroll, rebuild, hover
+/// and animation phases of [`BenchmarkOptions::frames`] frames each. The animation phase
+/// runs on a simulated clock advanced by 16.67 ms per frame (a timer event, then the
+/// frame), as in a window paced by a 60 Hz display. On targets without a native backend
 /// the headless software rasteriser is measured and the [`ProcessSample`] counters are
 /// zero.
 ///
@@ -273,6 +305,10 @@ mod tests {
             },
             BenchmarkOptions {
                 pointer: Some((f32::INFINITY, 0.)),
+                ..Default::default()
+            },
+            BenchmarkOptions {
+                click: Some((0., f32::NAN)),
                 ..Default::default()
             },
             BenchmarkOptions {

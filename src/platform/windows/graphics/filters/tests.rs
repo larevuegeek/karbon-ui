@@ -107,3 +107,51 @@ pub(crate) fn verify_filters(mode: RenderMode) {
 fn software_native_filter_chain_alpha_blur_shadow_nested_groups_dpi_and_cache() {
     verify_filters(RenderMode::Software);
 }
+/// Groupe filtré qui glisse sous un rognage (diapo d'un carrousel) : la partie visible
+/// change à chaque image, la liste n'est pas réenregistrée à chaque fois, et les pixels
+/// restent ceux d'un rendu neuf.
+#[test]
+fn sliding_filter_group_under_clip_is_not_recorded_every_frame() {
+    let mut renderer = Renderer::new(RenderMode::Software).unwrap();
+    let scene = |dx: f32| {
+        let mut scene = Scene::new(Color::rgba(0, 0, 0, 0));
+        scene
+            .commands
+            .push(DrawCommand::PushClip(RectF::new(0., 0., 60., 120.)));
+        scene.commands.push(DrawCommand::PushEffect {
+            transform: Affine::translation(dx, 0.),
+            opacity: 1.,
+            bounds: RectF::new(0., 0., 120., 120.),
+        });
+        scene.commands.extend(
+            filtered(
+                3,
+                RectF::new(40., 40., 30., 30.),
+                Filters::new(&[Filter::Blur(3.)]),
+                Color::rgb(255, 0, 0),
+            )
+            .commands,
+        );
+        scene.commands.push(DrawCommand::PopEffect);
+        scene.commands.push(DrawCommand::PopClip);
+        scene
+    };
+    let records = renderer.filters.records;
+    for step in 0..6 {
+        let frame = scene(-(step as f32) * 4.);
+        let pixels = renderer.render(&frame, 120, 120, 1.).unwrap();
+        let fresh = Renderer::new(RenderMode::Software)
+            .unwrap()
+            .render(&frame, 120, 120, 1.)
+            .unwrap();
+        let worst = pixels
+            .iter()
+            .zip(&fresh)
+            .map(|(a, b)| (*a as i32 - *b as i32).abs())
+            .max()
+            .unwrap();
+        assert!(worst <= 1, "step {step}: pixels differ by {worst}");
+    }
+    // Première image rognée, puis la sortie entière une fois.
+    assert!(renderer.filters.records - records <= 2);
+}

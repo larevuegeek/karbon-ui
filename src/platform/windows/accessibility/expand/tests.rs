@@ -58,7 +58,7 @@ fn snapshot(bridge: &Bridge, expanded: bool) {
         true,
         true,
     );
-    *lock(&bridge.snapshot) = Arc::new(Snapshot { nodes });
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(nodes));
 }
 fn fixture(expanded: bool) -> Arc<Bridge> {
     let bridge = super::super::tests::bridge();
@@ -88,7 +88,7 @@ fn expand_pattern_and_selection_are_canonical_and_track_current_state() {
     let old = lock(&bridge.snapshot).clone();
     let mut nodes = old.nodes.clone();
     Arc::make_mut(&mut nodes[1]).enabled = false;
-    *lock(&bridge.snapshot) = Arc::new(Snapshot { nodes });
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(nodes));
     // SAFETY: interface vivante ; aucun pointeur n'est échangé.
     unsafe {
         assert_eq!(code(expand.Expand()), DISABLED);

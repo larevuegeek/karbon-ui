@@ -5,16 +5,20 @@
 //! fenêtre vue par le pont AT-SPI (`Host`, délégué par la fenêtre de chaque backend).
 use crate::{
     application::ViewContext,
-    platform::linux::{graphics::Renderer, vulkan},
-    task::{TaskCommand, TaskError, TaskExecutor, TaskResult, TaskScope},
+    platform::linux::{
+        graphics::Renderer,
+        portal::{Dialogs, Waker},
+        vulkan,
+    },
+    task::{TaskCommand, TaskError, TaskExecutor, TaskId, TaskResult, TaskScope},
     ui::{
         runtime::{ChromeState, EventResult, UiEvent, UiRuntime},
         theme::Theme,
         title_bar::CaptionButton,
     },
-    window::{WindowId, WindowOptions},
+    window::{FileDialog, WindowId, WindowOptions},
 };
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 
 pub(in crate::platform::linux) struct Session {
     pub id: WindowId,
@@ -26,6 +30,11 @@ pub(in crate::platform::linux) struct Session {
     pub gpu: Option<(vulkan::Renderer, vulkan::Surface)>,
     pub options: WindowOptions,
     scope: TaskScope,
+    /// Dialogues de fichiers ouverts (portail XDG) ; leurs choix sont remis avec les
+    /// résultats des tâches.
+    dialogs: Dialogs,
+    /// Réveil de la boucle depuis un autre thread (tâches, dialogues).
+    wake: Waker,
     /// Taille logique de la surface.
     pub width: i32,
     pub height: i32,
@@ -56,6 +65,8 @@ pub(in crate::platform::linux) struct Session {
     /// Erreur ou panique de l'application pendant une action du lecteur d'écran : la
     /// boucle ferme la fenêtre.
     pub failure: Option<crate::Error>,
+    /// Position, plein écran, bornes de taille (`facts.rs`).
+    pub facts: super::facts::Facts,
 }
 impl Session {
     pub fn new(
@@ -64,6 +75,11 @@ impl Session {
         (runtime, renderer): (UiRuntime, Renderer),
         wake: impl Fn() + Send + Sync + 'static,
     ) -> Self {
+        let wake: Waker = Arc::new(wake);
+        let scope = {
+            let wake = Arc::clone(&wake);
+            TaskScope::new(move || wake())
+        };
         Self {
             id,
             runtime,
@@ -72,7 +88,9 @@ impl Session {
             width: options.width.max(1),
             height: options.height.max(1),
             options,
-            scope: TaskScope::new(wake),
+            scope,
+            dialogs: Dialogs::new(),
+            wake,
             scale: 1.,
             physical: None,
             presented: None,
@@ -87,6 +105,7 @@ impl Session {
             trim_at: None,
             focused: false,
             failure: None,
+            facts: Default::default(),
         }
     }
     /// La barre de titre du moteur est dessinée (pas de décorations du système).
@@ -178,7 +197,15 @@ impl Session {
     pub fn take_window_commands(&mut self) -> Vec<crate::window::WindowCommand> {
         self.runtime.take_window_commands()
     }
-    /// Lance, annule et livre les tâches de fond ; `true` si l'application a changé.
+    /// Montre un dialogue de fichiers (fenêtre parente pour le portail : `x11:<XID>`, ou
+    /// vide) sans bloquer la boucle ; le choix est remis par `tasks`, comme un résultat de
+    /// tâche, après un réveil.
+    pub fn file_dialog(&self, task: TaskId, dialog: FileDialog, parent: String) {
+        self.dialogs
+            .open(task, dialog, parent, Arc::clone(&self.wake));
+    }
+    /// Lance, annule et livre les tâches de fond et les choix des dialogues de fichiers ;
+    /// `true` si l'application a changé.
     pub fn tasks(&mut self, executor: &mut Option<TaskExecutor>) -> bool {
         let mut changed = false;
         loop {
@@ -212,7 +239,7 @@ impl Session {
                     changed |= self.runtime.task_completed(failure);
                 }
             }
-            let Some(result) = self.scope.take_next() else {
+            let Some(result) = self.scope.take_next().or_else(|| self.dialogs.take_next()) else {
                 break;
             };
             changed |= self.runtime.task_completed(result);

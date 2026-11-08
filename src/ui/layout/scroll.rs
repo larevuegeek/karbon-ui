@@ -157,12 +157,22 @@ fn translated(r: RectF, dx: f32, dy: f32) -> RectF {
     }
 }
 // Recalculer le clip depuis les bounds : un élément précédemment invisible peut réapparaître.
-fn translate(node: &mut Element, dx: f32, dy: f32, clip: RectF) {
+pub(crate) fn translate(node: &mut Element, dx: f32, dy: f32, clip: RectF) {
     if layout::fixed(node) {
         return;
     }
     node.rect = translated(node.rect, dx, dy);
     node.clip = layout::node_clip(node, node.rect, clip);
+    // Sous-arbre mémorisé : son dernier placement suit (voir `layout/lazy.rs`).
+    if let Some(a) = node
+        .layout_cache
+        .as_deref_mut()
+        .and_then(|m| m.arranged.as_mut())
+    {
+        a.bounds = translated(a.bounds, dx, dy);
+        a.parent = translated(a.parent, dx, dy);
+        a.clip = clip;
+    }
     node.divider = node.divider.map(|r| translated(r, dx, dy));
     if let Some(s) = &mut node.scroll {
         s.viewport = translated(s.viewport, dx, dy);
@@ -175,7 +185,14 @@ fn translate(node: &mut Element, dx: f32, dy: f32, clip: RectF) {
         layout::child_clip(node, layout::content_rect(node))
     };
     for child in &mut node.children {
-        translate(child, dx, dy, child_clip);
+        // Comme la disposition complète : un enfant hors flux (`absolute`) est rogné à la
+        // boîte de son parent, `padding` compris, pas à sa boîte de contenu.
+        let clip = if layout::position::out_of_flow(child) {
+            node.clip
+        } else {
+            child_clip
+        };
+        translate(child, dx, dy, clip);
     }
 }
 /// Renvoie le déplacement réellement consommé. Les enfants conservent leur mesure.

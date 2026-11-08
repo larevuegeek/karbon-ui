@@ -27,6 +27,29 @@ pub(super) fn arrange_in(
     text: &mut dyn TextMeasurer,
     context: LayoutContext,
 ) -> crate::Result<()> {
+    // Conteneur inchangé depuis l'image précédente : placement repris, ou translaté.
+    if super::memo::cacheable(node) {
+        if let Some(available) = super::memo::stale_descendants(node) {
+            super::measure(node, available, text)?;
+        }
+        if super::lazy::reuse(node, bounds, clip, context) {
+            return Ok(());
+        }
+        let result = arrange_node(node, bounds, clip, text, context);
+        if result.is_ok() {
+            super::lazy::record(node, bounds, clip, context);
+        }
+        return result;
+    }
+    arrange_node(node, bounds, clip, text, context)
+}
+fn arrange_node(
+    node: &mut Element,
+    bounds: RectF,
+    clip: RectF,
+    text: &mut dyn TextMeasurer,
+    context: LayoutContext,
+) -> crate::Result<()> {
     let bounds = super::position::relative(node, bounds, context)?;
     let m = node.style.margin;
     let bounds = RectF::new(
@@ -51,6 +74,13 @@ pub(super) fn arrange_in(
         width: width(area),
         height: height(area),
     };
+    // `content-visibility` : contenu sauté gardé tel quel (dernier placement, ou aucun),
+    // ni peint ni touché ; un contenu disposé retient sa taille (`auto`).
+    node.content_skipped = super::containment::skipped(node);
+    if node.content_skipped {
+        return Ok(());
+    }
+    super::containment::remember(node, size);
     let border = node.border();
     let positioned = node
         .rules

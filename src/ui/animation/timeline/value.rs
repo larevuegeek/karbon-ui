@@ -44,6 +44,8 @@ struct ValueTween<V> {
     start: Instant,
     timing: Transition,
     seen: u64,
+    /// La valeur finale a été rendue (plus rien à échantillonner).
+    done: bool,
 }
 impl<V: Interpolate> ValueTween<V> {
     fn sample(self, now: Instant) -> (V, bool) {
@@ -95,6 +97,14 @@ impl<V: Interpolate> ValueTracks<V> {
     pub(super) fn animating(&self) -> bool {
         self.active
     }
+    /// Éléments dont une transition n'a pas encore rendu sa valeur finale à `now`
+    /// (résolution partielle des styles).
+    pub(crate) fn unsettled(&self, now: Instant) -> impl Iterator<Item = ElementId> + '_ {
+        let _ = now;
+        self.tracks
+            .iter()
+            .filter_map(|((id, _), t)| (!t.done).then_some(*id))
+    }
     /// Valeur affichée pour `target` ; un changement de cible démarre une transition
     /// depuis la valeur courante.
     pub fn sample(
@@ -113,6 +123,7 @@ impl<V: Interpolate> ValueTracks<V> {
             start: now,
             timing,
             seen: epoch,
+            done: false,
         });
         track.seen = epoch;
         if track.to != target {
@@ -123,9 +134,11 @@ impl<V: Interpolate> ValueTracks<V> {
                 start: now,
                 timing,
                 seen: epoch,
+                done: false,
             };
         }
         let (value, running) = track.sample(now);
+        track.done = !running;
         if running {
             self.active = true;
             self.next = earliest(self.next, now.checked_add(FRAME));

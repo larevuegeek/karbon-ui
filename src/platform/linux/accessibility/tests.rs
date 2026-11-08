@@ -38,6 +38,7 @@ fn element(id: u64, role: Role) -> AccessibleElement {
         read_only: false,
         help: String::new(),
         expanded: None,
+        current: None,
     }
 }
 #[test]
@@ -82,6 +83,43 @@ fn states_roles_and_actions_follow_the_element() {
     let [low, _] = tree::element_states(&main);
     assert_eq!(low & 1 << state::SHOWING, 0, "élément défilé hors de vue");
     assert!(tree::attributes(&main).contains(&("xml-roles", "main")));
+}
+#[test]
+fn aria_states_give_toggle_buttons_tabs_and_current_items() {
+    let has = |e: &AccessibleElement, bit: u32| {
+        let set = tree::element_states(e);
+        set[(bit / 32) as usize] & 1 << (bit % 32) != 0
+    };
+    // `aria-pressed` : bouton bascule enfoncé.
+    let mut pin = element(1, Role::Button);
+    pin.invokable = false;
+    pin.choice = Some(ChoiceState::Toggle(CheckState::On));
+    assert_eq!(tree::role(&pin), (62, "toggle button"));
+    assert!(has(&pin, state::PRESSED) && has(&pin, state::CHECKED));
+    assert!(matches!(
+        tree::press(&pin),
+        Some(("toggle", AccessibilityAction::Toggle(_)))
+    ));
+    // `role="tab"` et `aria-selected` : onglet sélectionné, pas coché.
+    let mut tab = element(2, Role::Tab);
+    tab.invokable = false;
+    tab.choice = Some(ChoiceState::Radio(true));
+    assert_eq!(tree::role(&tab), (37, "page tab"));
+    assert_eq!(
+        tree::role(&element(3, Role::TabList)),
+        (38, "page tab list")
+    );
+    assert!(has(&tab, state::SELECTABLE) && has(&tab, state::SELECTED));
+    assert!(!has(&tab, state::CHECKED));
+    assert!(matches!(
+        tree::press(&tab),
+        Some(("click", AccessibilityAction::SelectChoice(_)))
+    ));
+    // `aria-current="page"` : état actif et attribut `current`.
+    let mut link = element(4, Role::Button);
+    link.current = Some(crate::ui::element::CurrentItem::Page);
+    assert!(has(&link, state::ACTIVE));
+    assert!(tree::attributes(&link).contains(&("current", "page")));
 }
 #[test]
 fn text_offsets_are_characters_and_boundaries_follow_words_and_lines() {

@@ -42,14 +42,21 @@ fn scroll_geometry_clamps_reserves_gutter_and_reclips_hidden_children() {
     let mut measure = Measure::default();
     prepare(&mut ui, &mut measure);
     let s = scroll_metrics(&ui, 1);
-    near(s.viewport.left, 10.);
-    near(s.viewport.top, 50.);
-    near(layout::width(s.viewport), 568.);
-    near(s.viewport_size(), 380.);
+    // Comme CSS : la zone visible est la boîte de padding, le padding défile avec le
+    // contenu (étendue 680 + 2 × 10).
+    near(s.viewport.left, 0.);
+    near(s.viewport.top, 40.);
+    near(layout::width(s.viewport), 588.);
+    near(s.viewport_size(), 400.);
     near(s.max_offset(), 300.);
+    near(center(&ui, 3).x, 294.);
+    near(
+        ui.root().unwrap().find(ElementId(3)).unwrap().bounds().top,
+        50.,
+    );
     // La zone sous le viewport n'est pas cliquable.
     assert!(
-        !ui.event(UiEvent::PointerDown(PointF { x: 30., y: 435. }))
+        !ui.event(UiEvent::PointerDown(PointF { x: 30., y: 445. }))
             .capture
     );
     assert!(wheel(&mut ui, PointF { x: 30., y: 70. }, 0., 10000.).handled);
@@ -288,4 +295,150 @@ fn thousand_rows_draw_only_visible_items_without_remeasure_and_release_widgets()
     assert_eq!(live.get(), 2);
     drop(ui);
     assert_eq!(live.get(), 0);
+}
+
+/// Lignes en `overflow: visible` (le cas des gabarits) : leur découpe est celle de toute
+/// la liste, même hors de la vue ; seules celles dont le contenu y entre sont peintes.
+#[test]
+fn rows_with_visible_overflow_outside_the_viewport_are_not_painted() {
+    let painted = Rc::new(Cell::new(0));
+    let mut ui = {
+        let painted = painted.clone();
+        view_runtime(move || {
+            let visible = |mut node: Element| {
+                let rules = node.layout_rules();
+                rules.overflow_x = Overflow::Visible;
+                rules.overflow_y = Overflow::Visible;
+                node
+            };
+            let rows = (0..200u64)
+                .map(|i| {
+                    let text = Element::custom(
+                        1000 + i,
+                        TrackedText {
+                            live: Rc::new(Cell::new(1)),
+                            painted: painted.clone(),
+                        },
+                    );
+                    visible(Element::row(
+                        100 + i,
+                        vec![visible(Element::column(2000 + i, vec![text]))],
+                    ))
+                    .height(Length::Px(32.))
+                })
+                .collect();
+            Element::scroll(1, Axis::Vertical, visible(Element::column(2, rows)))
+        })
+    };
+    let mut m = Measure::default();
+    prepare(&mut ui, &mut m);
+    assert!(painted.get() <= 14, "{}", painted.get());
+    let row = ui.root().unwrap().find(ElementId(150)).unwrap();
+    assert!(
+        layout::height(row.clip) > 0.,
+        "la découpe de la ligne reste celle de la liste"
+    );
+    for _ in 0..20 {
+        painted.set(0);
+        wheel(&mut ui, PointF { x: 20., y: 70. }, 0., 96.);
+        prepare(&mut ui, &mut m);
+        assert!((1..=14).contains(&painted.get()), "{}", painted.get());
+        assert!(
+            ui.scene().commands.len() < 200,
+            "{}",
+            ui.scene().commands.len()
+        );
+    }
+}
+
+#[test]
+fn scrolling_keeps_absolute_children_clipped_to_the_padding_box() {
+    // `absolute inset-0` dans une carte avec `padding` (fond flouté d'une carte) : après
+    // un défilement, il reste rogné à la carte entière, pas à sa boîte de contenu.
+    let mut ui = view_runtime(|| {
+        let mut layer = Element::column(4, vec![]);
+        let rules = layer.layout_rules();
+        rules.position = Position::Absolute;
+        rules.offsets = [Some(Length::Px(0.)); 4];
+        let mut card = Element::column(3, vec![layer])
+            .height(Length::Px(200.))
+            .padding(20.);
+        card.layout_rules().position = Position::Relative;
+        Element::scroll(
+            1,
+            Axis::Vertical,
+            Element::column(
+                2,
+                vec![
+                    box_node(5, Length::Fill(1.), Length::Px(100.)),
+                    card,
+                    box_node(6, Length::Fill(1.), Length::Px(900.)),
+                ],
+            ),
+        )
+    });
+    let mut measure = Measure::default();
+    prepare(&mut ui, &mut measure);
+    let check = |ui: &UiRuntime| {
+        let root = ui.root().unwrap();
+        let card = root.find(ElementId(3)).unwrap().rect;
+        let layer = root.find(ElementId(4)).unwrap();
+        for (actual, expected) in [
+            (layer.clip.left, card.left),
+            (layer.clip.top, card.top),
+            (layer.clip.right, card.right),
+            (layer.clip.bottom, card.bottom),
+        ] {
+            near(actual, expected);
+        }
+    };
+    check(&ui);
+    let p = center(&ui, 5);
+    assert!(wheel(&mut ui, p, 0., 40.).handled);
+    near(scroll_metrics(&ui, 1).offset, 40.);
+    check(&ui);
+}
+
+#[test]
+fn on_scroll_reports_the_new_geometry_after_each_move() {
+    // `onscroll` : chaque déplacement réel émet la géométrie à jour (chargement de la
+    // page suivante près de la fin) ; un déplacement nul (butée) n'émet rien.
+    struct ScrollApp(Rc<std::cell::RefCell<Vec<(f32, f32)>>>);
+    impl Application for ScrollApp {
+        type Message = Msg;
+        fn view(&self, _: &ViewContext) -> Element {
+            Element::scroll(
+                1,
+                Axis::Vertical,
+                Element::column(2, vec![box_node(3, Length::Fill(1.), Length::Px(1000.))]),
+            )
+            .on_scroll(|s| Msg::Commit(1, f64::from(s.offset) + 1e4 * f64::from(s.max_offset())))
+        }
+        fn update(&mut self, message: Msg) -> bool {
+            if let Msg::Commit(1, v) = message {
+                let max = (v / 1e4).floor();
+                self.0
+                    .borrow_mut()
+                    .push(((v - max * 1e4) as f32, max as f32));
+            }
+            false
+        }
+    }
+    let seen = Rc::new(std::cell::RefCell::new(vec![]));
+    let mut ui = UiRuntime::new(ScrollApp(seen.clone()), &NoResources).unwrap();
+    let mut measure = Measure::default();
+    prepare(&mut ui, &mut measure);
+    let max = scroll_metrics(&ui, 1).max_offset();
+    let p = PointF { x: 30., y: 70. };
+    wheel(&mut ui, p, 0., 120.);
+    wheel(&mut ui, p, 0., 30.);
+    wheel(&mut ui, p, 0., -1000.);
+    // Déjà en haut : rien ne bouge, rien n'est émis.
+    wheel(&mut ui, p, 0., -10.);
+    let seen = seen.borrow();
+    assert_eq!(seen.len(), 3);
+    for ((offset, m), expected) in seen.iter().zip([120., 150., 0.]) {
+        near(*offset, expected);
+        near(*m, max);
+    }
 }

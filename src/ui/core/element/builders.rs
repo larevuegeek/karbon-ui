@@ -25,14 +25,22 @@ impl Element {
             scroll_offset: 0.,
             virtual_list: None,
             context_menu: None,
+            on_scroll: None,
+            on_wheel: None,
+            memo: None,
+            layout_cache: None,
+            layout_bits: 0,
+            content_skipped: false,
             tooltip: None,
             surface_style: None,
             drag_source: None,
             drop_target: None,
             skip_tab: false,
             semantics_hidden: false,
-            drag_region: false,
+            drag_region: None,
+            resize_region: None,
             expanded: None,
+            aria: Default::default(),
         }
     }
     /// Declare whether the popup this element opens is shown, like HTML `aria-expanded`;
@@ -53,7 +61,38 @@ impl Element {
     /// field, slider or other interactive target starts a native move, and a double
     /// click maximizes or restores the window. Used by custom title bars.
     pub fn drag_region(mut self, enabled: bool) -> Self {
-        self.drag_region = enabled;
+        if enabled {
+            self.drag_region = Some(true);
+        } else if self.drag_region == Some(true) {
+            self.drag_region = None;
+        }
+        self
+    }
+    /// Exclude this element and its subtree from an enclosing
+    /// [`drag_region`](Self::drag_region) (`true`), like `data-no-drag` in templates or
+    /// `-webkit-app-region: no-drag`: pressing there does not move the window, even on
+    /// a non-interactive area. A drag region nested inside it moves the window again.
+    pub fn no_drag(mut self, enabled: bool) -> Self {
+        if enabled {
+            self.drag_region = Some(false);
+        } else if self.drag_region == Some(false) {
+            self.drag_region = None;
+        }
+        self
+    }
+    /// Let the user resize the window from this element, as from the window's `edge`
+    /// (`data-resize-region="bottom-right"` in templates): pressing anywhere in its
+    /// subtree that is not an interactive target starts a resize gesture, even when the
+    /// window is not [`Resizable`](crate::window::WindowChange::Resizable). The window
+    /// follows the pointer within its
+    /// [`MinSize`](crate::window::WindowChange::MinSize),
+    /// [`MaxSize`](crate::window::WindowChange::MaxSize) and
+    /// [`AspectRatio`](crate::window::WindowChange::AspectRatio) (a corner follows the
+    /// larger of the two pointer moves); it takes precedence over an enclosing
+    /// [`drag_region`](Self::drag_region). Used for the corner grip of a frameless
+    /// window; give it its own cursor (`cursor: nwse-resize`).
+    pub fn resize_region(mut self, edge: crate::window::ResizeEdge) -> Self {
+        self.resize_region = Some(edge);
         self
     }
     /// Keep (`true`, the default) or remove (`false`) this element from keyboard
@@ -105,6 +144,17 @@ impl Element {
         handler: impl Fn(crate::ui::popover::ContextMenuRequest) -> M + 'static,
     ) -> Self {
         self.context_menu = Some(Box::new(Handler::new(handler)));
+        self
+    }
+
+    /// Report every scroll of this container (`overflow: auto | scroll`): `handler`
+    /// receives the new geometry and turns it into a message, like the DOM `scroll`
+    /// event. Typical use: load the next page when the offset nears `max_offset()`.
+    pub fn on_scroll<M: 'static>(
+        mut self,
+        handler: impl Fn(crate::ui::scroll::ScrollMetrics) -> M + 'static,
+    ) -> Self {
+        self.on_scroll = Some(Box::new(Handler::new(handler)));
         self
     }
 

@@ -102,6 +102,8 @@ impl Tree {
 pub(super) fn role(e: &AccessibleElement) -> (u32, &'static str) {
     match e.role {
         Role::Text => (29, "label"),
+        // Bouton à `aria-pressed` : bouton bascule, comme dans les navigateurs.
+        Role::Button if matches!(e.choice, Some(ChoiceState::Toggle(_))) => (62, "toggle button"),
         Role::Button => (43, "push button"),
         Role::Separator => (50, "separator"),
         Role::ScrollArea => (49, "scroll pane"),
@@ -118,6 +120,12 @@ pub(super) fn role(e: &AccessibleElement) -> (u32, &'static str) {
         Role::Dialog => (16, "dialog"),
         Role::Popover => (39, "panel"),
         Role::Menu => (41, "popup menu"),
+        Role::MenuItem if matches!(e.choice, Some(ChoiceState::Radio(_))) => {
+            (45, "radio menu item")
+        }
+        Role::MenuItem if matches!(e.choice, Some(ChoiceState::Toggle(_))) => {
+            (8, "check menu item")
+        }
         Role::MenuItem => (35, "menu item"),
         Role::Link => (88, "link"),
         Role::Image => (27, "image"),
@@ -127,7 +135,9 @@ pub(super) fn role(e: &AccessibleElement) -> (u32, &'static str) {
         Role::Main | Role::Navigation | Role::Complementary => (110, "landmark"),
         Role::Banner => (71, "header"),
         Role::ContentInfo => (72, "footer"),
-        Role::Custom => (39, "panel"),
+        Role::Tab => (37, "page tab"),
+        Role::TabList => (38, "page tab list"),
+        Role::TabPanel | Role::Custom => (39, "panel"),
     }
 }
 pub(super) const ROLE_APPLICATION: (u32, &str) = (75, "application");
@@ -147,7 +157,10 @@ pub(super) mod state {
     pub const HORIZONTAL: u32 = 14;
     pub const MODAL: u32 = 16;
     pub const MULTI_LINE: u32 = 17;
+    pub const PRESSED: u32 = 20;
     pub const RESIZABLE: u32 = 21;
+    pub const SELECTABLE: u32 = 22;
+    pub const SELECTED: u32 = 23;
     pub const SENSITIVE: u32 = 24;
     pub const SHOWING: u32 = 25;
     pub const SINGLE_LINE: u32 = 26;
@@ -187,7 +200,17 @@ pub(super) fn element_states(e: &AccessibleElement) -> [u32; 2] {
         bits.push(HAS_TOOLTIP);
     }
     match e.choice {
+        // Onglet ou option (`aria-selected`) : sélectionnable plutôt que cochable.
+        Some(ChoiceState::Radio(on)) if matches!(e.role, Role::Tab | Role::ListItem) => {
+            bits.push(SELECTABLE);
+            if on {
+                bits.push(SELECTED);
+            }
+        }
         Some(ChoiceState::Toggle(s)) => {
+            if e.role == Role::Button && s == CheckState::On {
+                bits.push(PRESSED);
+            }
             bits.push(CHECKABLE);
             match s {
                 CheckState::On => bits.push(CHECKED),
@@ -235,9 +258,14 @@ pub(super) fn element_states(e: &AccessibleElement) -> [u32; 2] {
     if e.role == Role::Dialog {
         bits.push(MODAL);
     }
+    // `aria-current` : élément actif de son ensemble, comme Chromium.
+    if e.current.is_some() {
+        bits.push(ACTIVE);
+    }
     states(&bits)
 }
-/// Attributs d'un élément : repères de page (`xml-roles`, lus par Orca).
+/// Attributs d'un élément : repères de page (`xml-roles`, lus par Orca) et `aria-current`
+/// (`current`).
 pub(super) fn attributes(e: &AccessibleElement) -> Vec<(&'static str, &'static str)> {
     let landmark = match e.role {
         Role::Main => Some("main"),
@@ -251,6 +279,9 @@ pub(super) fn attributes(e: &AccessibleElement) -> Vec<(&'static str, &'static s
     if let Some(role) = landmark {
         out.push(("xml-roles", role));
     }
+    if let Some(current) = e.current {
+        out.push(("current", current.token()));
+    }
     out
 }
 /// Action d'un appui selon le rôle, et son nom AT-SPI.
@@ -260,7 +291,13 @@ pub(super) fn press(e: &AccessibleElement) -> Option<(&'static str, Accessibilit
     }
     Some(match e.role {
         Role::Checkbox | Role::Switch => ("toggle", AccessibilityAction::Toggle(e.id)),
-        Role::RadioButton => ("click", AccessibilityAction::SelectChoice(e.id)),
+        Role::RadioButton | Role::Tab => ("click", AccessibilityAction::SelectChoice(e.id)),
+        _ if matches!(e.choice, Some(ChoiceState::Toggle(_))) => {
+            ("toggle", AccessibilityAction::Toggle(e.id))
+        }
+        _ if matches!(e.choice, Some(ChoiceState::Radio(_))) => {
+            ("click", AccessibilityAction::SelectChoice(e.id))
+        }
         Role::Select => (
             "press",
             AccessibilityAction::ExpandSelect {

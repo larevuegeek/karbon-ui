@@ -76,6 +76,9 @@ pub(crate) fn settle_tasks(
     }
 }
 
+/// Pas de l'horloge simulée de la phase d'animation (60 Hz).
+const ANIMATION_FRAME: Duration = Duration::from_nanos(16_666_667);
+
 /// Moteur, runtime chargé et contexte de vue d'une session hors écran.
 struct Session<O> {
     // Ordre de destruction : runtime, ouvriers, puis moteur (comme les variables locales
@@ -104,10 +107,18 @@ impl<O: Offscreen> Session<O> {
             &mut workers,
             Duration::from_secs(10),
             "benchmark loading",
-            |_| {
-                Err(crate::Error::Unsupported {
-                    reason: "benchmarks and previews cannot open windows",
-                })
+            // La fenêtre simulée ne change pas (taille, position, état) et ne se ferme
+            // pas : seules les ouvertures sont refusées.
+            |requested| {
+                if requested
+                    .iter()
+                    .any(|command| matches!(command, WindowCommand::Open(_)))
+                {
+                    return Err(crate::Error::Unsupported {
+                        reason: "benchmarks and previews cannot open windows",
+                    });
+                }
+                Ok(())
             },
         )?;
         let context = ViewContext {
@@ -140,6 +151,11 @@ impl<O: Offscreen> Session<O> {
         self.ui
             .prepare(self.context, self.chrome, &mut self.offscreen)
     }
+    /// Image préparée à l'instant `now` d'une horloge simulée (phase d'animation).
+    fn prepare_at(&mut self, now: Instant) -> crate::Result<()> {
+        self.ui
+            .prepare_at(self.context, self.chrome, &mut self.offscreen, now)
+    }
     /// Première image, puis le pointeur posé à `pointer` (styles `:hover`) si demandé.
     fn prepare_preview(&mut self, pointer: Option<(f32, f32)>) -> crate::Result<()> {
         self.prepare()?;
@@ -158,7 +174,12 @@ impl<O: Offscreen> Session<O> {
 }
 
 /// Protocole `offscreen-prepare-render-readback-v1` : trois images de chauffe, puis une
-/// phase de repeinture statique et une phase de défilement.
+/// phase de repeinture statique, une phase de défilement, une phase de reconstruction
+/// (la vue redemandée à chaque image, comme sous une horloge de lecture) et une phase de
+/// survol (le pointeur passe d'une ligne à l'autre à chaque image), enfin une phase
+/// d'animation sur une horloge simulée (le clic `options.click`, puis une image de 60 Hz
+/// par image mesurée) et une phase de molette (crans de défilement doux sous un pointeur
+/// posé sur le contenu, à l'heure réelle).
 pub(crate) fn render_benchmark<B: Backend>(
     options: BenchmarkOptions,
     application: Box<dyn DynApplication>,
@@ -182,13 +203,83 @@ pub(crate) fn render_benchmark<B: Backend>(
     }
     let initialization = start.elapsed();
     let mut phases = Vec::new();
-    for (name, scroll) in [("static-repaint", false), ("scroll", true)] {
+    for (name, scroll, rebuild, hover, animation, wheel) in [
+        ("static-repaint", false, false, false, false, false),
+        ("scroll", true, false, false, false, false),
+        ("rebuild", false, true, false, false, false),
+        ("hover", false, false, true, false, false),
+        ("animation", false, false, false, true, false),
+        ("wheel", false, false, false, false, true),
+    ] {
         let counters = session.ui.stats();
         let before = B::process_sample()?;
         let start = Instant::now();
         let mut timings = Vec::with_capacity(options.frames);
+        let mut prepares = Vec::with_capacity(options.frames);
+        // Horloge simulée de la phase d'animation : une image de 60 Hz par image mesurée,
+        // le réveil puis la préparation, comme une fenêtre cadencée par l'écran. Le temps
+        // de calcul ne décale pas l'échantillonnage : chaque image avance d'un pas constant.
+        let mut clock = Instant::now();
+        let mut frame_requests = 0;
         for index in 0..options.frames {
             let frame = Instant::now();
+            if animation {
+                if index == 0
+                    && let Some((x, y)) = options.click
+                {
+                    let point = PointF { x, y };
+                    session.ui.event(UiEvent::PointerMove(point));
+                    session.ui.event(UiEvent::PointerDown(point));
+                    session.ui.event(UiEvent::PointerUp(point));
+                }
+                clock += ANIMATION_FRAME;
+                session.ui.event(UiEvent::Timer(clock));
+                session.prepare_at(clock)?;
+                if session
+                    .ui
+                    .next_wake()
+                    .is_some_and(|wake| wake <= clock + ANIMATION_FRAME)
+                {
+                    frame_requests += 1;
+                }
+            }
+            if wheel {
+                // Molette sous un pointeur posé sur le contenu : un cran toutes les quatre
+                // images (15 crans par seconde), vers le bas la première moitié de la phase
+                // puis vers le haut. L'horloge suit l'heure réelle, comme une fenêtre
+                // réveillée par l'écran : une image lente décale les suivantes.
+                let point = PointF {
+                    x: options.width as f32 * 0.7,
+                    y: options.height as f32 * 0.4,
+                };
+                if index == 0 {
+                    session.ui.event(UiEvent::PointerMove(point));
+                }
+                if index % 4 == 0 {
+                    session.ui.event(UiEvent::Wheel {
+                        position: point,
+                        delta_x: 0.,
+                        delta_y: if index < options.frames / 2 {
+                            100.
+                        } else {
+                            -100.
+                        },
+                    });
+                }
+                clock = (clock + ANIMATION_FRAME).max(Instant::now());
+                session.ui.event(UiEvent::Timer(clock));
+                session.prepare_at(clock)?;
+            }
+            if rebuild {
+                session.ui.invalidate();
+            }
+            if hover {
+                // Le pointeur passe d'une ligne à l'autre (60 unités plus bas).
+                session.ui.event(UiEvent::PointerMove(PointF {
+                    x: options.width as f32 * 0.7,
+                    y: options.height as f32 * 0.4 + if index % 2 == 0 { 0. } else { 60. },
+                }));
+            }
             if scroll {
                 session.ui.event(UiEvent::Scroll {
                     position: PointF {
@@ -199,16 +290,21 @@ pub(crate) fn render_benchmark<B: Backend>(
                     delta_y: if (index / 8) % 2 == 0 { 24. } else { -24. },
                 });
             }
-            session.prepare()?;
+            if !animation && !wheel {
+                session.prepare()?;
+            }
+            prepares.push(frame.elapsed().as_secs_f64() * 1000.);
             drop(session.render(options.scale)?);
             timings.push(frame.elapsed().as_secs_f64() * 1000.);
         }
         let wall = start.elapsed();
         let after = B::process_sample()?;
         timings.sort_by(f64::total_cmp);
-        let percentile = |fraction: f64| {
-            timings[((timings.len() as f64 * fraction).ceil() as usize).saturating_sub(1)]
-        };
+        prepares.sort_by(f64::total_cmp);
+        let rank =
+            |fraction: f64| ((options.frames as f64 * fraction).ceil() as usize).saturating_sub(1);
+        let percentile = |fraction: f64| timings[rank(fraction)];
+        let mean = |d: std::time::Duration| d.as_secs_f64() * 1000. / options.frames as f64;
         let cpu_ms = after.cpu_100ns.saturating_sub(before.cpu_100ns) as f64 / 10_000.;
         let next = session.ui.stats();
         phases.push(BenchmarkPhase {
@@ -217,6 +313,9 @@ pub(crate) fn render_benchmark<B: Backend>(
             p50_ms: percentile(0.5),
             p95_ms: percentile(0.95),
             max_ms: *timings.last().unwrap(),
+            prepare_p50_ms: prepares[rank(0.5)],
+            prepare_p95_ms: prepares[rank(0.95)],
+            prepare_max_ms: *prepares.last().unwrap(),
             wall,
             cpu_ms,
             cpu_one_core_percent: cpu_ms / wall.as_secs_f64().max(f64::EPSILON) / 10.,
@@ -225,6 +324,11 @@ pub(crate) fn render_benchmark<B: Backend>(
             view_rebuilds: next.views - counters.views,
             layouts: next.layouts - counters.layouts,
             scene_paints: next.paints - counters.paints,
+            view_ms: mean(next.view_time - counters.view_time),
+            style_ms: mean(next.style_time - counters.style_time),
+            layout_ms: mean(next.layout_time - counters.layout_time),
+            paint_ms: mean(next.paint_time - counters.paint_time),
+            frame_requests,
         });
     }
     Ok(BenchmarkReport {

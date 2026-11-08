@@ -7,6 +7,8 @@ pub(super) fn state_properties(props: &[(String, String)]) -> std::result::Resul
     let mut layout = String::new();
     let mut expressions: [Option<&str>; 4] = [None; 4];
     let mut custom = Vec::new();
+    // Réglages d'animation d'une règle d'état : un champ pour tous les longhands.
+    let mut animation = Vec::new();
     let (mut transform, mut opacity) = (None, None);
     let mut edges: [Option<String>; 4] = Default::default();
     let mut edge_colors: [Option<String>; 4] = Default::default();
@@ -44,6 +46,10 @@ pub(super) fn state_properties(props: &[(String, String)]) -> std::result::Resul
         }
         if name == "custom_property" {
             custom.push(value.as_str());
+            continue;
+        }
+        if name == "animation_override" {
+            animation.push(value.as_str());
             continue;
         }
         if name == "dynamic_declarations" {
@@ -133,6 +139,9 @@ pub(super) fn state_properties(props: &[(String, String)]) -> std::result::Resul
             "text_clip" => ("text_clip", value.clone(), false),
             "cursor" => ("cursor", value.clone(), false),
             "padding" => ("padding", format!("cx.insets({value})"), false),
+            // `motion-reduce:transition-none`, `.x:hover { transition: … }` : remplace la
+            // transition de l'élément tant que la règle s'applique.
+            "transition" => ("transition", value.clone(), false),
             _ => {
                 return Err(format!(
                     "State property '{name}' has no native state resolver yet"
@@ -144,6 +153,12 @@ pub(super) fn state_properties(props: &[(String, String)]) -> std::result::Resul
     }
     if !custom.is_empty() {
         fields += &format!("custom:Some(const{{&[{}]}}),", custom.join(","));
+    }
+    if !animation.is_empty() {
+        fields += &format!(
+            "animation:__ui_root::ui::animation::AnimationOverride{{{}..Default::default()}},",
+            animation.concat()
+        );
     }
     let array = |values: &[Option<String>; 4]| {
         values

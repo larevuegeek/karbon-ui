@@ -188,10 +188,16 @@ pub(in crate::css) fn add_rule(
             continue;
         }
         if d.name == "animation" || d.name.starts_with("animation-") {
-            if selected.predicate.is_some() {
-                return Err(error(
-                    "State-dependent keyframe replacement is not implemented".into(),
-                ));
+            if let Some(predicate) = &selected.predicate {
+                // `.pause .piste { animation-play-state: paused }`, `.piste.inverse {
+                // animation-direction: reverse }` : réglages remplacés pendant la règle ;
+                // changer les étapes (`animation-name`, raccourci) selon l'état reste refusé.
+                let props = vec![animation::state_override(&d.name, &value).map_err(error)?];
+                state_properties(&props).map_err(error)?;
+                class
+                    .state_props
+                    .push((predicate.clone(), props, *declaration_order));
+                continue;
             }
             animation::declaration(&d.name, &value, &mut class.animation).map_err(error)?;
             continue;

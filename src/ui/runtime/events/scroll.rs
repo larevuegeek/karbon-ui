@@ -11,6 +11,10 @@ impl UiRuntime {
         if self.has_capture() || !delta_x.is_finite() || !delta_y.is_finite() {
             return false;
         }
+        // `onwheel` (runtime/wheel.rs) : un message rendu consomme l'événement.
+        if self.wheel_handlers(position, delta_x, delta_y, result) {
+            return true;
+        }
         let hit = self.hit(position);
         // Champ multiligne sous le pointeur : son texte défile d'abord.
         if let Some(Hit::Input(id)) = hit {
@@ -36,7 +40,15 @@ impl UiRuntime {
             } else {
                 &mut delta_y
             };
-            let consumed = self.scroll_to(id, s.offset + *delta);
+            // Cran de molette : glissement doux ; défilement précis : immédiat.
+            let consumed = if self.components.scrolls.wheel_smooth {
+                self.smooth_scroll_by(id, *delta)
+            } else {
+                if self.components.scrolls.smooth.is_some_and(|m| m.id == id) {
+                    self.components.scrolls.smooth = None;
+                }
+                self.scroll_to(id, s.offset + *delta)
+            };
             *delta -= consumed;
             result.handled |= consumed != 0.;
             if contain {
@@ -44,7 +56,7 @@ impl UiRuntime {
                 result.handled = true;
             }
         }
-        self.interaction.hovered = self.hit(position);
+        self.refresh_hover();
 
         true
     }

@@ -227,7 +227,7 @@ pub fn events(kind: Kind, input: Option<&str>) -> Vec<&'static str> {
         (Kind::Container(Some("Group")), _) => vec!["onclick", "onsubmit"],
         _ => vec!["onclick"],
     };
-    list.extend(["oncontextmenu", "ondrop"]);
+    list.extend(["oncontextmenu", "ondrop", "onscroll", "onwheel"]);
     list
 }
 pub const EVENTS: &[&str] = &[
@@ -237,6 +237,8 @@ pub const EVENTS: &[&str] = &[
     "onclose",
     "oncontextmenu",
     "ondrop",
+    "onscroll",
+    "onwheel",
     "onsubmit",
     "onkeydown",
 ];
@@ -251,6 +253,10 @@ pub const COMMON: &[&str] = &[
     "aria-hidden",
     "aria-expanded",
     "aria-haspopup",
+    "aria-pressed",
+    "aria-checked",
+    "aria-selected",
+    "aria-current",
     "role",
     "tabindex",
     "draggable",

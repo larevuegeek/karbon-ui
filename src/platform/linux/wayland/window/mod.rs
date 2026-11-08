@@ -2,6 +2,7 @@
 //! échelle (fractionnaire par `wp_fractional_scale` ou entière), runtime de
 //! l'application, renderers (Vulkan par défaut, Cairo en repli) et tâches de fond.
 mod access;
+mod change;
 mod paint;
 
 use super::{
@@ -224,7 +225,10 @@ impl Window {
             self.session
                 .runtime
                 .set_live_resize(states.contains(&STATE_RESIZING));
+            self.session.facts.fullscreen = states.contains(&STATE_FULLSCREEN);
+            self.session.facts.dragging = states.contains(&STATE_RESIZING);
             self.suspended = states.contains(&STATE_SUSPENDED);
+            self.session.facts.minimized = self.suspended;
             if self.suspended {
                 self.hidden();
             }

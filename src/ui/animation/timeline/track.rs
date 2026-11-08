@@ -64,12 +64,12 @@ impl Clock {
     /// Met en pause ou reprend les membres dont `animation-play-state` a changé.
     pub(super) fn update(&mut self, animation: Animation, now: Instant) {
         let members = animation.members();
-        if self.pauses.is_empty() && members.iter().all(|m| !m.paused) {
+        if self.pauses.is_empty() && members.iter().all(|m| !animation.member_paused(m)) {
             return;
         }
         self.pauses.resize(members.len(), Pause::default());
         for (pause, member) in self.pauses.iter_mut().zip(members) {
-            match (pause.since, member.paused) {
+            match (pause.since, animation.member_paused(member)) {
                 (None, true) => pause.since = Some(now),
                 (Some(since), false) => {
                     pause.total += now.saturating_duration_since(since);
@@ -113,8 +113,9 @@ impl Clock {
 }
 /// Effet de l'animation (de ses membres) à `now` et prochain réveil ; `clock` à `None`
 /// donne l'état final (mouvements réduits). Les propriétés d'un membre plus loin dans la
-/// liste remplacent celles des précédents ; un membre qui anime une couleur demande ses
-/// images même si son effet est constant (couleurs échantillonnées avec les styles).
+/// liste remplacent celles des précédents ; un membre qui anime une couleur ou une
+/// dimension demande ses images même si son effet est constant (valeurs échantillonnées
+/// avec les styles).
 pub(super) fn animation_sample(
     a: Animation,
     clock: Option<(&Clock, Instant)>,
@@ -126,7 +127,7 @@ pub(super) fn animation_sample(
         let offset = a.offset(m);
         let elapsed = clock.map(|(c, now)| c.elapsed(index, offset, now));
         let (t, due) = m.progress(elapsed);
-        let mut wake = m.animates_colors();
+        let mut wake = m.animates_styles();
         if m.properties & property::EFFECTS != 0 {
             let value = match m.constant_effect() {
                 Some(v) if m.fill == FillMode::Both || v == Effect::NONE => Some(v),
@@ -153,7 +154,7 @@ pub(super) fn animation_sample(
         }
         if let Some((c, now)) = clock
             && wake
-            && !m.paused
+            && !a.member_paused(m)
         {
             next = earliest(next, c.due(index, offset, due, now));
         }
@@ -170,10 +171,18 @@ pub(super) struct Track {
     pub(super) visible: bool,
     pub(super) seen: u64,
 }
+/// Valeurs qu'une piste anime encore, échantillonnées avec les styles.
+#[derive(Clone, Copy, Default)]
+pub(super) struct Styled {
+    /// Couleurs ou dimensions : résolution des styles à chaque image.
+    pub(super) styles: bool,
+    /// Dimensions : layout à chaque image.
+    pub(super) sizes: bool,
+}
 impl Track {
-    /// Échantillonne la piste ; renvoie le prochain réveil et si l'animation de l'élément
-    /// anime encore des couleurs (résolution des styles à chaque image).
-    pub(super) fn sample(&mut self, now: Instant, reduced: bool) -> (Option<Instant>, bool) {
+    /// Échantillonne la piste ; renvoie le prochain réveil et ce que l'animation de
+    /// l'élément anime encore avec les styles (couleurs, dimensions).
+    pub(super) fn sample(&mut self, now: Instant, reduced: bool) -> (Option<Instant>, Styled) {
         let mut next = None;
         if reduced {
             self.base = self.target;
@@ -186,16 +195,20 @@ impl Track {
                 self.tween = None;
             }
         }
-        let mut colors = false;
+        let mut styled = Styled::default();
         let entry = self.spec.animation.map_or(Effect::NONE, |a| {
             let clock = (!reduced).then_some((&self.clock, now));
             let (effect, due) = animation_sample(a, clock);
-            colors = due.is_some() && a.animates_colors();
+            styled.styles = due.is_some() && a.animates_styles();
+            styled.sizes = due.is_some() && a.animates_sizes();
             next = earliest(next, due);
             effect
         });
         self.value = self.base.combine(entry);
         let visible = self.visible && !reduced;
-        (next.filter(|_| visible), colors && visible)
+        if !visible {
+            styled = Styled::default();
+        }
+        (next.filter(|_| visible), styled)
     }
 }

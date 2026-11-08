@@ -94,6 +94,7 @@ impl Session {
                 }
                 startup::mark("window shown");
             }
+            super::change::notify(window);
             Ok(())
         };
         if let Err(error) = initialize() {
@@ -131,6 +132,15 @@ impl Session {
                         super::actions::execute_action(window, action);
                     }
                 }
+                WindowCommand::Change(id, change) => {
+                    if let Some((window, _)) = state::windows()
+                        .into_iter()
+                        .find(|(_, candidate)| *candidate == id)
+                    {
+                        let _scope = state::enter(window);
+                        super::change::execute(window, change)?;
+                    }
+                }
                 WindowCommand::Close(id) => {
                     if let Some((window, _)) = state::windows()
                         .into_iter()
@@ -140,6 +150,26 @@ impl Session {
                         unsafe {
                             DestroyWindow(window);
                         }
+                    }
+                }
+                WindowCommand::FileDialog(id, task, dialog) => {
+                    if let Some((window, _)) = state::windows()
+                        .into_iter()
+                        .find(|(_, candidate)| *candidate == id)
+                    {
+                        let result = match super::dialog::show(window, &dialog) {
+                            Ok(paths) => crate::task::TaskResult::success(
+                                task,
+                                crate::window::FileDialogResult { paths },
+                            ),
+                            Err(error) => crate::task::TaskResult::failure(
+                                task,
+                                crate::task::TaskError::StartFailed(error.to_string()),
+                            ),
+                        };
+                        let _scope = state::enter(window);
+                        runtime::complete_task(window, result);
+                        tasks::defer_commands();
                     }
                 }
                 WindowCommand::Exit => {

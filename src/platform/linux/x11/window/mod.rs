@@ -7,6 +7,7 @@
 //! Décorations : avec `title_bar`, le gestionnaire dessine la barre de titre (la barre du
 //! moteur reste masquée) ; sans, la fenêtre demande à n'en avoir aucune (`_MOTIF_WM_HINTS`),
 //! comme une fenêtre sans cadre.
+mod change;
 mod paint;
 
 use super::connection::Connection;
@@ -203,19 +204,7 @@ impl Window {
             32,
             &words(&[atoms.wm_delete_window, atoms.net_wm_ping]),
         );
-        // `WM_NORMAL_HINTS` (ICCCM `XSizeHints`) : taille minimale en pixels.
-        const P_MIN_SIZE: u32 = 1 << 4;
-        let scale = self.session.scale;
-        let mut hints = [0u32; 18];
-        hints[0] = P_MIN_SIZE;
-        hints[5] = (options.min_width.max(1) as f32 * scale).round() as u32;
-        hints[6] = (options.min_height.max(1) as f32 * scale).round() as u32;
-        set(
-            XCB_ATOM_WM_NORMAL_HINTS,
-            XCB_ATOM_WM_SIZE_HINTS,
-            32,
-            &words(&hints),
-        );
+        self.size_hints(connection);
         if !options.title_bar {
             // `MWM_HINTS_DECORATIONS` seul, aucune décoration.
             set(
@@ -287,6 +276,8 @@ impl Window {
             self.session.dirty = true;
         }
         self.session.tiled = maximized || fullscreen;
+        self.session.facts.fullscreen = fullscreen;
+        self.session.facts.minimized = states.contains(&atoms.net_wm_state_hidden);
         if states.contains(&atoms.net_wm_state_hidden) {
             self.hidden();
         }

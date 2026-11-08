@@ -171,6 +171,34 @@ fn to_color(c: [f32; 4]) -> Color {
     let q = |v: f32| (v.clamp(0., 1.) * 255.).round() as u8;
     Color::rgba(q(c[0]), q(c[1]), q(c[2]), q(c[3]))
 }
+/// Mixes two colours like CSS `color-mix(in <space>, a <pa>, b <pb>)`, for colours known
+/// only at run time (the compiler evaluates constant `color-mix()` itself).
+///
+/// Percentages are in `0..=100` and follow the CSS rules: a missing one completes the
+/// other to 100 %, both missing mean 50 % each, and a sum below 100 % lowers the alpha.
+/// Channels mix premultiplied by alpha; OKLCH hues take the shorter arc.
+///
+/// ```
+/// use karbon_ui::ui::{styling::{color_mix, MixSpace}, theme::Color};
+///
+/// // `color-mix(in oklab, #0ea5e9 85%, white)`
+/// let light = color_mix(MixSpace::Oklab, Color::hex(0x0ea5e9), Some(85.), Color::hex(0xffffff), None);
+/// assert!(light.red > 0x0e && light.alpha == 255);
+/// ```
+pub fn color_mix(space: MixSpace, a: Color, pa: Option<f32>, b: Color, pb: Option<f32>) -> Color {
+    let clamp = |p: Option<f32>| p.map(|p| p.clamp(0., 100.) / 100.);
+    let (pa, pb) = match (clamp(pa), clamp(pb)) {
+        (Some(x), Some(y)) => (x, y),
+        (Some(x), None) => (x, 1. - x),
+        (None, Some(y)) => (1. - y, y),
+        (None, None) => (0.5, 0.5),
+    };
+    let total = pa + pb;
+    if total <= 0. {
+        return Color::rgba(0, 0, 0, 0);
+    }
+    mix_colors(space, a, b, pa / total, total.min(1.))
+}
 /// `color-mix()` de deux couleurs : part `w` de `a`, alpha multiplié par `alpha`.
 pub(crate) fn mix_colors(space: MixSpace, a: Color, b: Color, w: f32, alpha: f32) -> Color {
     let mut out = mix(space, from_color(a), from_color(b), w.clamp(0., 1.));

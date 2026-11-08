@@ -1,24 +1,36 @@
+use super::ImageSlot;
 use crate::ui::{
     element::*,
     scene::{DrawCommand, Image, Scene},
 };
 use std::sync::Arc;
+
+/// Taille naturelle d'une image (nulle tant qu'elle n'est pas arrivée).
+pub(crate) fn intrinsic(image: Option<&Image>) -> SizeF {
+    image.map_or(SizeF::default(), |image| SizeF {
+        width: image.width as f32,
+        height: image.height as f32,
+    })
+}
 /// Widget drawing a decoded image, sized to its intrinsic pixel size.
 ///
 /// Fit, position and corner radii come from the computed style
-/// ([`ImageFit`](crate::ui::styling::ImageFit), `image_position`, `radius`).
+/// ([`ImageFit`](crate::ui::styling::ImageFit), `image_position`, `radius`). The source
+/// is an [`ImageSlot`]: an image that arrives later is painted without rebuilding the
+/// view; until then the widget paints nothing and measures zero.
 pub struct ImageWidget {
-    image: Arc<Image>,
+    image: ImageSlot,
     alt: Arc<str>,
     fit: crate::ui::styling::ImageFit,
     position: [f32; 2],
     radii: Option<[f32; 4]>,
 }
 impl ImageWidget {
-    /// Creates an image widget, filled and centered by default.
-    pub fn new(image: Arc<Image>) -> Self {
+    /// Creates an image widget, filled and centered by default, from a decoded image
+    /// (`Arc<Image>`) or an [`ImageSlot`] filled later.
+    pub fn new(image: impl Into<ImageSlot>) -> Self {
         Self {
-            image,
+            image: image.into(),
             alt: Arc::from(""),
             fit: Default::default(),
             position: [0.5, 0.5],
@@ -51,17 +63,20 @@ impl Widget for ImageWidget {
         false
     }
     fn measure(&self, _: SizeF, _: &mut dyn TextMeasurer) -> crate::Result<SizeF> {
-        Ok(SizeF {
-            width: self.image.width as f32,
-            height: self.image.height as f32,
-        })
+        Ok(intrinsic(self.image.image().as_deref()))
+    }
+    fn deferred_image(&self) -> Option<&ImageSlot> {
+        Some(&self.image)
     }
     fn paint(&self, c: &PaintContext, s: &mut Scene) {
         use crate::ui::{layout, styling::ImageFit};
+        let Some(image) = self.image.image() else {
+            return;
+        };
         let w = layout::width(c.rect);
         let h = layout::height(c.rect);
-        let iw = self.image.width as f32;
-        let ih = self.image.height as f32;
+        let iw = image.width as f32;
+        let ih = image.height as f32;
         let (dw, dh) = match self.fit {
             ImageFit::Fill => (w, h),
             ImageFit::None => (iw, ih),
@@ -92,10 +107,7 @@ impl Widget for ImageWidget {
                 radii,
             });
         }
-        s.commands.push(DrawCommand::Image {
-            rect,
-            image: Arc::clone(&self.image),
-        });
+        s.commands.push(DrawCommand::Image { rect, image });
         if self.radii.is_some() {
             s.commands.push(DrawCommand::PopShapeClip);
         }

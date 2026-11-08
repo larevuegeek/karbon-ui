@@ -6,6 +6,9 @@ impl UiRuntime {
             .pointer
             .is_none_or(|old| old.x != p.x || old.y != p.y);
         self.interaction.pointer = Some(p);
+        if moved {
+            self.interaction.hover_frozen = None;
+        }
         if self.components.inputs.pointer_move(p) {
             self.invalidation.repaint = true;
             result.handled = true;
@@ -211,6 +214,7 @@ impl UiRuntime {
 
     pub(super) fn pointer_leave_event(&mut self) {
         self.interaction.pointer = None;
+        self.interaction.hover_frozen = None;
         if self.interaction.hovered.take().is_some() {
             self.invalidation.repaint = true;
         }

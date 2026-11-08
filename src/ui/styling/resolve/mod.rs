@@ -4,10 +4,12 @@ mod cascade;
 mod environment;
 mod matching;
 mod node;
+mod partial;
 mod scope;
 
 pub use cascade::resolve;
 pub(crate) use cascade::resolve_inherited;
-pub use environment::{ElementColors, StyleChanges, StyleEnvironment};
+pub use environment::{AnimatedSizes, ElementColors, ElementSizes, StyleChanges, StyleEnvironment};
 pub(crate) use matching::{PointerFacts, pointer_facts};
 pub(crate) use node::local;
+pub use partial::Partial;

@@ -19,3 +19,20 @@
 @keyframes glow { 50% { background-color: #ffffff; } }
 .rise { width: 100px; height: 40px; animation: rise 1s linear; }
 .glow { width: 100px; height: 40px; background: #000000; animation: glow 1s linear -250ms infinite, rise 2s linear reverse; }
+
+/* Dimensions animées : barre d'égaliseur au bas d'une rangée, barre de progression. */
+@keyframes eq { 0%, 100% { height: 4px; } 50% { height: 18px; } }
+.eq-row { display: flex; align-items: flex-end; width: 100px; height: 20px; }
+.eq { width: 3px; animation: eq 800ms linear infinite; }
+@keyframes progress { from { width: 100%; } to { width: 0%; } }
+.track { width: 200px; }
+.progress { height: 2px; animation: progress 1s linear forwards; }
+
+/* `animation-play-state` d'une règle à ancêtre : pause sans redémarrage. */
+@keyframes slide { to { transform: translateX(100px); } }
+.slide { width: 10px; height: 10px; animation: slide 1s linear infinite; }
+.pause .slide { animation-play-state: paused; }
+.slide.back { animation-direction: reverse; animation-delay: -100ms; }
+/* `transition` dans une règle d'état : remplace celle de l'élément pendant la règle. */
+.swap { width: 100px; height: 20px; transition: width 100ms linear; }
+.swap:hover { width: 200px; transition: none; }

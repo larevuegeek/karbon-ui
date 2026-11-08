@@ -172,3 +172,34 @@ fn motion_variants_follow_the_reduced_motion_setting() {
         Some(Color::hex(0xffffff))
     );
 }
+
+/// `<button disabled>` à contenu riche (icône + libellé) : ni action ni focus, et les
+/// variantes `disabled:` / `enabled:` suivent l'état, comme dans un navigateur.
+#[test]
+fn disabled_rich_buttons_match_disabled_and_lose_their_action() {
+    let off = true;
+    let mut page = ui! {@styles(css);
+        <div class="flex flex-col w-[100px]">
+            <button disabled={off} onclick={()} class="h-4 bg-white disabled:bg-black enabled:hover:bg-[#ff0000]"><div>Un</div></button>
+            <button onclick={()} class="h-4 bg-white disabled:bg-black enabled:hover:bg-[#ff0000]"><div>Deux</div></button>
+            <button disabled onclick={()} class="h-4 bg-white disabled:bg-black"><div>Trois</div></button>
+        </div>
+    };
+    arrange_in(
+        &mut page,
+        environment(200., 200., Some(PointF { x: 5., y: 2. })),
+        200.,
+        200.,
+    );
+    let c = &page.children;
+    let widget = |i: usize| c[i].widget.as_ref().unwrap();
+    assert!(widget(0).action().is_none());
+    assert!(!widget(0).focusable());
+    assert!(!widget(0).semantics().enabled);
+    assert!(widget(1).action().is_some());
+    assert!(widget(2).action().is_none());
+    // Survolé mais désactivé : `enabled:hover:` ne s'applique pas.
+    assert_eq!(c[0].style.background, Some(Color::hex(0x000000)));
+    assert_eq!(c[1].style.background, Some(Color::hex(0xffffff)));
+    assert_eq!(c[2].style.background, Some(Color::hex(0x000000)));
+}

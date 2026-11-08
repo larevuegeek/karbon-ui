@@ -118,10 +118,8 @@ impl UiRuntime {
                 self.invalidation.repaint = true;
             }
             AccessibilityAction::Invoke(_) => {
-                if !node
-                    .widget
-                    .as_ref()
-                    .is_some_and(|w| w.action().is_some() && w.choice().is_none())
+                if !node.widget.as_ref().is_some_and(|w| w.action().is_some())
+                    || super::snapshot::choice(node).is_some()
                 {
                     return Err(AccessibilityError::Unsupported);
                 }
@@ -129,7 +127,7 @@ impl UiRuntime {
                 self.invalidation.repaint = true;
             }
             AccessibilityAction::Toggle(_) | AccessibilityAction::SelectChoice(_) => {
-                let choice = node.widget.as_ref().and_then(|w| w.choice());
+                let choice = super::snapshot::choice(node);
                 let valid = matches!(
                     (&action, choice),
                     (AccessibilityAction::Toggle(_), Some(ChoiceState::Toggle(_)))
@@ -138,7 +136,10 @@ impl UiRuntime {
                             Some(ChoiceState::Radio(_))
                         )
                 );
-                if !valid {
+                // État déclaré par `aria-checked` ou `aria-pressed` : l'élément doit
+                // pouvoir être activé, comme par un clic.
+                let declared = node.widget.as_ref().and_then(|w| w.choice()).is_none();
+                if !valid || declared && node.widget.as_ref().and_then(|w| w.action()).is_none() {
                     return Err(AccessibilityError::Unsupported);
                 }
                 self.activate(id);

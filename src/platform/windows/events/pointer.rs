@@ -5,7 +5,7 @@ use super::{
         ffi::{Hwnd, Point, Rect, client_area, scale, screen_to_client},
         present::{paint, runtime},
     },
-    caption, keyboard, send_ui,
+    caption, grip, keyboard, send_ui,
 };
 use crate::ui::{
     runtime::{Cursor, UiEvent},
@@ -157,32 +157,48 @@ pub(super) fn wheel(
             }
         }) * 0.9
     } else {
-        units as f32 * if horizontal { 32. } else { 16. }
+        // Comme Chromium : une ligne fait 100/3 px, trois lignes par cran font 100 px.
+        units as f32 * 100. / 3.
     };
-    let delta = ((wparam >> 16) as i16 as f32) / 120. * pixels;
+    let raw = (wparam >> 16) as i16;
+    // Crans entiers (souris) : glissement doux ; deltas fins (pavé tactile précis) : immédiats.
+    let notched = raw != 0 && raw % 120 == 0;
+    let delta = (raw as f32) / 120. * pixels;
     let delta = if message == WM_MOUSEHWHEEL {
         delta
     } else {
         -delta
     };
     let scale = scale(window);
-    if send_ui(
-        window,
+    let position = PointF {
+        x: p.x as f32 / scale,
+        y: p.y as f32 / scale,
+    };
+    let (delta_x, delta_y) = if horizontal { (delta, 0.) } else { (0., delta) };
+    let event = if notched {
+        UiEvent::Wheel {
+            position,
+            delta_x,
+            delta_y,
+        }
+    } else {
         UiEvent::Scroll {
-            position: PointF {
-                x: p.x as f32 / scale,
-                y: p.y as f32 / scale,
-            },
-            delta_x: if horizontal { delta } else { 0. },
-            delta_y: if horizontal { 0. } else { delta },
-        },
-    ) {
+            position,
+            delta_x,
+            delta_y,
+        }
+    };
+    if send_ui(window, event) {
         0
     } else {
         default_proc()
     }
 }
 pub(super) fn mouse_move(window: Hwnd, lparam: isize) -> isize {
+    // Geste d'une poignée : l'UI ne reçoit ni mouvement ni relâchement.
+    if grip::drag(window) {
+        return 0;
+    }
     caption::update_hover(window, caption::button_from_message(window, lparam));
     send_ui(window, UiEvent::PointerMove(pointer(window, lparam)));
     update_cursor();
@@ -208,7 +224,7 @@ pub(super) fn mouse_leave(window: Hwnd) -> isize {
     0
 }
 pub(super) fn button_down(window: Hwnd, lparam: isize) -> isize {
-    if !caption::press(window, lparam) {
+    if !caption::press(window, lparam) && !grip::press(window, lparam) {
         send_ui(
             window,
             if keyboard::is_pressed(VK_SHIFT) {
@@ -221,12 +237,15 @@ pub(super) fn button_down(window: Hwnd, lparam: isize) -> isize {
     0
 }
 pub(super) fn button_up(window: Hwnd, lparam: isize) -> isize {
-    if !caption::release(window, lparam) {
+    if !grip::finish(window) && !caption::release(window, lparam) {
         send_ui(window, UiEvent::PointerUp(pointer(window, lparam)));
     }
     0
 }
 pub(super) fn capture_changed(window: Hwnd) -> isize {
+    // Capture reprise pendant le geste d'une poignée (fenêtre système, Échap…) : il
+    // s'arrête à la taille atteinte.
+    grip::finish(window);
     if runtime::has_capture() {
         send_ui(window, UiEvent::Cancel);
     }

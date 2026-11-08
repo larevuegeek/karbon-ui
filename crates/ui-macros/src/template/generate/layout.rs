@@ -62,9 +62,28 @@ impl Generator {
     }
     pub(super) fn container(&mut self, e: &Element, role: Option<&'static str>) -> Result<String> {
         let kind = Kind::Container(role);
-        self.check(e, kind, &[])?;
+        // Bouton à contenu riche : `disabled` désactive sa zone cliquable.
+        let extra: &[&str] = if e.name == "button" {
+            &["disabled", "memo"]
+        } else {
+            &["memo"]
+        };
+        self.check(e, kind, extra)?;
         let site = self.next();
         let id = self.id(e, site)?;
+        // `memo={clé}` : sous-arbre repris de la vue précédente si la clé n'a pas changé.
+        let memo = match e.attr("memo") {
+            Some(Attr {
+                value: Value::Expr(t),
+                ..
+            }) => Some(self.out.value(t)),
+            Some(a) => {
+                return Err(a.loc.error(
+                    "memo expects a Rust value in braces covering what the subtree reads, e.g. memo={(&row, selected)}",
+                ));
+            }
+            None => None,
+        };
         let submit = match e.attr("onsubmit") {
             Some(a) if e.name == "form" => Some(self.message(a)?),
             Some(a) => return Err(a.loc.error("onsubmit applies to <form>")),
@@ -120,7 +139,7 @@ impl Generator {
         } else {
             String::new()
         };
-        self.finish(
+        let code = self.finish(
             e,
             kind,
             &id,
@@ -128,7 +147,13 @@ impl Generator {
             &format!(
                 "{R}::ui::template::Node::element({R}::ui::element::Element::column(__ui_id.0,__ui_children)){painter}"
             ),
-        )
+        )?;
+        Ok(match memo {
+            Some(key) => format!(
+                "{{let __ui_memo_id={id};let __ui_memo={R}::ui::view::memo_key(&({key}));if {R}::ui::view::memo_reusable(__ui_memo_id,__ui_memo){{{R}::ui::view::memo_placeholder(__ui_memo_id,__ui_memo)}}else{{({code}).memo(__ui_memo)}}}}"
+            ),
+            None => code,
+        })
     }
     pub(super) fn split(&mut self, e: &Element) -> Result<String> {
         self.check(

@@ -4,13 +4,16 @@ use crate::ui::{
     scene::{RectF, Scene},
     theme::{Color, Theme},
 };
+mod aria;
 mod builders;
 mod id;
+pub(crate) mod memo;
 mod rules;
 mod types;
 mod units;
 mod widget;
 pub use crate::ui::core::geometry::SizeF;
+pub use aria::CurrentItem;
 pub use id::ElementId;
 pub use rules::*;
 pub use types::*;
@@ -45,6 +48,18 @@ pub struct Element {
     // État rare sur le tas : ne pas grossir chaque Text/Button avec celui d'une liste.
     pub(crate) virtual_list: Option<Box<crate::ui::virtual_list::VirtualList>>,
     pub(crate) context_menu: Option<Box<Handler<crate::ui::popover::ContextMenuRequest>>>,
+    pub(crate) on_scroll: Option<Box<Handler<crate::ui::scroll::ScrollMetrics>>>,
+    /// `onwheel` : gestionnaire de la molette ([`Element::on_wheel`]).
+    pub(crate) on_wheel: Option<Box<crate::ui::runtime::WheelHandler>>,
+    /// Sous-arbre mémorisé ([`Element::memo`]).
+    pub(crate) memo: Option<Box<memo::MemoState>>,
+    /// Mesures et placement de l'image précédente (layout incrémental).
+    pub(crate) layout_cache: Option<Box<memo::LayoutCache>>,
+    /// Indicateurs de la passe de layout en cours (`layout::memo`).
+    pub(crate) layout_bits: u8,
+    /// `content-visibility` : contenu sauté au dernier layout (ni peint ni touché, son
+    /// placement n'est plus tenu à jour).
+    pub(crate) content_skipped: bool,
     pub(crate) tooltip: Option<Box<crate::ui::tooltip::Tooltip>>,
     pub(crate) surface_style: Option<std::sync::Arc<crate::ui::style::SurfaceStyle>>,
     pub(crate) drag_source: Option<Box<crate::ui::drag_drop::DragSource>>,
@@ -54,8 +69,13 @@ pub struct Element {
     pub(crate) semantics_hidden: bool,
     /// `aria-expanded` : état du panneau ou du menu que l'élément ouvre.
     pub(crate) expanded: Option<bool>,
-    /// `data-drag-region` : zone qui déplace la fenêtre (hors cibles interactives).
-    pub(crate) drag_region: bool,
+    /// États ARIA déclarés (`aria-pressed`, `aria-checked`, `aria-selected`, `aria-current`).
+    pub(crate) aria: aria::AriaStates,
+    /// `data-drag-region` (`Some(true)`) : zone qui déplace la fenêtre (hors cibles
+    /// interactives) ; `data-no-drag` (`Some(false)`) : sous-arbre exclu de la zone.
+    pub(crate) drag_region: Option<bool>,
+    /// `data-resize-region` : poignée qui redimensionne la fenêtre par ce bord ou ce coin.
+    pub(crate) resize_region: Option<crate::window::ResizeEdge>,
 }
 impl Element {
     /// Rectangle assigned by the last layout pass, in window coordinates.

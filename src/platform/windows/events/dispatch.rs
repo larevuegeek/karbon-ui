@@ -4,7 +4,7 @@ use super::{
     super::{
         ffi::Hwnd,
         present::{self, paint, runtime},
-        window::{shadow, timer},
+        window::{change, shadow, timer},
     },
     accessibility, keyboard, nonclient, pointer, send_ui, tasks, text,
 };
@@ -18,7 +18,7 @@ use windows_sys::Win32::UI::{
         WM_IME_SETCONTEXT, WM_IME_STARTCOMPOSITION, WM_KEYDOWN, WM_KEYUP, WM_KILLFOCUS,
         WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCACTIVATE,
         WM_NCCALCSIZE, WM_NCHITTEST, WM_NCPAINT, WM_PAINT, WM_SETCURSOR, WM_SETFOCUS,
-        WM_SETTINGCHANGE, WM_SIZE, WM_TIMER, WM_UNICHAR, WM_WINDOWPOSCHANGED,
+        WM_SETTINGCHANGE, WM_SIZE, WM_SIZING, WM_TIMER, WM_UNICHAR, WM_WINDOWPOSCHANGED,
     },
 };
 
@@ -41,6 +41,9 @@ pub(super) unsafe fn window_message(
     match message {
         timer::FRAME_WAKE => {
             timer::frame_fired();
+            // L'horloge est lue une fois la place de l'image prise dans la file de
+            // présentation : intervalle constant entre lecture et affichage.
+            runtime::wait_for_frame();
             send_ui(window, UiEvent::Timer(std::time::Instant::now()));
             0
         }
@@ -96,7 +99,7 @@ pub(super) unsafe fn window_message(
         WM_KEYDOWN => keyboard::key_down(window, wparam, lparam, default_proc),
         WM_KEYUP => keyboard::key_up(window, wparam, default_proc),
         WM_ERASEBKGND => 1, // Aucun effacement GDI opaque.
-        WM_ENTERSIZEMOVE => nonclient::enter_size_move(),
+        WM_ENTERSIZEMOVE => nonclient::enter_size_move(window),
         WM_EXITSIZEMOVE => nonclient::exit_size_move(window),
         // SAFETY : pour WM_DPICHANGED, lparam pointe vers un RECT fourni par Windows.
         WM_DPICHANGED => unsafe { nonclient::dpi_changed(window, lparam) },
@@ -115,6 +118,8 @@ pub(super) unsafe fn window_message(
         // Notre bande et nos boutons remplacent le dessin du cadre système.
         WM_NCPAINT => 0,
         WM_NCACTIVATE => 1, // Autoriser l'activation sans repeindre ce cadre.
+        // SAFETY : pour WM_SIZING, lparam pointe vers le RECT modifiable du geste.
+        WM_SIZING if unsafe { change::sizing(window, wparam, lparam) } => 1,
         // SAFETY : pour WM_GETMINMAXINFO, lparam pointe vers un MINMAXINFO modifiable.
         WM_GETMINMAXINFO => unsafe { nonclient::min_max_info(window, lparam) },
         WM_NCHITTEST => nonclient::hit_test(window, lparam, default_proc),

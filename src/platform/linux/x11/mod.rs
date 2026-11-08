@@ -192,6 +192,19 @@ impl X11 {
             }
             WindowCommand::Close(id) => self.closed.push(id),
             WindowCommand::Action(id, action) => self.action(id, action),
+            WindowCommand::Change(id, change) => {
+                if let Some(reason) = crate::window::change::invalid_change(&change) {
+                    self.record(crate::Error::invalid_window_options(reason));
+                } else if let Some(window) = self.windows.iter_mut().find(|w| w.session.id == id) {
+                    window.change(&self.connection, change);
+                }
+            }
+            WindowCommand::FileDialog(id, task, dialog) => {
+                if let Some(window) = self.windows.iter().find(|w| w.session.id == id) {
+                    let parent = format!("x11:{:x}", window.window);
+                    window.session.file_dialog(task, dialog, parent);
+                }
+            }
             WindowCommand::Exit => self.exit = true,
         }
     }
@@ -245,6 +258,10 @@ impl X11 {
                 self.exit = true;
             }
         }
+        // Position à jour pour l'état remis à l'application (relue après un déplacement).
+        for window in &mut self.windows {
+            window.locate(&self.connection);
+        }
         let now = Instant::now();
         for id in self.ids() {
             let executor = &mut self.executor;
@@ -256,6 +273,7 @@ impl X11 {
                     let outcome = catch_unwind(AssertUnwindSafe(|| {
                         window.session.tasks(executor);
                         window.session.tick(now)?;
+                        window.session.report();
                         Ok(window.session.take_window_commands())
                     }));
                     match outcome {

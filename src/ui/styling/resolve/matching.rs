@@ -76,6 +76,62 @@ pub(super) struct Frame<'a> {
     /// `border-*-radius: inherit`.
     pub(super) corners: [f32; 4],
 }
+impl Frame<'_> {
+    /// Empreinte de ce que la cascade lit de ce cadre et de ses ancêtres pour les
+    /// descendants : faits de chaque élément (états, classes, conteneur), règles pour les
+    /// enfants et rayons hérités (reprise des styles d'un sous-arbre mémorisé).
+    pub(super) fn fingerprint(&self, h: &mut impl std::hash::Hasher, positions: bool) {
+        use std::hash::Hash;
+        let mut frame = Some(self);
+        while let Some(f) = frame {
+            let x = &f.facts;
+            // Les classes et les règles pour les enfants sont des listes refaites à chaque
+            // résolution : leur contenu (chaînes statiques), pas leur adresse.
+            for class in x.classes {
+                (class.as_ptr() as usize, class.len()).hash(h);
+            }
+            (x.classes.len(), x.tag).hash(h);
+            for (name, value) in x.attributes {
+                (name, value).hash(h);
+            }
+            (
+                x.hot,
+                x.pointer_events,
+                x.contains_press,
+                x.contains_focus,
+                x.focused,
+            )
+                .hash(h);
+            (
+                x.enabled,
+                x.checked,
+                x.indeterminate,
+                x.read_only,
+                x.read_write,
+            )
+                .hash(h);
+            (x.placeholder, x.empty).hash(h);
+            // Rangs parmi les frères : seulement si une règle lue les compare.
+            if positions {
+                (x.index, x.siblings).hash(h);
+            }
+            if let Some((container, size)) = x.container {
+                (
+                    format!("{container:?}"),
+                    size.width.to_bits(),
+                    size.height.to_bits(),
+                )
+                    .hash(h);
+            }
+            for (state, _, rank) in f.children {
+                (format!("{state:?}"), rank).hash(h);
+            }
+            (f.children.len(), f.parent_clipped).hash(h);
+            f.corners.map(f32::to_bits).hash(h);
+            frame = f.parent;
+        }
+    }
+}
 /// Le pointeur est hors du clip arrondi de `node` ou d'un ancêtre.
 pub(super) fn clipped(node: &Element, env: &StyleEnvironment, parent: bool) -> bool {
     parent
@@ -91,6 +147,11 @@ pub(super) fn clipped(node: &Element, env: &StyleEnvironment, parent: bool) -> b
 /// Le pointeur est sur `node` (rectangle projeté et découpe), hors de toute découpe
 /// arrondie : fait `:hover` de l'élément.
 fn hot(node: &Element, env: &StyleEnvironment, pointer_clipped: bool) -> bool {
+    // Chaîne relevée par le hit-test : l'élément peint au-dessus et ses ancêtres, comme
+    // un navigateur (rien n'est survolé à travers un élément qui le recouvre).
+    if let Some(chain) = env.hovered {
+        return env.pointer.is_some() && chain.contains(&node.id);
+    }
     !pointer_clipped
         && env.pointer.is_some_and(|p| {
             env.project
@@ -107,6 +168,41 @@ fn hot(node: &Element, env: &StyleEnvironment, pointer_clipped: bool) -> bool {
 pub(crate) struct PointerFacts {
     ids: Vec<crate::ui::element::ElementId>,
     bits: Vec<u64>,
+}
+impl PointerFacts {
+    /// Éléments présents dans les deux relevés dont les faits diffèrent (arbres
+    /// différents : un sous-arbre repris garde ses identités).
+    pub(crate) fn changed_by_id(&self, previous: &Self) -> Vec<crate::ui::element::ElementId> {
+        let bits = |facts: &Self, i: usize| (facts.bits[i * 2 / 64] >> (i * 2 % 64)) & 3;
+        let before: crate::ui::core::hash::FastMap<_, _> = previous
+            .ids
+            .iter()
+            .enumerate()
+            .map(|(i, id)| (*id, bits(previous, i)))
+            .collect();
+        (0..self.ids.len())
+            .filter(|&i| {
+                before
+                    .get(&self.ids[i])
+                    .is_some_and(|b| *b != bits(self, i))
+            })
+            .map(|i| self.ids[i])
+            .collect()
+    }
+    /// Éléments dont les faits diffèrent de `previous` (même arbre), `None` si l'arbre a
+    /// changé.
+    pub(crate) fn changed(&self, previous: &Self) -> Option<Vec<crate::ui::element::ElementId>> {
+        if self.ids != previous.ids {
+            return None;
+        }
+        let bits = |facts: &Self, i: usize| (facts.bits[i * 2 / 64] >> (i * 2 % 64)) & 3;
+        Some(
+            (0..self.ids.len())
+                .filter(|&i| bits(self, i) != bits(previous, i))
+                .map(|i| self.ids[i])
+                .collect(),
+        )
+    }
 }
 pub(crate) fn pointer_facts(root: &Element, env: &StyleEnvironment) -> PointerFacts {
     fn visit(node: &Element, env: &StyleEnvironment, parent: bool, out: &mut PointerFacts) {
@@ -263,7 +359,9 @@ pub(super) fn matches(state: StyleState, c: &Frame, env: &StyleEnvironment) -> b
                 n % (a as i64) == 0 && n / (a as i64) >= 0
             }
         }
-        StyleState::Hover => f.hot && pointer_events(c),
+        // Avec la chaîne du hit-test, un ancêtre `pointer-events: none` d'un élément
+        // touché est survolé, comme dans un navigateur.
+        StyleState::Hover => f.hot && (env.hovered.is_some() || pointer_events(c)),
         StyleState::Active => f.contains_press,
         StyleState::Focus => f.focused,
         StyleState::FocusVisible => env.focus_visible && f.focused,

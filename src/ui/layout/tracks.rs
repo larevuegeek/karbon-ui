@@ -327,15 +327,15 @@ pub(crate) struct LayoutPass {
     measures: bool,
 }
 impl LayoutPass {
-    pub(crate) fn begin(root: &Element, measures: bool) -> Self {
+    pub(crate) fn begin(root: &mut Element, measures: bool) -> Self {
         Self::set(true, measures.then_some(root));
         Self { measures }
     }
     /// Oublie les mesures : les styles ont été résolus de nouveau (requêtes de conteneur).
-    pub(crate) fn reset(&self, root: &Element) {
+    pub(crate) fn reset(&self, root: &mut Element) {
         Self::set(true, self.measures.then_some(root));
     }
-    fn set(active: bool, root: Option<&Element>) {
+    fn set(active: bool, root: Option<&mut Element>) {
         MIN_CONTENT.with(|memo| *memo.borrow_mut() = active.then(Default::default));
         LEAVES.with(|memo| *memo.borrow_mut() = active.then(Default::default));
         super::memo::begin(root);
@@ -363,7 +363,9 @@ fn min_content_uncached(
     if let Length::Px(n) = node.style.width {
         return Ok(n + node.style.margin.horizontal());
     }
-    let inner = if matches!(node.layout, Layout::Leaf) {
+    let inner = if super::containment::skipped(node) {
+        super::containment::placeholder(node).width
+    } else if matches!(node.layout, Layout::Leaf) {
         match &node.widget {
             Some(widget)
                 if matches!(

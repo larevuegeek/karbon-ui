@@ -78,18 +78,16 @@ pub(super) fn edit_command(event: &NSEvent, m: Modifiers) -> Option<EditCommand>
     None
 }
 /// Défilement en unités logiques ; positif vers le bas et la droite, comme le moteur.
-pub(super) fn scroll(event: &NSEvent) -> (f32, f32) {
+/// Deltas d'un défilement et `true` pour une molette à crans (glissement doux).
+pub(super) fn scroll(event: &NSEvent) -> (f32, f32, bool) {
     let (dx, dy) = (
         event.scrollingDeltaX() as f32,
         event.scrollingDeltaY() as f32,
     );
     // Molette classique : AppKit compte des lignes ; Windows défile 3 × 16 px par cran.
-    let unit = if event.hasPreciseScrollingDeltas() {
-        1.
-    } else {
-        16.
-    };
-    (-dx * unit, -dy * unit)
+    let precise = event.hasPreciseScrollingDeltas();
+    let unit = if precise { 1. } else { 16. };
+    (-dx * unit, -dy * unit, !precise)
 }
 /// Curseur AppKit d'une forme du moteur (les formes absentes d'AppKit retombent sur la
 /// flèche). Les curseurs de redimensionnement historiques restent utilisés : leurs

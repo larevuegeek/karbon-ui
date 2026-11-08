@@ -15,6 +15,9 @@ struct Entry {
     image: ID2D1Image,
     _source: Scene,
 }
+/// Taille (pixels physiques) jusqu'à laquelle un groupe dont seule la partie visible
+/// change est enregistré entier plutôt que rogné de nouveau à chaque image (4 Mio).
+const MOVING_CROP_PIXELS: f32 = 1_048_576.;
 #[derive(Default)]
 pub(super) struct Cache {
     entries: HashMap<ElementId, Entry>,
@@ -127,13 +130,16 @@ impl Cache {
             }
             let commands = &scene.commands[start + 1..end];
             let key = signature::Signature::new(commands, bounds, filters, scale);
-            if self
-                .entries
-                .get(&id)
-                .is_some_and(|e| e.key == key && e.crop == crop)
-            {
-                continue;
-            }
+            let crop = match self.entries.get(&id) {
+                Some(e) if e.key == key && e.crop == crop => continue,
+                // Seule la partie visible a changé : contenu déplacé sous un ancêtre qui le
+                // rogne (diapo qui glisse dans un carrousel), à chaque image. Une sortie
+                // entière déjà enregistrée la couvre ; une sortie modeste est enregistrée
+                // entière, une seule fois, au lieu d'une liste et d'effets par image.
+                Some(e) if e.key == key && e.crop.is_none() => continue,
+                Some(e) if e.key == key && pixels <= MOVING_CROP_PIXELS => None,
+                _ => crop,
+            };
             let source = Scene {
                 clear: Color::rgba(0, 0, 0, 0),
                 commands: commands.to_vec(),

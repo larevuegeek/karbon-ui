@@ -1,6 +1,7 @@
 //! Mémoires du moteur (mesures d'une passe de layout, mesures de texte d'une image à
-//! l'autre) : la même suite d'interactions donne, avec et sans elles, le même arbre
-//! placé, les mêmes textes peints, le même arbre accessible et les mêmes pixels.
+//! l'autre, résolution partielle des styles, cartes mémorisées `memo`) : la même suite
+//! d'interactions donne, avec et sans elles, le même arbre placé, les mêmes textes
+//! peints, le même arbre accessible et les mêmes pixels.
 use crate::support::*;
 use karbon_ui::{
     platform::headless::{HeadlessApp, HeadlessOptions},
@@ -57,7 +58,7 @@ impl Application for Page {
                     </div>
                     <div class="grid">
                         {#each cards as (i, w) (i)}
-                            <div class="card">
+                            <div class="card" memo={(i, w)}>
                                 <div class="badge"></div>
                                 <p class="name">{w}</p>
                                 <p class="name">{format!("{i} titres, 42 min")}</p>
@@ -176,6 +177,21 @@ fn play(incremental: bool) -> Vec<Vec<String>> {
         app.advance(frame / 2).unwrap();
         steps.push(snapshot(&mut app, i % 15 == 0));
     }
+    // Reconstructions (cartes mémorisées reprises) pendant que le pointeur passe de
+    // carte en carte, avec des transitions en cours.
+    for i in 0..24 {
+        let (x, y) = (240. + 37. * (i % 12) as f32, 260. + 60. * (i / 12) as f32);
+        app.event(UiEvent::PointerMove(PointF { x, y })).unwrap();
+        app.update_app(|_| {}).unwrap();
+        app.advance(frame / 2).unwrap();
+        steps.push(snapshot(&mut app, i % 6 == 0));
+    }
+    // Avec les mémoires, le survol ne refait que les éléments touchés.
+    assert_eq!(
+        app.runtime_mut().stats().partial_styles > 0,
+        incremental,
+        "résolution partielle des styles"
+    );
     // Défilement sous un pointeur immobile.
     for i in 0..10 {
         app.event(UiEvent::Scroll {

@@ -172,6 +172,38 @@ pub(in crate::css) fn names(name: &str, value: &str) -> Vec<String> {
         })
         .unwrap_or_default()
 }
+/// Longhand d'animation d'une règle d'état ou de media, en champ d'`AnimationOverride`
+/// (`("animation_override", "delay:Some(-1400),")`) ; le nom, le raccourci et les
+/// autres longhands restent refusés.
+pub(in crate::css) fn state_override(name: &str, value: &str) -> Result<(String, String)> {
+    let value = value.trim();
+    let key = name.strip_prefix("animation-").unwrap_or("");
+    if matches!(name, "animation" | "animation-name") && value == "none" {
+        return Ok(("animation_override".into(), "none:true,".into()));
+    }
+    if value.contains(',') {
+        return Err(format!(
+            "{name} in a state or media rule takes a single value"
+        ));
+    }
+    if !matches!(key, "delay" | "duration" | "direction" | "play-state") {
+        return Err(format!(
+            "State-dependent keyframe replacement is not implemented: {name} cannot change in a state or media rule (animation-delay, animation-duration, animation-direction and animation-play-state can)"
+        ));
+    }
+    check(key, value)?;
+    let field = match key {
+        "delay" => format!("delay:Some({}),", time(value)?),
+        "duration" => format!("duration:Some({}),", time(value)?),
+        "direction" => format!(
+            "direction:Some(({},{})),",
+            value.starts_with("alternate"),
+            value.ends_with("reverse")
+        ),
+        _ => format!("paused:Some({}),", value == "paused"),
+    };
+    Ok(("animation_override".into(), field))
+}
 /// Code d'une animation de la liste.
 fn member(frames: &str, value: impl Fn(&str) -> String) -> Result<String> {
     let duration = time(&value("duration"))?;

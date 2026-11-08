@@ -355,12 +355,15 @@ parenthèses, les jetons distincts de RustMusic concernés (105 au total) :
   et `word-break` (`wrap-*`, `break-*`), `hyphens-*`, `list-*`, `snap-*`, `touch-*`,
   `resize-*`, `select-text`, `whitespace-pre-line`, `cursor-zoom-in/out`,
   `decoration-dotted`, `border-dashed`, `repeating-linear-gradient`, `rounded-[inherit]`,
-  `w-max`, `h-[110%]` (au-delà de 100 %), `dvh`, `ch`, `grid-flow-col`,
-  `grid-rows-none` conditionnel (≈ 35) ;
-- animations de la hauteur (`@keyframes` qui animent `height`), remplacement
-  d’animation et de transition dans un état (`group-hover:animate-none!`,
-  `motion-reduce:transition-none`) ; `animate-[nom]` dont les `@keyframes` sont dans le
-  `<style>` d’un composant Svelte et non dans la feuille (≈ 8).
+  `dvh`, `ch`, `grid-flow-col`, `grid-rows-none` conditionnel (≈ 33) ;
+- `animate-[nom]` dont les `@keyframes` sont dans le `<style>` d’un composant Svelte et
+  non dans la feuille.
+
+Ajoutés depuis ce relevé : `w-max` (`width: max-content`), `h-[110%]` et les tailles
+au-delà de 100 %, les `@keyframes` qui animent `width`/`height`
+(`animate-[eq-bar-1_0.8s_ease-in-out_infinite]`), `transition` et les réglages
+d’animation dans un état (`motion-reduce:transition-none`, `group-hover:animate-none`,
+`animation-play-state`, `animation-direction`).
 
 Approximations assumées : `!important` (ordre seulement), `text-balance`/`text-pretty`
 (retour à la ligne simple), `h-dvh`/`svh`/`lvh` (= `vh`), dégradés interpolés en sRGB

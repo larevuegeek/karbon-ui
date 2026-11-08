@@ -12,6 +12,10 @@ pub enum Length {
     Percent(f32),
     /// Share of the remaining space, like a CSS `fr` fraction.
     Fill(f32),
+    /// Width of the content laid out without wrapping or shrinking, like CSS
+    /// `width: max-content`: the element keeps it whatever room its parent offers (a
+    /// wider content overflows). As a height, the same as [`Auto`](Self::Auto).
+    MaxContent,
 }
 /// Spacing on the four sides of a box (padding, margin or border widths).
 #[derive(Debug, Default, Clone, Copy, PartialEq)]

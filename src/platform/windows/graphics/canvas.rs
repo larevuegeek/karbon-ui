@@ -86,6 +86,8 @@ impl Canvas {
         let t = &self.target;
         let b = &self.brush;
         let mut filter_depth = 0usize;
+        // Profondeur dans un groupe d'opacité nulle, sauté sans calque Direct2D.
+        let mut hidden_depth = 0usize;
         // Remplissages du texte actifs (`background-clip: text`).
         let mut text_fills: Vec<(crate::ui::rendering::brush::Background, RectF)> = Vec::new();
         let text_brush =
@@ -102,6 +104,21 @@ impl Canvas {
                 }
             };
         for command in &scene.commands {
+            if hidden_depth > 0 {
+                match command {
+                    DrawCommand::PushEffect { .. } => hidden_depth += 1,
+                    DrawCommand::PopEffect => hidden_depth -= 1,
+                    _ => {}
+                }
+                continue;
+            }
+            if filter_depth == 0
+                && let DrawCommand::PushEffect { opacity, .. } = command
+                && *opacity <= 0.
+            {
+                hidden_depth = 1;
+                continue;
+            }
             match command {
                 DrawCommand::PushFilter { id, .. } => {
                     if filter_depth == 0 {

@@ -26,6 +26,10 @@ impl UiRuntime {
                 split.fraction = fraction;
                 node.layout = Layout::Split(split);
                 self.components.splits.fractions.insert(id, fraction);
+                // La disposition change sans passer par les styles : rien n'est repris.
+                if let Some(root) = self.root.as_mut() {
+                    layout::unsettle(root);
+                }
                 self.invalidation.relayout = true;
                 self.invalidation.repaint = true;
             }

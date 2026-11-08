@@ -81,12 +81,100 @@ Les commandes disponibles sont :
 | --- | --- |
 | `Open(descriptor)` | Créer, initialiser, peindre puis afficher une fenêtre. |
 | `Action(id, action)` | Réduire, agrandir/restaurer ou fermer via `WindowAction`, notamment depuis une barre de titre personnalisée. |
+| `Change(id, change)` | Changer la taille, la position ou l’état d’une fenêtre ouverte (voir ci-dessous). |
 | `Close(id)` | Détruire la fenêtre visée ; ne fait rien si elle est déjà fermée. |
 | `Exit` | Fermer toutes les fenêtres et abandonner les demandes suivantes du lot. |
 
 L’ordre des demandes d’une même file est conservé. Il n’y a pas de garantie
 d’ordre global entre deux applications de fenêtre. Le callback doit rendre
 les demandes une seule fois, et non recréer la même ouverture à chaque appel.
+
+## Changer une fenêtre ouverte et suivre son état
+
+`WindowCommand::Change(id, WindowChange)` agit sur une fenêtre déjà ouverte ; une
+fenêtre fermée l’ignore. Les tailles sont en pixels logiques de l’écran de la fenêtre,
+comme `WindowOptions::width` ; les positions sont celles de `WindowOptions::x` (pixels
+logiques à l’échelle de l’écran principal, y vers le bas).
+
+| `WindowChange` | Effet |
+| --- | --- |
+| `Size { width, height }` | Taille de la zone client, coin haut-gauche gardé, bornée par les tailles minimale et maximale. |
+| `MinSize(Option<(w, h)>)`, `MaxSize(…)` | Bornes du redimensionnement ; `None` les lève. La taille courante y est ramenée. |
+| `AspectRatio(Option<(w, h)>)` | Proportions gardées pendant un redimensionnement à la souris (le carré du micro-lecteur). |
+| `Resizable(bool)` | Bords à tirer et agrandissement (double clic, bouton) permis ou non. |
+| `Topmost(bool)` | Au-dessus des fenêtres ordinaires, comme `WindowOptions::topmost` à l’ouverture. |
+| `Position { x, y }` | Coin haut-gauche du cadre. |
+| `Center`, `KeepOnScreen` | Centrer dans la zone de travail de l’écran, ou y ramener la fenêtre en la déplaçant le moins possible. |
+| `Maximized(bool)`, `Fullscreen(bool)` | Agrandir ou restaurer ; couvrir tout l’écran ou en sortir (le rectangle d’avant est rétabli). |
+| `Visible(bool)`, `Focus` | Masquer ou montrer sans fermer ; montrer, restaurer et passer au premier plan. |
+
+Un changement incohérent (taille nulle ou négative, proportion nulle) est une erreur de
+programmation : `Error::InvalidWindowOptions`, comme des options invalides à l’ouverture.
+
+`Application::window_changed(WindowState)` reçoit l’état de la fenêtre : une fois à
+l’ouverture, puis après chaque changement de position, de taille, d’échelle, d’état
+(agrandie, réduite, plein écran, premier plan, redimensionnable) et au début et à la fin
+d’un déplacement ou d’un redimensionnement à la souris (`dragging`). Réduite, la fenêtre
+garde la position et la taille d’avant. `x`/`y` se rendent tels quels à `Position` ou à
+`WindowOptions::x`, `width`/`height` à `Size`.
+
+```rust,ignore
+fn window_changed(&mut self, state: WindowState) -> bool {
+    // Fin d'un geste sur la poignée : la taille est retenue.
+    if self.window.dragging && !state.dragging {
+        self.save_size(state.width);
+    }
+    self.window = state;
+    false
+}
+```
+
+Un élément `data-resize-region="bottom-right"` (`Element::resize_region`) est une
+poignée : l’appuyer redimensionne la fenêtre par ce coin, même quand elle n’est pas
+redimensionnable (`Resizable(false)` : ses bords restent fixes), sans que l’application
+suive le pointeur. Sous Windows et macOS, karbon-ui suit le geste lui-même : la souris
+est capturée à l’appui, chaque mouvement donne la taille « taille de départ +
+déplacement du pointeur » en coordonnées de l’écran, bornée par `MinSize`/`MaxSize`,
+appliquée et peinte aussitôt (une taille par image) ; le bord opposé reste en place.
+Avec `AspectRatio`, un coin suit le plus grand des deux déplacements (comptés vers
+l’extérieur) : le carré du micro-lecteur grandit de `max(dx, dy)`, comme
+`resizeMicroPlayer` de RustMusic. `dragging` vaut `true` pendant le geste ; l’état remis
+au relâchement porte la taille finale, que l’application retient (et ramène dans l’écran
+par `KeepOnScreen` si besoin). La poignée l’emporte sur une zone de déplacement
+(`data-drag-region`) qui la contient ; elle porte son curseur (`cursor: nwse-resize`),
+le moteur n’en impose pas. Une fenêtre agrandie ou en plein écran ne se redimensionne pas
+par sa poignée.
+
+Ce que chaque plateforme honore (un changement impossible est ignoré) :
+
+| Changement | Windows | macOS | X11 | Wayland |
+| --- | --- | --- | --- | --- |
+| `Size`, `MinSize`, `MaxSize`, `Resizable`, `Maximized`, `Fullscreen` | oui | oui | oui (gestionnaire) | oui (fenêtre flottante pour `Size`) |
+| `AspectRatio` | oui (`WM_SIZING`) | oui | oui (`WM_NORMAL_HINTS`) | non (aucun protocole) |
+| `Topmost` | oui | oui (niveau flottant) | oui (`_NET_WM_STATE_ABOVE`) | non |
+| `Position`, `Center`, `KeepOnScreen` | oui | oui | oui (`_NET_WORKAREA`) | non : le compositeur place les fenêtres |
+| `Visible`, `Focus` | oui | oui | oui (`_NET_ACTIVE_WINDOW`) | non (activation sans jeton refusée) |
+| `WindowState::x`, `y` | oui | oui | oui | toujours 0 |
+| `WindowState::dragging` | oui (`WM_ENTERSIZEMOVE`, poignée) | oui (poignée, redimensionnement) | non | oui (`resizing`) |
+| Poignée `data-resize-region` | oui (suivie à la main) | oui (suivie à la main) | oui (`_NET_WM_MOVERESIZE`, règles du gestionnaire) | oui (`xdg_toplevel.resize`, règles du compositeur) |
+
+Sous Windows, une fenêtre non redimensionnable perd `WS_THICKFRAME` et
+`WS_MAXIMIZEBOX` (ni bords, ni Aero Snap, ni agrandissement au double clic) ; le plein
+écran retire aussi les coins arrondis et l’ombre. `WM_NCHITTEST` ne rend alors aucun bord :
+la fenêtre ne se redimensionne que par ses poignées. Une poignée vaut `HTCLIENT`, avant
+les bords et les zones de déplacement : son geste ne passe pas par la boucle modale de
+Windows (qui exigerait `WS_THICKFRAME`) mais par `WM_LBUTTONDOWN`, `SetCapture`,
+`WM_MOUSEMOVE` (`SetWindowPos` puis `UpdateWindow`) et `WM_LBUTTONUP` ou
+`WM_CAPTURECHANGED` (`platform/windows/events/grip.rs`). Les bords d’une fenêtre
+redimensionnable restent ceux de Windows (`WM_SIZING` applique les mêmes proportions).
+Code : `window/change.rs` (types et géométrie communs, règle de la poignée
+`grip_size`), `platform/windows/window/change.rs`, `platform/windows/events/grip.rs`,
+`platform/macos/window/change.rs`, `platform/linux/shell/facts.rs`,
+`platform/linux/{wayland,x11}/window/change.rs`. Tests :
+`platform/windows/tests/change.rs` (fenêtre cachée, geste d’une poignée sur une fenêtre
+fixe et test de position), `window/change.rs` (géométrie, règle de la poignée),
+`ui/tests/runtime/basics.rs` (poignée, poignée dans une zone de déplacement), `platform/headless/tests/window.rs`
+(`HeadlessApp::window_changed`).
 
 Une ouverture avec un ID déjà utilisé renvoie `Error::DuplicateWindowId`, des
 options invalides `Error::InvalidWindowOptions`. Les erreurs de création, de
@@ -103,6 +191,40 @@ match platform::run_windows(windows, ExitPolicy::LastWindowClosed) {
 ```
 
 Les fenêtres déjà créées sont nettoyées avant le retour.
+
+## Dialogues de fichiers
+
+`WindowCommand::FileDialog(id, TaskId, FileDialog)` montre le sélecteur natif du
+système, modal à la fenêtre `id` : ouvrir un fichier (`FileDialog::open_file`), plusieurs
+(`open_files`), choisir un dossier (`pick_folder`) ou enregistrer sous (`save_file`),
+avec un titre, des types de fichiers (`filter("Audio", &["mp3", "flac"])`), un nom
+proposé et un dossier de départ. Le choix revient comme le résultat d'une tâche, à
+`Application::task_completed`, sous le `TaskId` donné : `FileDialogResult { paths }`
+(vide si l'utilisateur annule), ou un échec si le dialogue n'a pas pu s'ouvrir. Rien
+n'est livré si la fenêtre est fermée entre-temps.
+
+```rust,ignore
+self.commands.push(WindowCommand::FileDialog(
+    WindowId::MAIN,
+    TaskId(900),
+    FileDialog::pick_folder().title("Ajouter un dossier"),
+));
+// …
+fn task_completed(&mut self, result: TaskResult) -> bool {
+    if result.id == TaskId(900) {
+        if let Ok(choice) = result.into_value::<FileDialogResult>() {
+            self.import(choice.paths);
+        }
+    }
+    true
+}
+```
+
+| Backend | Dialogue | Notes |
+| --- | --- | --- |
+| Windows | `IFileOpenDialog`, `IFileSaveDialog` | Boucle modale montrée hors des emprunts de l'application ; la fenêtre continue de se dessiner. Extension du premier type ajoutée au nom tapé sans extension. |
+| macOS | `NSOpenPanel`, `NSSavePanel` en feuille | Types par `UTType` (macOS 11 et plus) ; non essayé sur un Mac. |
+| Linux | Portail XDG `org.freedesktop.portal.FileChooser` | Appel et attente sur un thread (libdbus), choix rendu par le réveil des tâches ; parent `x11:<XID>` sous X11, aucun sous Wayland (pas encore `zxdg_foreign_v2`) ; non essayé sous Linux. |
 
 ## Choisir quand l’application s’arrête
 
@@ -163,7 +285,7 @@ pas. Aucun gain de RAM ou de temps d’image global n’est annoncé à cette é
 
 Le [service de tâches de fond](tasks.md) fournit maintenant des résultats
 associés à chaque fenêtre, avec annulation à la fermeture. L’API de fenêtres
-ne fournit pas encore les relations propriétaire/dialogue natif, l’annulation d’une fermeture pour
+ne fournit pas encore la liste des écrans, les relations propriétaire/dialogue natif, l’annulation d’une fermeture pour
 confirmer une sauvegarde, le docking ou les backends macOS/Linux. Chaque fenêtre
 possède actuellement son renderer ; le partage de ressources graphiques entre
 fenêtres reste une optimisation à mesurer.

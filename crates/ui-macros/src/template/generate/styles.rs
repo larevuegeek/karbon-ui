@@ -179,7 +179,12 @@ impl Generator {
         }
         for a in &e.attrs {
             let name = a.name.as_str();
+            // `data-exit={…}` et `data-reveal={…}` portent une animation Rust, pas une
+            // valeur d'attribut lue par les sélecteurs.
+            let animation =
+                matches!(name, "data-exit" | "data-reveal") && matches!(a.value, Value::Expr(_));
             if matches!(name, "class" | "style")
+                || animation
                 || name.starts_with("class:")
                 || name.starts_with("style:")
                 || html::EVENTS.contains(&name)
@@ -192,9 +197,21 @@ impl Generator {
                 Value::Expr(t) => {
                     if name.starts_with("data-") || name.starts_with("aria-") {
                         let value = self.out.value(t);
-                        code += &format!(
-                            "let __ui_node=__ui_node.html_attribute({name:?},::core::option::Option::Some(::std::string::ToString::to_string(&({value}))));"
-                        );
+                        // États ARIA : jeton de l'attribut HTML (`page`, `mixed`…) ; un
+                        // `aria-current` sans élément courant n'a pas d'attribut.
+                        let value = match name {
+                            "aria-current" => format!(
+                                "{R}::ui::template::aria_current(&({value})).map(|c|::std::string::ToString::to_string(c.token()))"
+                            ),
+                            "aria-pressed" | "aria-checked" => format!(
+                                "::core::option::Option::Some(::std::string::ToString::to_string({R}::ui::template::aria_check_token({R}::ui::template::aria_check(&({value})))))"
+                            ),
+                            _ => format!(
+                                "::core::option::Option::Some(::std::string::ToString::to_string(&({value})))"
+                            ),
+                        };
+                        code +=
+                            &format!("let __ui_node=__ui_node.html_attribute({name:?},{value});");
                         dynamic_attrs.push(name.to_owned());
                     }
                 }

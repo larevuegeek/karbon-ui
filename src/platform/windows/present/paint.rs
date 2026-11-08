@@ -82,6 +82,7 @@ impl DrawingState {
             self.runtime.defer_animations(at.elapsed());
         }
         let started = self.profile.as_ref().map(|_| Instant::now());
+        let engine = self.runtime.stats();
         let (width, height, scale) = self.prepare(window)?;
         if width == 0 || height == 0 {
             return Ok(());
@@ -109,31 +110,32 @@ impl DrawingState {
             return Ok(());
         }
         self.presented = None;
-        let [surface_time, render_time, submit_time] = match self.draw_and_submit(window, &frame) {
-            Ok(timings) => timings,
-            Err(Failure::Submit(error)) => return Err(error),
-            Err(Failure::Renderer(error)) => {
-                eprintln!("karbon-ui: recreating the renderer after an error: {error}");
-                // Périphérique perdu : même mode (Auto retente le GPU). Autre échec : WARP.
-                let mode = if self.mode == RenderMode::Auto && !is_device_lost(&error) {
-                    RenderMode::Software
-                } else {
-                    self.mode
-                };
-                let mut renderer = Renderer::new(mode)?;
-                renderer.load_fonts(self.runtime.font_assets())?;
-                if let Some(profile) = &mut self.profile {
-                    profile.emit(self.renderer.label(), "renderer-recovery");
-                    *profile = profile.restart();
-                    profile.recoveries = 1;
+        let [surface_time, render_time, submit_time, wait_time] =
+            match self.draw_and_submit(window, &frame) {
+                Ok(timings) => timings,
+                Err(Failure::Submit(error)) => return Err(error),
+                Err(Failure::Renderer(error)) => {
+                    eprintln!("karbon-ui: recreating the renderer after an error: {error}");
+                    // Périphérique perdu : même mode (Auto retente le GPU). Autre échec : WARP.
+                    let mode = if self.mode == RenderMode::Auto && !is_device_lost(&error) {
+                        RenderMode::Software
+                    } else {
+                        self.mode
+                    };
+                    let mut renderer = Renderer::new(mode)?;
+                    renderer.load_fonts(self.runtime.font_assets())?;
+                    if let Some(profile) = &mut self.profile {
+                        profile.emit(self.renderer.label(), "renderer-recovery");
+                        *profile = profile.restart();
+                        profile.recoveries = 1;
+                    }
+                    self.renderer = renderer;
+                    self.runtime.invalidate();
+                    self.prepare(window)?;
+                    self.draw_and_submit(window, &frame)
+                        .map_err(Failure::into_error)?
                 }
-                self.renderer = renderer;
-                self.runtime.invalidate();
-                self.prepare(window)?;
-                self.draw_and_submit(window, &frame)
-                    .map_err(Failure::into_error)?
-            }
-        };
+            };
         self.presented = Some((
             width,
             height,
@@ -142,22 +144,34 @@ impl DrawingState {
             self.runtime.stats().paints,
         ));
         if let Some(profile) = &mut self.profile {
-            profile.record(
+            let timings = [
+                prepare_time,
+                render_time,
+                surface_time,
+                submit_time,
+                elapsed(started),
+            ];
+            profile.record(timings, (width, height), scale);
+            let gap = profile.presented(Instant::now());
+            let after = self.runtime.stats();
+            profile.slow_frame(
+                timings,
+                wait_time,
                 [
-                    prepare_time,
-                    render_time,
-                    surface_time,
-                    submit_time,
-                    elapsed(started),
+                    after.view_time.saturating_sub(engine.view_time),
+                    after.style_time.saturating_sub(engine.style_time),
+                    after.layout_time.saturating_sub(engine.layout_time),
+                    after.paint_time.saturating_sub(engine.paint_time),
                 ],
-                (width, height),
-                scale,
+                gap,
             );
         }
         Ok(())
     }
     /// Prépare la surface, dessine puis soumet l'image. Durées : surface, rendu, soumission.
-    fn draw_and_submit(&mut self, window: Hwnd, frame: &Frame) -> Result<[Duration; 3], Failure> {
+    /// Durées : surface, rendu, soumission, et attente de la place dans la file de
+    /// présentation (composition seulement, hors des trois autres).
+    fn draw_and_submit(&mut self, window: Hwnd, frame: &Frame) -> Result<[Duration; 4], Failure> {
         let clock = || frame.profiled.then(Instant::now);
         let (width, height, scale) = (frame.width, frame.height, frame.scale);
         let scene = self.runtime.scene();
@@ -186,7 +200,7 @@ impl DrawingState {
                 let started = clock();
                 surface.present(window).map_err(Failure::Submit)?;
                 startup::presented();
-                Ok([surface_time, render_time, elapsed(started)])
+                Ok([surface_time, render_time, elapsed(started), Duration::ZERO])
             }
             Presenter::Composition(visual) => {
                 let change = self
@@ -199,6 +213,10 @@ impl DrawingState {
                     profile.surface_creations += 1;
                 }
                 let surface_time = elapsed(started);
+                // Place dans la file de présentation (déjà prise par une image d'animation,
+                // voir `runtime::wait_for_frame`) ; attente mesurée à part.
+                self.renderer.wait_for_frame();
+                let wait_time = self.renderer.frame_wait();
                 let started = clock();
                 self.renderer
                     .render_to_swap_chain(scene, width, height, scale, frame.premultiplied)
@@ -220,7 +238,7 @@ impl DrawingState {
                     .expect("swap chain just presented");
                 visual.bind(chain).map_err(Failure::Submit)?;
                 startup::presented();
-                Ok([surface_time, render_time, elapsed(started)])
+                Ok([surface_time, render_time, elapsed(started), wait_time])
             }
         }
     }

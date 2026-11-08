@@ -40,8 +40,9 @@ pub(crate) fn node_clip(node: &Element, bounds: RectF, parent: RectF) -> RectF {
         .rules
         .as_ref()
         .map_or((Overflow::Clip, Overflow::Clip), |r| {
-            // Révélation en cours : contenu rogné comme `overflow: hidden` (`.collapsing`).
-            if r.reveal.is_some() {
+            // Révélation en cours : contenu rogné comme `overflow: hidden` (`.collapsing`) ;
+            // `content-visibility` confine la peinture de même.
+            if r.reveal.is_some() || containment::paint_contained(r) {
                 (Overflow::Clip, Overflow::Clip)
             } else {
                 (r.overflow_x, r.overflow_y)
@@ -65,9 +66,10 @@ pub(crate) fn child_clip(node: &Element, area: RectF) -> RectF {
 /// remains rectangular unless the caller opts in with overflow().
 pub(crate) fn rounded_clip(node: &Element) -> Option<(RectF, [f32; 4])> {
     let rules = node.rules.as_ref()?;
-    if !rules.rounded_clip
-        || rules.overflow_x == Overflow::Visible
-        || rules.overflow_y == Overflow::Visible
+    if !containment::paint_contained(rules)
+        && (!rules.rounded_clip
+            || rules.overflow_x == Overflow::Visible
+            || rules.overflow_y == Overflow::Visible)
     {
         return None;
     }
@@ -138,8 +140,15 @@ pub(crate) fn contains_rounded(
     }
     true
 }
+/// Indices des enfants dans l'ordre de peinture ; aucun quand le contenu est sauté
+/// (`content-visibility`) : ni peint ni touché.
 pub(crate) fn paint_order(node: &Element) -> impl DoubleEndedIterator<Item = usize> + '_ {
-    (0..node.children.len()).map(|i| {
+    let count = if node.content_skipped {
+        0
+    } else {
+        node.children.len()
+    };
+    (0..count).map(|i| {
         node.rules
             .as_ref()
             .filter(|r| !r.paint_order.is_empty())
@@ -277,9 +286,13 @@ mod arrange;
 mod position;
 use arrange::arrange_in;
 use position::LayoutContext;
-pub(crate) use position::{fixed, hidden};
+pub(crate) use position::{fixed, hidden, out_of_flow};
+pub(crate) mod containment;
+mod lazy;
+pub(crate) use lazy::unsettle;
 mod measure;
 mod memo;
+pub(crate) use memo::Key as MeasureKey;
 pub mod scroll;
 mod validation;
 pub mod virtual_list;
@@ -287,7 +300,7 @@ pub use arrange::arrange;
 use grid::placements;
 pub use measure::measure;
 pub use split::split_extent;
-pub use validation::validate;
+pub use validation::{MAX_ELEMENTS, validate};
 
 pub mod expression;
 mod flex;

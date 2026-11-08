@@ -87,3 +87,21 @@ fn invalid_ids_spans_and_constraints_fail_before_layout() {
         &Element::column(1, vec![]).min_width(10.).max_width(5.)
     )));
 }
+
+#[test]
+fn trees_are_limited_to_max_elements() {
+    // Une longue liste riche (500 lignes d'une cinquantaine d'éléments) passe ; au-delà
+    // de la limite, la validation refuse l'arbre (utiliser une liste virtuelle).
+    let column = |n: usize| {
+        Element::column(
+            1,
+            (0..n as u64)
+                .map(|i| Element::column(10 + i, vec![]))
+                .collect(),
+        )
+    };
+    assert!(layout::validate(&column(layout::MAX_ELEMENTS - 1)).is_ok());
+    assert!(crate::error::rejected(layout::validate(&column(
+        layout::MAX_ELEMENTS
+    ))));
+}

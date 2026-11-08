@@ -7,7 +7,9 @@ use crate::ui::{
     scene::DrawCommand,
 };
 use std::time::{Duration, Instant};
+mod carousel;
 mod keyframes;
+mod sizes;
 pub(super) fn at(ui: &mut UiRuntime, time: Instant) {
     ui.prepare_at(
         context(),
@@ -362,6 +364,8 @@ fn scrolled_out_infinite_effects_do_not_request_frames() {
     at(&mut ui, start + Duration::from_secs(1));
     assert!(ui.next_wake().is_some());
     wheel(&mut ui, PointF { x: 20., y: 100. }, 0., -10000.);
+    // Le survol, figé pendant le défilement, demande un réveil pour rejoindre le contenu.
+    ui.event(UiEvent::Timer(start + Duration::from_secs(2)));
     at(&mut ui, start + Duration::from_secs(2));
     assert!(ui.next_wake().is_none());
 }

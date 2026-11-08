@@ -165,6 +165,7 @@ de lignes avec ses métriques fixes.
 
 | Fonction | Couverture |
 | --- | --- |
+| Contenu sauté | `content-visibility: visible / auto / hidden` ; `contain-intrinsic-size`, `-width`, `-height` (`[auto] <longueur> / none`, une ou deux valeurs). Avec `auto`, le contenu d'un élément éloigné de la vue (vue de son défilement élargie de moitié, comme Chromium) n'est ni mesuré, ni placé, ni peint, ni touché, ni animé ; l'élément garde sa boîte (taille déclarée, ou la dernière taille de son contenu avec `auto`) et rogne toujours son contenu à sa boîte de padding arrondie (confinement de la peinture). Voir [scroll.md](scroll.md#contenu-sauté-content-visibility) |
 | Boîte | `box-sizing: border-box/content-box` ; padding et bordure réservés au contenu ; min/max en px, en % de la boîte de contenu du parent ou en expression (`calc(100vh - 330px)`, vw/vh/em) ; `aspect-ratio` (`16 / 9`, nombre, auto) |
 | Dimensions | width/height en px, %, auto, em/rem/vw/vh et expressions |
 | Espacements | padding/margin en 1 à 4 valeurs, côtés séparés ; gap, row-gap, column-gap ; px, em, rem, vw, vh et expressions (`calc()`, `min()`, `max()`, `clamp()`, `var()`) ; marges négatives et auto ; pas de % (refusé) |
@@ -173,7 +174,7 @@ de lignes avec ses métriques fixes.
 | Alignement | start/end/center/stretch ; justify-content start/end/center/space-between |
 | Grille | Colonnes et lignes (`grid-template-columns` / `grid-template-rows`) en px, %, auto, fr, `max-content`, `fit-content(px)`, minmax et repeat (dont `repeat(auto-fill | auto-fit, piste)`, répétée selon la largeur) ; grid-column/span, `N / M`, `1 / -1`, lignes et colonnes explicites ; `justify-self` et `align-self` start/center/end/stretch dans la cellule (largeur auto alignée : largeur du contenu), `align-items` et `justify-items` du conteneur comme alignements par défaut ; `justify-content` start/center/end/space-between place les colonnes quand leurs pistes laissent de la place (sans effet avec une piste `fr`) ; lignes implicites d’une grille de hauteur définie étirées à parts égales |
 | Position | static/relative/absolute/fixed ; top/right/bottom/left et raccourci `inset` (1 à 4 valeurs) en longueurs ou auto ; z-index entier |
-| Débordement | overflow et axes visible/hidden/clip ; contours arrondis pour un clip explicite sur les deux axes ; `overscroll-behavior: contain / none` (le reste d’un défilement à la molette reste dans le conteneur) ; `scroll-margin` et `scroll-padding` (marges gardées quand le focus amène un élément dans la vue) |
+| Débordement | overflow et axes visible/hidden/clip ; contours arrondis pour un clip explicite sur les deux axes ; `overscroll-behavior: contain / none` (le reste d’un défilement à la molette reste dans le conteneur) ; `scroll-margin` et `scroll-padding` (marges gardées quand le focus amène un élément dans la vue) ; `scroll-initial-target: nearest / none` (un conteneur qui apparaît part de l'élément, voir [scroll.md](scroll.md)) ; zone visible = boîte de padding, ancrage du défilement comme `overflow-anchor: auto` |
 | Pointeur | `cursor` (auto, default, pointer, text, not-allowed, wait, progress, help, move, grab, grabbing, crosshair, col/row/ew/ns/nwse/nesw-resize…), hérité et possible dans les états ; `pointer-events: none / auto`, hérité (ni clic, ni survol, ni curseur) |
 
 Les bordures sont incluses dans le calcul du contenu. `content-box` ajoute
@@ -191,7 +192,10 @@ de l’espace libre, y compris après gel aux min/max ; voir
 
 `relative` conserve sa place dans le flux. `absolute` utilise la boîte de
 padding du plus proche ancêtre positionné, ou le viewport. Deux offsets
-opposés étirent une dimension auto. `fixed` reste attaché au viewport et
+opposés étirent une dimension auto ; sans eux, la hauteur `auto` est celle du contenu,
+qui peut déborder du bloc conteneur (une colonne flexible `top: 50%` n'est pas
+rétrécie à la place restante) ; seule une zone qui défile verticalement
+(`overflow-y: auto | scroll`) prend cette place pour borne. `fixed` reste attaché au viewport et
 échappe au scroll et au clip de ses ancêtres. Chaque conteneur définit ici
 un contexte d’empilement ; dessin et clics emploient le même ordre de z-index
 (les feuilles de framework font remonter le `z-index` d’un descendant à travers
@@ -304,7 +308,18 @@ contenu sans partage de l’espace libre ; `fit-content(L)` la borne à L.
 sans débordement : le plus long mot d’un texte (chaque mot mesuré seul avec la
 typographie calculée), la largeur naturelle d’une autre feuille, la somme des enfants
 d’une rangée flex sans retour à la ligne, sinon le plus large ; une largeur en px est
-gardée. `width: min-content` sur un élément n’est pas fourni (erreur).
+gardée.
+
+`width: max-content` (`w-max`, `Length::MaxContent`) donne à l’élément la largeur de son
+contenu mesuré sans limite de place (pas de retour à la ligne ni de rétrécissement des
+éléments flex), gardée quelle que soit la place du parent : un contenu plus large
+déborde, et l’élément n’est pas étiré par `align-items: stretch`. C’est la piste d’un
+défilement sans fin (`.piste { display: flex; width: max-content; animation: defile 46s
+linear infinite }` avec `translateX(-50%)` sur deux copies du contenu).
+`height: max-content` vaut `auto`. `width: min-content` et `fit-content` sur un
+élément ne sont pas fournis (erreur). Les pourcentages de `width`/`height` et des
+limites peuvent dépasser 100 % (`h-[110%]`), comme les décalages négatifs
+(`left: -10%`).
 
 `align-items: baseline` (et `align-self`) aligne, dans une rangée flex, les premières
 lignes de base : celle d’un texte se déduit de sa taille et de sa hauteur de ligne
@@ -511,6 +526,16 @@ Sélecteurs : `.a`, listes `.a, .b`, composés `.a.b`, plusieurs pseudo-classes,
 `:read-write`, `:placeholder-shown`. Le placeholder suit le véritable éditeur,
 même si l’application ne reconstruit pas la vue à chaque frappe.
 
+`:hover` suit le hit-test d’un navigateur : seul l’élément peint au-dessus du pointeur
+et ses ancêtres sont survolés (`UiRuntime`, `StyleEnvironment::hovered`). Un calque
+absolu de `z-index` supérieur, un panneau `position: fixed` ou un menu ouvert ne laisse
+ni `:hover`, ni `group-hover`, ni curseur, ni clic atteindre ce qu’il recouvre, même
+sur ses parties non interactives ; `pointer-events: none` le rend traversant. Un
+dialogue ou un popover ouvert retient le pointeur comme le fond transparent qui ferme
+un menu d’une page web : le contenu dessous n’est pas survolé. Un clic sur la bordure
+intérieure (`padding`) d’un bouton, d’un champ ou d’une liste de choix les atteint.
+Code : `runtime/hover.rs`, `runtime/hit_test.rs` ; tests : `tests/css/occlusion.rs`.
+
 Combinateurs : descendant (`.card .title`), enfant (`.list > .row`), frère
 adjacent (`.item + .item`) et frères suivants (`.marker ~ .after`), jusqu’à 8
 composés. Chaque composé peut porter une balise, des classes, des attributs et des
@@ -574,10 +599,19 @@ Le compilateur produit des étapes statiques (`Keyframe` du moteur), une piste p
 propriété, comme un navigateur :
 
 - **Propriétés animables** : `opacity`, `transform`, `color`, `background-color`
-  (ou `background` réduit à une couleur), `border-color` (une seule couleur). Les
-  couleurs sont des constantes (variables de `:root` substituées) ; `currentColor`,
-  les dégradés, les tailles et les autres propriétés sont refusés avec la position
-  de la déclaration (`feuille.css:2:9: Keyframe property 'width' is not animatable`).
+  (ou `background` réduit à une couleur), `border-color` (une seule couleur), `width`
+  et `height`. Les couleurs sont des constantes (variables de `:root` substituées) ;
+  `currentColor`, les dégradés et les autres propriétés sont refusés avec la position
+  de la déclaration (`feuille.css:2:9: Keyframe property 'padding' is not animatable`).
+- **Dimensions** : `width` / `height` en px, en pourcentage du bloc conteneur (au-delà
+  de 100 % compris) ou `auto`. Deux longueurs en px, ou deux pourcentages,
+  s'interpolent ; une autre paire (px vers %, `auto`) bascule à mi-parcours (animation
+  discrète). Une étape extrême absente reprend la dimension déclarée de l'élément.
+  Échantillonnées pendant la résolution des styles, elles relancent le layout de
+  l'arbre à chaque image, comme une transition de largeur : les voisins suivent
+  (`@keyframes eq { 0%, 100% { height: 4px } 50% { height: 18px } }` sur une barre
+  sans hauteur, au bas d'une rangée `items-end`). Une barre de taille nulle (pendant
+  son délai) continue de demander ses images tant que son coin est dans sa découpe.
 - **Étapes partielles** : une étape ne déclare que certaines propriétés. Chaque
   propriété s'interpole entre ses propres étapes voisines qui la déclarent ; absente
   de `0%` ou de `100%` (ou de `from`/`to`), elle y prend la valeur de l'élément.
@@ -602,6 +636,20 @@ propriété, comme un navigateur :
   `none`/`forwards`/`backwards`/`both` ; `animation-play-state` `running`/`paused`.
   Une classe basculée par la vue qui ne change que `animation-play-state` met en
   pause ou reprend l'animation sans la redémarrer.
+- **Règles d'état et media** : `animation-delay`, `animation-duration`,
+  `animation-direction`, `animation-play-state` (une valeur) et `animation: none`
+  peuvent changer dans une règle d'état, composée ou de media
+  (`.piste.inverse { animation-direction: reverse }`,
+  `.pause .piste { animation-play-state: paused }`,
+  `@media (prefers-reduced-motion: reduce) { .piste { animation: none } }`) : ils
+  remplacent les réglages de l'animation des classes tant que la règle s'applique
+  (`AnimationOverride`). La pause ne redémarre pas l'animation, les autres réglages
+  la redémarrent. Changer les étapes (`animation-name`, raccourci) selon l'état reste
+  refusé. Sur une liste, délai et pause s'appliquent à toute la liste, durée et sens à
+  aucun membre.
+- **Style en ligne** : `style="animation-delay: -1.4s"`, `animation-duration` et
+  `animation-play-state` règlent l'animation posée par les classes de l'élément ;
+  `animation` et `animation-name` en ligne restent refusés (pas de `@keyframes`).
 - Les longhands sont vérifiés à la déclaration (position de l'erreur), un
   `@keyframes` inconnu est signalé sur la déclaration qui le nomme.
 
@@ -617,14 +665,18 @@ résultat d'une animation précédente de la liste.
 Coût : une animation qui ne touche que l'opacité et la transformation s'applique à la
 peinture, sans résolution des styles ni layout par image. Une animation de couleur
 visible relance la résolution des styles à chaque image, comme une transition de
-couleur (hors du viewport, ni images ni restyle). Mouvements réduits : état final
+couleur (hors du viewport, ni images ni restyle) ; une animation de dimension relance
+en plus le layout de tout l'arbre à chaque image (une boucle infinie, comme les barres
+d'un égaliseur, le fait tant qu'elle est visible : préférer `transform: scaleY()`
+quand la mise en page des voisins n'a pas à suivre). Mouvements réduits : état final
 immédiat de chaque animation (celui de son remplissage avant).
 
 Limites : pas de nombre d'itérations fractionnaire ou nul, pas de `steps()`, pas
 d'`animation-composition`, `animation-timeline`, `animation-range` ; pas d'animation
-de taille, d'ombre, de dégradé ou de `currentColor` ; pas d'animation dans une règle
-d'état ou une media query, ni sur un pseudo-élément ; les couleurs d'une animation de
-sortie (`data-exit`) ne sont pas jouées par le fantôme. Les clés de replay Rust et
+d'ombre, de dégradé ou de `currentColor`, ni de dimension en `calc()`/`em` ou de
+`min-*`/`max-*`, padding et marges ; pas de remplacement des étapes dans une règle
+d'état ou une media query, ni d'animation sur un pseudo-élément ; les couleurs et les
+dimensions d'une animation de sortie (`data-exit`) ne sont pas jouées par le fantôme. Les clés de replay Rust et
 les mouvements réduits restent disponibles.
 
 ```css
@@ -636,6 +688,10 @@ les mouvements réduits restent disponibles.
 @keyframes flash { 50% { background-color: #fff3; } }
 .badge { animation: pop 400ms ease-in both, flash 1.2s -300ms infinite; }
 ```
+
+Une règle d'état ou de media peut déclarer `transition` : elle remplace celle de
+l'élément tant qu'elle s'applique (`.x:hover { transition: none }`,
+`motion-reduce:transition-none` de Tailwind).
 
 `transition` accepte `opacity`, `transform`, `color`, `background-color`
 (`background`), `border-color`, `width`, `height` et `all`, avec une

@@ -3,8 +3,8 @@ use super::super::ffi::Hwnd;
 use windows_sys::Win32::{
     Graphics::Dwm::{
         DWMNCRP_ENABLED, DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE, DWMWA_NCRENDERING_POLICY,
-        DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DwmExtendFrameIntoClientArea,
-        DwmSetWindowAttribute,
+        DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND, DWMWCP_ROUND,
+        DwmExtendFrameIntoClientArea, DwmSetWindowAttribute,
     },
     UI::{Controls::MARGINS, WindowsAndMessaging::IsZoomed},
 };
@@ -74,4 +74,22 @@ pub(crate) fn apply_style(window: Hwnd) {
     if update_frame(window) && available {
         println!("karbon-ui: DWM style applied: rounded corners");
     }
+}
+
+/// Coins arrondis (`true`) ou droits (plein écran) ; sans effet avant Windows 11.
+pub(crate) fn set_rounded(window: Hwnd, rounded: bool) {
+    let value = if rounded {
+        DWMWCP_ROUND
+    } else {
+        DWMWCP_DONOTROUND
+    } as u32;
+    // SAFETY : DWM lit la valeur de 32 bits pendant cet appel ; la taille correspond.
+    unsafe {
+        DwmSetWindowAttribute(
+            window,
+            DWMWA_WINDOW_CORNER_PREFERENCE as u32,
+            (&value as *const u32).cast(),
+            std::mem::size_of::<u32>() as u32,
+        )
+    };
 }

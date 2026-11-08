@@ -233,8 +233,18 @@ fn main() {
         ),
         (
             "role_unknown",
-            r#"<div role="tab"></div>"#,
-            "role=\"tab\" is not supported",
+            r#"<div role="grid"></div>"#,
+            "role=\"grid\" is not supported",
+        ),
+        (
+            "aria_checked_role",
+            r#"<button aria-checked="true" onclick={()}>Choix</button>"#,
+            "aria-checked needs role=",
+        ),
+        (
+            "aria_current_token",
+            r#"<button aria-current="yes" onclick={()}>Accueil</button>"#,
+            "aria-current expects page",
         ),
         (
             "haspopup",
@@ -345,8 +355,8 @@ fn main() {
         // Animations : erreurs à la position de la déclaration fautive.
         (
             "css_keyframes_property",
-            "@keyframes k { 0% { opacity: 0 }\n 100% { width: 10px } }\n.card { animation: k 1s; }",
-            "css_keyframes_property.css:2:9: Keyframe property 'width' is not animatable",
+            "@keyframes k { 0% { opacity: 0 }\n 100% { padding: 10px } }\n.card { animation: k 1s; }",
+            "css_keyframes_property.css:2:9: Keyframe property 'padding' is not animatable",
         ),
         (
             "css_animation_unknown",

@@ -46,6 +46,16 @@ pub(super) fn property(name: &str, value: &str, next: Next) -> Result<Properties
                 ),
             )
         }
+        // Cible initiale du conteneur défilant le plus proche (CSS Scroll Snap 2).
+        "scroll-initial-target" => one(
+            "scroll_initial_target",
+            match value {
+                "nearest" => "true",
+                "none" => "false",
+                _ => return Err("Use scroll-initial-target: nearest or none".into()),
+            }
+            .into(),
+        ),
         "overscroll-behavior" | "overscroll-behavior-x" | "overscroll-behavior-y" => {
             let parts = words(value)?;
             let contain = |v: &str| match v {

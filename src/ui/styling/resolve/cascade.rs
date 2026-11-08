@@ -3,7 +3,7 @@
 use super::{
     environment::{StyleChanges, StyleEnvironment},
     matching::{Frame, clipped, facts, matches},
-    node::{apply_computed, record_container, reveal, sample_sizes},
+    node::{apply_computed, keyframe_sizes, record_container, reveal, sample_sizes},
     scope::declare,
 };
 use crate::ui::{
@@ -52,6 +52,69 @@ pub(crate) fn resolve_inherited(
             siblings,
             pointer_clipped,
         } = tree;
+        // Résolution partielle : un élément touché est résolu avec tout son sous-arbre.
+        let env = match env.partial {
+            Some(partial) if partial.full(node.id) => StyleEnvironment {
+                partial: None,
+                ..env
+            },
+            _ => env,
+        };
+        // Sous-arbre mémorisé remis en place par la reconstruction : ses styles restent
+        // ceux de la dernière résolution tant que rien de ce qu'il lit n'a changé. Son rang
+        // et ceux de ses ancêtres n'en font partie que si une règle du sous-arbre lit une
+        // position : une ligne d'une liste qui perd ses premières lignes (chargement de la
+        // page suivante), ou dont la liste gagne un frère (indicateur de chargement), garde
+        // ses styles et, par eux, ses mesures.
+        let memo_inputs = node.memo.as_ref().map(|_| {
+            use std::hash::{Hash, Hasher};
+            let mut h = std::hash::DefaultHasher::new();
+            format!("{inherited:?}").hash(&mut h);
+            (root_font.to_bits(), root, pointer_clipped).hash(&mut h);
+            let positions = super::partial::reads_position(node)
+                || parent.is_some_and(|p| {
+                    p.children
+                        .iter()
+                        .any(|(state, ..)| super::partial::child_rule_reads_position(state))
+                });
+            if positions {
+                (index, siblings).hash(&mut h);
+            }
+            (env.viewport.width.to_bits(), env.viewport.height.to_bits()).hash(&mut h);
+            (
+                env.focus_visible,
+                env.reduced_motion,
+                env.pixel_scale.to_bits(),
+            )
+                .hash(&mut h);
+            if let Some(parent) = parent {
+                parent.fingerprint(&mut h, positions);
+            }
+            h.finish()
+        });
+        if let (Some(inputs), Some(memo)) = (memo_inputs, node.memo.as_deref_mut()) {
+            let transplanted = std::mem::take(&mut memo.transplanted);
+            let same_scope = match (&memo.style_scope, declared) {
+                (Some(a), Some(b)) => a.same(b),
+                (None, None) => true,
+                _ => false,
+            };
+            if transplanted
+                && env.partial.is_none()
+                && !std::mem::take(&mut memo.style_dirty)
+                && memo.style_inputs == Some(inputs)
+                && same_scope
+                && !super::partial::reads_siblings(node)
+            {
+                return Ok((false, false));
+            }
+        }
+        // Layout incrémental : un changement de métrique dans le sous-arbre d'un conteneur
+        // annule la reprise de ses mesures et de son placement (`LayoutCache::settled`).
+        let layout_above = node
+            .layout_cache
+            .is_some()
+            .then(|| std::mem::take(&mut changes.layout));
         let parent_clipped = pointer_clipped;
         let pointer_clipped = clipped(node, &env, parent_clipped);
         record_container(node);
@@ -189,6 +252,24 @@ pub(crate) fn resolve_inherited(
                 changes.paint = true;
             }
         }
+        // Réglages d'animation d'une règle d'état (`animation-direction`, `-delay`,
+        // `-duration`, `-play-state`) : appliqués à l'animation du template tant qu'elle
+        // s'applique ; une pause ou une reprise ne redémarre pas l'animation.
+        if let Some(styles) = node.styles.as_deref_mut()
+            && let Some(motion) = node.motion.as_deref_mut()
+            && (!local.animation.is_empty() || styles.base_animation.is_some())
+        {
+            let base = match styles.base_animation {
+                Some((base, shown)) if shown == motion.animation => base,
+                _ => motion.animation,
+            };
+            let shown = base.and_then(|a| local.animation.apply(a));
+            styles.base_animation = Some((base, shown));
+            if motion.animation != shown {
+                motion.animation = shown;
+                changes.paint = true;
+            }
+        }
         // Opacité/transformation des règles d'état combinées (déclarations dynamiques
         // comprises), animées par la transition.
         let state_effect = local.effect.map(|e| {
@@ -317,11 +398,10 @@ pub(crate) fn resolve_inherited(
         };
         // Transition de dimensions : le style de base doit être retenu, sans quoi la
         // taille interpolée de l'image précédente passerait pour la valeur déclarée.
-        let animates_sizes = node
-            .motion
-            .as_ref()
-            .and_then(|m| m.transition)
-            .is_some_and(|t| t.animates_sizes());
+        let animates_sizes = node.motion.as_ref().is_some_and(|m| {
+            m.transition.is_some_and(|t| t.animates_sizes())
+                || m.animation.is_some_and(|a| a.animates_sizes())
+        });
         if (animates_sizes || matches!(node.layout, crate::ui::element::Layout::VirtualList))
             && node.styles.is_none()
         {
@@ -332,6 +412,7 @@ pub(crate) fn resolve_inherited(
         apply_computed(node, &local, computed, base_border, &env, changes);
         local.layout.apply(node);
         sample_sizes(node, &local, laid_out, &env, changes);
+        keyframe_sizes(node, &local, laid_out, &env, changes);
         reveal(node, &env, changes);
         if computed.element_padding {
             node.layout_rules();
@@ -380,12 +461,34 @@ pub(crate) fn resolve_inherited(
                 c
             },
         };
-        let count = node.children.len();
+        // `content-visibility` : contenu sauté, résolu quand il approche de la vue
+        // (`UiRuntime::resolve_revealed`) ; Chromium ne calcule pas non plus ses styles.
+        let count = if layout::containment::skipped(node) {
+            0
+        } else {
+            node.children.len()
+        };
         let mut result = Ok(());
+        // Résolution partielle : seuls les enfants touchés, sur le chemin d'un élément
+        // touché, ou qui lisent un frère précédent touché, sont visités.
+        let mut sibling_touched = false;
         for index in 0..count {
             let (before, rest) = node.children.split_at_mut(index);
             let (child, after) = rest.split_first_mut().unwrap();
             let after: &[Element] = after;
+            let mut env = env;
+            if let Some(partial) = env.partial {
+                let touched = partial.full(child.id);
+                let wanted = partial.wanted(child.id);
+                let by_sibling = sibling_touched && super::partial::reads_previous_siblings(child);
+                sibling_touched |= touched;
+                if !wanted && !by_sibling {
+                    continue;
+                }
+                if touched || by_sibling {
+                    env.partial = None;
+                }
+            }
             let child_clipped = pointer_clipped && !layout::fixed(child);
             result = visit(
                 child,
@@ -415,6 +518,19 @@ pub(crate) fn resolve_inherited(
             styles.attributes = attributes;
         }
         result?;
+        if let (Some(inputs), Some(memo)) = (memo_inputs, node.memo.as_deref_mut()) {
+            memo.style_inputs = Some(inputs);
+            memo.style_scope = declared.cloned();
+            memo.style_dirty = false;
+        }
+        if let Some(above) = layout_above {
+            if changes.layout
+                && let Some(cache) = node.layout_cache.as_deref_mut()
+            {
+                cache.settled = false;
+            }
+            changes.layout |= above;
+        }
         Ok((contains_focus, contains_press))
     }
     let mut changes = StyleChanges::default();

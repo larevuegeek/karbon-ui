@@ -29,9 +29,11 @@ pub struct AccessibleElement {
     pub invokable: bool,
     /// Current text value of a text input.
     pub value: Option<String>,
-    /// Checked state of a checkbox, switch or radio button.
+    /// Checked state of a checkbox, switch or radio button, pressed state of a toggle
+    /// button (`aria-pressed`, as [`ChoiceState::Toggle`]) or selected state of a tab or
+    /// an option (`aria-selected`, as [`ChoiceState::Radio`]).
     pub choice: Option<ChoiceState>,
-    /// Radio group containing this radio button.
+    /// Radio group or tab list containing this radio button or tab.
     pub selection_container: Option<ElementId>,
     /// Text and selection details of a text input.
     pub text: Option<AccessibleText>,
@@ -45,6 +47,8 @@ pub struct AccessibleElement {
     pub help: String,
     /// Declared expanded state of a popup trigger (`aria-expanded`).
     pub expanded: Option<bool>,
+    /// Declared current item of a set (`aria-current`).
+    pub current: Option<CurrentItem>,
 }
 /// Request from an assistive technology, applied with
 /// [`UiRuntime::accessibility_action`](crate::ui::runtime::UiRuntime::accessibility_action).

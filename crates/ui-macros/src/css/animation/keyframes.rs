@@ -60,12 +60,37 @@ fn property(name: &str, value: &str) -> Result<(&'static str, String)> {
             "border-color",
             format!(".border_color({})", color("border-color")?),
         ),
+        "width" => ("width", format!(".width({})", length(name, value)?)),
+        "height" => ("height", format!(".height({})", length(name, value)?)),
         _ => {
             return Err(format!(
-                "Keyframe property '{name}' is not animatable yet (opacity, transform, color, background-color, border-color)"
+                "Keyframe property '{name}' is not animatable yet (opacity, transform, color, background-color, border-color, width, height)"
             ));
         }
     })
+}
+/// Dimension d'une étape : pixels, pourcentage du bloc conteneur (positif, au-delà de
+/// 100 % compris) ou `auto` (animation discrète).
+fn length(name: &str, value: &str) -> Result<String> {
+    let value = value.trim();
+    let root = "__ui_root::ui::element::Length";
+    if value == "auto" {
+        return Ok(format!("{root}::Auto"));
+    }
+    if let Some(n) = value.strip_suffix('%') {
+        let n = values::number(n)?;
+        if n < 0. {
+            return Err(format!("Keyframe {name} cannot be negative"));
+        }
+        return Ok(format!("{root}::Percent({n:?})"));
+    }
+    let n = values::px(value, true).map_err(|_| {
+        format!("Keyframe {name} expects pixels, a percentage or auto (calc(), em and other units are not animatable yet): '{value}'")
+    })?;
+    if n < 0. {
+        return Err(format!("Keyframe {name} cannot be negative"));
+    }
+    Ok(format!("{root}::Px({n:?})"))
 }
 /// Déclaration retenue d'une propriété à un offset : code et courbe du bloc qui l'a
 /// déclarée (elle s'applique jusqu'à l'étape suivante qui déclare la propriété).

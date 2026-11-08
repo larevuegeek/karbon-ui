@@ -6,6 +6,9 @@ impl UiRuntime {
         [
             self.components.tooltips.next_wake(),
             self.motions.next_wake(),
+            self.interaction.hover_frozen,
+            self.smooth_scroll_wake(),
+            self.invalidation.graveyard_wake,
         ]
         .into_iter()
         .flatten()

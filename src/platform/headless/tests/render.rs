@@ -57,7 +57,7 @@ fn offscreen_protocol_runs_on_the_headless_backend() {
     )
     .unwrap();
     assert_eq!(report.backend, LABEL);
-    assert_eq!(report.phases.len(), 2);
+    assert_eq!(report.phases.len(), 6);
     assert_eq!(report.phases[0].before.working_set_bytes, 0);
     let path = std::env::temp_dir().join(format!("karbon-headless-{}.png", std::process::id()));
     <Headless as crate::platform::Backend>::write_png(&image, &path).unwrap();

@@ -25,6 +25,7 @@
 //! | --- | --- | --- |
 //! | Valider les descripteurs avant d'ouvrir | `window::validation` | `window/mod.rs`, `window/session.rs` |
 //! | Créer, fermer et commander les fenêtres | `UiRuntime::take_window_commands`, `WindowCommand` | `window/` |
+//! | Changer une fenêtre ouverte (`WindowCommand::Change`), remettre son état après chaque changement, honorer les poignées `data-resize-region` (même sur une fenêtre fixe, dont les bords ne redimensionnent pas ; geste suivi en coordonnées de l'écran par `window::change::grip_size` quand la plateforme le permet) | `window::change`, `UiRuntime::window_changed`, `UiRuntime::resize_region_at` | `window/change.rs`, `events/nonclient.rs`, `events/grip.rs` |
 //! | Traduire les entrées natives (positions logiques, DPI appliqué) | `UiRuntime::event(UiEvent)` | `events/pointer.rs`, `events/keyboard.rs`, `events/nonclient.rs` |
 //! | Honorer capture et libération du pointeur, curseur | `EventResult::{capture, release}`, `UiRuntime::cursor` | `events/`, `present/runtime.rs` |
 //! | Saisie de texte, IME et presse-papiers (`Write`, puis `EditCommand::DeleteSelection` pour couper ; `Read` renvoyé en `UiEvent::Text`) | `EventResult::clipboard`, `ClipboardRequest` | `events/text.rs`, `events/clipboard.rs` |

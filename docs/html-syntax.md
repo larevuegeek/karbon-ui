@@ -77,7 +77,7 @@ Une balise inconnue ou non prise en charge est une erreur de compilation.
 | `input type="radio"` | Bouton radio ; `name` regroupe |
 | `input type="range"` | Slider ; `min`, `max`, `step`, `orient="vertical"` |
 | `select` + `option value=…` | Liste déroulante ; `value` des options = identifiant `u64` |
-| `img` | Image ; `src={Arc<Image>}`, `alt` (nom accessible), `object-fit` en CSS |
+| `img` | Image ; `src={Arc<Image>}` ou `src={ImageSlot}` (image qui arrive plus tard : repeinte sans reconstruire la vue, voir [les performances](performance.md#défilement-à-la-molette-dans-la-fenêtre-windows-gpu)), `alt` (nom accessible), `object-fit` en CSS |
 | `dialog` | Modale (focus piégé, Échap) ; `placement="top"`, `autofocus`, `backdrop="rgba(…)"` |
 | `hr` | Séparateur |
 
@@ -110,13 +110,16 @@ d'ici là, les styles viennent de `css_file!` / `styles!`.
 | `id` | Identité explicite (unique dans l'arbre) et cible de `label for` / `anchor` |
 | `class` | Classes CSS compilées : classes de la feuille, puis [utilitaires Tailwind](tailwind.md) si elle importe `tailwindcss` ; une classe inconnue est une erreur de compilation avec suggestion ; `class={expr}` accepte une recette Rust |
 | `style="…"` | Déclarations CSS compilées, avec la même couverture que `css_file!` |
-| `title` | Infobulle (délai 500 ms, voir §11) |
+| `title` | Infobulle (délai 500 ms, voir §11) ; vide ou blanc (`title=""`, `title={chaine_vide}`), aucune infobulle, comme en HTML |
 | `hidden` | Non construit |
-| `disabled` | Contrôle inactif |
+| `disabled` | Contrôle inactif ; sur un `<button>` à contenu riche (icône + libellé), la zone cliquable ne réagit plus (ni clic, ni focus, ni action d'accessibilité) et prend l'état `:disabled` (`disabled:opacity-40`, `enabled:hover:…`) |
 | `aria-label` | Nom accessible |
 | `aria-hidden` | `"true"`, `"false"` ou `{bool}` : sous-arbre retiré de l'arbre d'accessibilité (dessin, clics et focus inchangés) |
 | `data-drag-region` | sans valeur, `"true"`, `"false"` ou `{bool}` : la zone déplace la fenêtre (barre de titre personnalisée, comme `data-tauri-drag-region`) ; un appui hors des boutons, champs et curseurs lance le déplacement natif, un double clic agrandit ou restaure. Inactif quand un menu, popover ou dialogue est ouvert |
+| `data-no-drag` | sans valeur, `"true"`, `"false"` ou `{bool}` : la partie est exclue de la zone `data-drag-region` qui l'englobe (`-webkit-app-region: no-drag`) ; un appui sur un vide de cette partie ne déplace pas la fenêtre. Une zone `data-drag-region` imbriquée déplace de nouveau ; l'élément le plus profond qui déclare l'un des deux l'emporte |
+| `data-resize-region` | `"bottom-right"` (ou `left`, `right`, `top`, `bottom`, `top-left`, `top-right`, `bottom-left`) : poignée qui redimensionne la fenêtre par ce bord ou ce coin, même quand elle n'est pas redimensionnable (`WindowChange::Resizable(false)`) ; un appui hors des cibles interactives commence le geste, suivi par karbon-ui sous Windows et macOS (proportions et bornes de la fenêtre, voir [windows.md](windows.md)). L'emporte sur `data-drag-region` ; inactif quand un menu, popover ou dialogue est ouvert |
 | `role`, `aria-expanded`, `aria-haspopup` | Rôle d’accessibilité et déclencheur de menu (§11) |
+| `aria-pressed`, `aria-checked`, `aria-selected`, `aria-current` | États exposés aux lecteurs d’écran : bouton bascule, case ou radio dessinés, onglet, élément courant (§11) |
 | `tabindex="-1"` | Exclu de la navigation clavier |
 | `draggable`, `ondrop` | Glisser-déposer interne |
 
@@ -137,9 +140,33 @@ d'ici là, les styles viennent de `css_file!` / `styles!`.
 | `onclose={msg}` | `dialog`, `k-popover` | aucune |
 | `oncontextmenu={Msg::X}` | Tout élément | `ContextMenuRequest` |
 | `ondrop={Msg::X}` | Cible de dépôt | `DropEvent` |
+| `onscroll={Msg::X}` | Conteneur `overflow: auto / scroll` | `ScrollMetrics` après chaque déplacement ([scroll.md](scroll.md)) |
+| `onwheel={…}` | Tout élément | `WheelEvent` (`delta_x`, `delta_y`, `x`, `y`) ; le gestionnaire rend `Option<Msg>`, voir ci-dessous |
 
 Un événement non applicable à la balise (`oninput` sur une case à cocher)
 est une erreur de compilation qui indique les événements valides.
+
+**Molette** (`onwheel`, `Element::on_wheel`) : les gestionnaires des éléments sous le
+pointeur s’exécutent du plus profond à la racine, comme la propagation du DOM. Un
+gestionnaire qui rend `Some(message)` consomme l’événement (`preventDefault()` et
+`stopPropagation()`) : les ancêtres ne le reçoivent pas et aucun conteneur ne défile.
+`None` le laisse passer : gestionnaire suivant, puis défilement habituel. Les deltas
+sont en pixels logiques, positifs vers la droite et vers le bas (`deltaX`, `deltaY`) ;
+`x`, `y` sont la position du pointeur dans la fenêtre. Les touches de modification ne
+sont pas encore transmises.
+
+```html
+<!-- Volume à la molette sur la pochette, sauf quand il est verrouillé
+     (`verrou` copié avant `ui!` : le gestionnaire vit plus longtemps que la vue). -->
+<div class="pochette" data-drag-region
+     onwheel={move |e: WheelEvent| (!verrou).then(|| Msg::Volume(if e.delta_y < 0. { 5 } else { -5 }))}>
+  …
+  <div class="commandes" data-no-drag>…</div>
+</div>
+```
+
+`WheelEvent` est `karbon_ui::ui::runtime::WheelEvent` ; le gestionnaire est `'static`
+comme ceux de `onscroll` ou `oncontextmenu` : il capture des copies, pas `self`.
 
 ## 6. Animations
 
@@ -150,12 +177,15 @@ Les attributs `data-*` réservés couvrent ce que le CSS ne peut pas exprimer :
 
 | Attribut | Effet |
 | --- | --- |
-| `data-exit="fade-out"` | Animation de sortie quand l'élément disparaît (préréglages ou `@keyframes`) |
+| `data-exit="fade-out"` | Animation de sortie quand l'élément disparaît (préréglages ou `@keyframes`), ou `data-exit={animation}` (Rust) |
 | `data-stagger="40ms"` | Décale l'animation d'entrée de chaque enfant |
 | `data-replay={valeur}` | Rejoue l'animation quand la valeur change |
 
 Les noms et durées sont vérifiés à la compilation (suggestion en cas de faute).
 Les autres `data-*` sont acceptés et ignorés, comme en HTML.
+
+`memo={clé}` sur un conteneur reprend son sous-arbre de la vue précédente tant que la
+clé ne change pas (voir [templates](templates.md#sous-arbres-mémorisés)).
 
 ## 7. Feuille de style par défaut
 
@@ -233,8 +263,10 @@ Précisions (comportements que la spécification ne fixait pas) :
 - **`k-virtual-list`** : `items={collection possédée}` (ex. `Rc<Vec<T>>`),
   `item="nom"`, `row-height` ; le gabarit de ligne est construit à la demande,
   sans accès à `self` ni aux ressources du contexte.
-- **`data-exit`** : `nom [durée] [easing] [délai]`, 220 ms `ease-in` par défaut ;
-  le fantôme ne réserve pas sa place (les voisins se replacent aussitôt).
+- **`data-exit`** : `nom [durée] [easing] [délai]`, 220 ms `ease-in` par défaut, courbe
+  nommée ou `cubic-bezier()` ; `data-exit={expr}` prend une `Animation` Rust. Le
+  fantôme ne réserve pas sa place (les voisins se replacent aussitôt) ; ses
+  descendants à `data-exit` y jouent leur propre sortie.
   `data-stagger` retarde selon l'index, y compris pour un élément ajouté plus tard.
 - **`ui!`** : le balisage doit aussi être une suite de jetons Rust valide
   (guillemets équilibrés, pas de `//`) ; les fichiers `.ui` n'ont pas cette limite.
@@ -364,10 +396,14 @@ au clavier et l’accessibilité.
 | `menu` / `listbox` (`k-popover`) | Menu (rôle Menu, entrées `role="menuitem"`) ou liste de choix (rôle List, options `role="option"`) : seules les entrées sont focalisables ; Haut/Bas (en boucle), Début/Fin, Entrée/Espace ; choisir une entrée envoie son message puis `onclose` |
 | `combobox` (`k-popover`) | Liste de suggestions non modale sous un champ texte (`anchor` = le champ), voir plus bas |
 | `placement` | `top`, `right`, `bottom` (défaut), `left`, suivi de `-start` (défaut), `-center` ou `-end` (`bottom-end` : sous l’ancre, bords droits alignés). Si le côté choisi manque de place et que l’opposé en a plus, le panneau bascule ; il est ensuite décalé pour rester dans la fenêtre |
-| `offset="8"` | Distance à l’ancre en px (défaut 4, échelle du contexte appliquée) |
-| `cross-offset="16"` | Décalage le long du côté, après l’alignement, en px (−256 à 256) : vers la droite pour `top`/`bottom`, vers le bas pour `left`/`right`. `placement="bottom-end" cross-offset="16"` : menu qui déborde de 16 px à droite de son bouton (menus « … » de RustMusic) |
+| `offset="8"` | Distance à l’ancre en px (défaut 4, échelle du contexte appliquée) ; `offset={expr}` la calcule (`f32`, bornée à 0–256), par exemple selon que le menu s’ouvre au pointeur ou sous un bouton |
+| `cross-offset="16"` | Décalage le long du côté, après l’alignement, en px (−256 à 256) : vers la droite pour `top`/`bottom`, vers le bas pour `left`/`right`. `placement="bottom-end" cross-offset="16"` : menu qui déborde de 16 px à droite de son bouton (menus « … » de RustMusic) ; `cross-offset={expr}` le calcule (bornée à −256–256) |
 | `match-width` | Au moins la largeur de l’ancre (sa hauteur pour `left`/`right`) : liste sous un champ de recherche |
-| `role` (tout élément) | `menuitem`, `menu`, `option`, `listbox`, `separator`, `group`, `button`, `img`, `heading`, `navigation`, `none`/`presentation` ; autre valeur : erreur |
+| `role` (tout élément) | `menuitem`, `menuitemcheckbox`, `menuitemradio`, `menu`, `option`, `listbox`, `separator`, `group`, `button`, `img`, `heading`, `navigation`, `tab`, `tablist`, `tabpanel`, `radio`, `radiogroup`, `checkbox`, `switch`, `none`/`presentation` ; autre valeur : erreur |
+| `aria-pressed="true\|false\|mixed"` / `{bool}` | Bouton bascule (épingle, aléatoire, favori) : lecteurs d’écran « bouton bascule, enfoncé » ; leur commande *Toggle* active l’élément comme un clic. UI Automation : Button + TogglePattern ; VoiceOver : case AXToggle ; AT-SPI : bouton bascule, `PRESSED`/`CHECKED` |
+| `aria-checked="true\|false\|mixed"` / `{bool}` | Case, interrupteur ou radio dessinés par l’application ; exige `role="checkbox"`, `"switch"`, `"radio"`, `"menuitemcheckbox"` ou `"menuitemradio"` (erreur sinon ; un `<input>` natif garde `checked`). Un `role="radio"` dans un `role="radiogroup"` a ce groupe pour conteneur de sélection |
+| `aria-selected="true\|false"` / `{bool}` | Onglet (`role="tab"` dans un `role="tablist"`) ou option sélectionnés : UI Automation TabItem + SelectionItem, liste d’onglets avec Selection ; VoiceOver AXTabButton ; AT-SPI page tab, `SELECTED`. Sélectionner depuis un lecteur d’écran active l’élément |
+| `aria-current="page\|step\|location\|date\|time\|true\|false"` / `{expr}` | Élément courant d’un ensemble (page d’une navigation) ; `{expr}` accepte `bool`, `&str` et `Option<&str>` (`aria-current={actif.then_some("page")}`, comme `actif ? "page" : undefined`). UI Automation : AriaProperties `current=page` ; AT-SPI : état `ACTIVE` et attribut `current` ; VoiceOver : pas encore exposé |
 | `aria-expanded="true\|false"` / `{bool}` | État exposé par le motif UI Automation ExpandCollapse ; Expand/Collapse d’un lecteur d’écran activent le déclencheur si l’état diffère |
 | `aria-haspopup` | `true`, `menu`, `listbox`, `dialog` ; exige `aria-expanded` (UI Automation n’a pas d’équivalent propre) |
 

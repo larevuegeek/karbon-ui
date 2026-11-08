@@ -187,3 +187,81 @@ fn drag_regions_move_the_window_except_over_interactive_targets() {
     assert!(!ui.drag_region_at(button));
     assert!(!ui.drag_region_at(below));
 }
+
+#[test]
+fn resize_regions_resize_the_window_from_their_edge_except_over_interactive_targets() {
+    use crate::{
+        ui::view::{button, column, row, space},
+        window::ResizeEdge,
+    };
+    let mut ui = view_runtime(|| {
+        column(
+            1,
+            [
+                space(2).height(100.).drag_region(true),
+                row(
+                    3,
+                    [
+                        button(4, "Volume", Msg::Click(4)).width(60.).height(16.),
+                        space(5)
+                            .width(16.)
+                            .height(16.)
+                            .resize_region(ResizeEdge::BottomRight),
+                    ],
+                )
+                .height(16.),
+            ],
+        )
+    });
+    prepare(&mut ui, &mut Measure::default());
+    // La poignée redimensionne par son coin ; le bouton voisin et la zone de déplacement
+    // ne redimensionnent pas.
+    assert_eq!(
+        ui.resize_region_at(center(&ui, 5)),
+        Some(ResizeEdge::BottomRight)
+    );
+    assert_eq!(ui.resize_region_at(center(&ui, 4)), None);
+    assert_eq!(ui.resize_region_at(center(&ui, 2)), None);
+    assert!(ui.drag_region_at(center(&ui, 2)));
+}
+
+#[test]
+fn a_resize_region_inside_a_drag_region_keeps_both_gestures() {
+    use crate::{
+        ui::view::{column, row, space},
+        window::ResizeEdge,
+    };
+    // Micro-lecteur : toute la pochette déplace la fenêtre, la poignée du coin
+    // (`data-no-drag data-resize-region`) la redimensionne.
+    let mut ui = view_runtime(|| {
+        column(
+            1,
+            [
+                space(2).height(100.),
+                row(
+                    3,
+                    [
+                        space(4).width(60.).height(16.),
+                        space(5)
+                            .width(16.)
+                            .height(16.)
+                            .no_drag(true)
+                            .resize_region(ResizeEdge::BottomRight),
+                    ],
+                )
+                .height(16.),
+            ],
+        )
+        .drag_region(true)
+    });
+    prepare(&mut ui, &mut Measure::default());
+    assert_eq!(
+        ui.resize_region_at(center(&ui, 5)),
+        Some(ResizeEdge::BottomRight)
+    );
+    assert!(!ui.drag_region_at(center(&ui, 5)));
+    for id in [2, 4] {
+        assert!(ui.drag_region_at(center(&ui, id)));
+        assert_eq!(ui.resize_region_at(center(&ui, id)), None);
+    }
+}

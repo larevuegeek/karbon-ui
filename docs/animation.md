@@ -82,8 +82,28 @@ couvrent ce que le CSS ne sait pas dire :
   l’animation, puis est supprimée. Préréglages : `fade-out`, `slide-out-up`,
   `slide-out-down`, `slide-out-left`, `slide-out-right`, `scale-out` ; tout autre
   nom désigne un `@keyframes` de la feuille passée au template (`styles = css`).
-  Durée par défaut 220 ms, easing `ease-in`. En Rust :
+  Durée par défaut 220 ms, easing `ease-in` ; la courbe peut aussi s'écrire
+  `cubic-bezier(x1, y1, x2, y2)`. `data-exit={expr}` prend une `Animation` Rust
+  calculée par la vue (sens de sortie qui suit la navigation). En Rust :
   `Element::exit_animation(Animation::fade_out().duration(200))`.
+  Les descendants du fantôme qui déclarent leur propre `data-exit` la jouent dans le
+  fantôme, avec la même horloge : le fantôme reste jusqu'à la fin de la plus longue
+  sortie. C'est l'entrée et la sortie d'une fenêtre modale à la Svelte
+  (`transition:fade` sur le fond, `transition:scale` sur le dialogue) :
+
+  ```html
+  <div class="fond animate-[fondu-in_150ms_linear]" data-exit="fondu-out 150ms linear">
+      <div class="dialogue animate-[zoom-in_180ms_cubic-bezier(0.33,1,0.68,1)]"
+           data-exit="zoom-out 180ms cubic-bezier(0.33, 1, 0.68, 1)">…</div>
+  </div>
+  ```
+
+  ```css
+  @keyframes fondu-in { from { opacity: 0; } }
+  @keyframes fondu-out { to { opacity: 0; } }
+  @keyframes zoom-in { from { opacity: 0; transform: scale(0.96); } }
+  @keyframes zoom-out { to { opacity: 0; transform: scale(0.96); } }
+  ```
 - `data-stagger="40ms"` : l’animation d’entrée de chaque enfant direct est
   retardée de son index × 40 ms.
 - `data-replay={valeur}` : l’animation d’entrée redémarre quand la valeur change
@@ -124,6 +144,19 @@ géométrique sur ces contrôles, ou sur un conteneur qui les englobe, est refus
 native nécessitent une intégration supplémentaire. Un texte ou un bouton
 placé dans un scroll peut recevoir une transformation.
 
+Les découpes du layout sont calculées avant les transformations. Sous un élément
+transformé, elles sont recalculées dans son repère local à chaque image présentée (peinture
+et cibles du pointeur), les ancêtres rognant après la transformation comme en CSS : une
+piste de carrousel (`display: flex` translatée de `-200 %` dans un parent
+`overflow: hidden`) montre et rend cliquable la diapo amenée dans la fenêtre, alors que
+son layout la place hors du parent (`src/ui/tests/animation/carousel.rs`). Cette découpe
+recalculée décide aussi de ce qui est visible : les animations des éléments de la diapo
+amenée dans la fenêtre (icônes qui flottent, rangées qui défilent) sont échantillonnées
+et demandent leurs images, et leurs ombres floutées sont préparées ; celles de la diapo
+sortie ne le sont plus. Sous Windows, un groupe filtré (`filter: drop-shadow`…) dont
+seule la partie visible change pendant la glissade est enregistré entier une fois
+(jusqu'à 1 Mpx physique) au lieu d'être rogné et réenregistré à chaque image.
+
 ## Révélation de hauteur
 
 ```rust
@@ -156,15 +189,17 @@ dimension (`width`, `height` en pixels) passent par `Transition::properties` et
 et, pour les dimensions, relancent le layout à chaque image (voir
 [styles CSS compilés](css.md)). Les couleurs s'interpolent en alpha prémultiplié,
 comme dans les navigateurs : de `transparent` vers le blanc, seule l'opacité change
-(pas de gris intermédiaire). Les animations `@keyframes` de taille et les callbacks
-de fin restent à fournir.
+(pas de gris intermédiaire). Les `@keyframes` qui animent `width` et `height`
+(`Keyframe::width`, `Keyframe::height`, px ou pourcentage) sont échantillonnées de même
+et relancent le layout à chaque image (voir [css.md](css.md)). Les callbacks de fin
+restent à fournir.
 
 Les étapes multiples sont disponibles avec `Animation::keyframes` et avec
 `@keyframes` dans les [styles CSS compilés](css.md). Une étape déclare tout ou
 partie des propriétés : `Keyframe::new(offset, effect)` déclare l'opacité et la
 transformation, `Keyframe::at(offset)` aucune, complétée par `.opacity()`,
-`.transform()`, `.color()`, `.background_color()`, `.border_color()` et
-`.easing()`. Chaque propriété s'interpole entre ses étapes voisines qui la
+`.transform()`, `.color()`, `.background_color()`, `.border_color()`, `.width()`,
+`.height()` et `.easing()`. Chaque propriété s'interpole entre ses étapes voisines qui la
 déclarent, avec la courbe de la première ; absente de 0 ou de 1, elle y prend la
 valeur de l'élément (l'effet neutre, ou la couleur calculée). Deux étapes peuvent
 partager un offset si elles déclarent des propriétés différentes.
@@ -223,7 +258,8 @@ L’ancien atelier `animation_playground` a été retiré. Les animations se voi
 fixés par les tests : progression, répétition, interruptions, annulation, réveils,
 clics, géométrie accessible et mouvements réduits dans `src/ui/tests/animation/` (pistes
 par propriété, directions, délai négatif, pause et listes dans `keyframes.rs`) ;
-keyframes et transitions CSS dans `tests/css/motion.rs` ; animations `data-*` des
-templates dans `tests/templates/html.rs` ; transitions Bootstrap dans
+dimensions animées dans `sizes.rs` ; keyframes, réglages d'état, style en ligne et
+transitions CSS dans `tests/css/motion.rs` ; animations `data-*` des templates dans
+`tests/templates/html.rs`, sorties imbriquées dans `tests/templates/exit.rs` ; transitions Bootstrap dans
 `tests/frameworks/bootstrap/demo/transitions.rs`. Les pixels (opacité imbriquée,
 clipping, DPI) sont vérifiés sur WARP et GPU par `src/platform/windows/graphics/tests/`.

@@ -7,6 +7,7 @@
 mod easing;
 mod effect;
 mod keyframes;
+mod overrides;
 mod play;
 mod spec;
 pub(crate) mod timeline;
@@ -15,6 +16,7 @@ use crate::ui::element::Element;
 pub use easing::Easing;
 pub use effect::Effect;
 pub use keyframes::Keyframe;
+pub use overrides::AnimationOverride;
 pub use play::{Animation, FillMode};
 pub(crate) use spec::Motion;
 pub(crate) use spec::ReplacedProperties;

@@ -161,6 +161,7 @@ fn sync_now(window: Hwnd, version: (u64, u64, u64, u64, Option<crate::ui::elemen
         selection_container: None,
         range: None,
         expanded: None,
+        current: None,
         read_only: true,
         bounds,
         clipped: bounds,
@@ -224,6 +225,7 @@ fn sync_now(window: Hwnd, version: (u64, u64, u64, u64, Option<crate::ui::elemen
             selection_container: None,
             range: None,
             expanded: None,
+            current: None,
             read_only: true,
             bounds: r,
             clipped: r,
@@ -257,7 +259,9 @@ fn sync_now(window: Hwnd, version: (u64, u64, u64, u64, Option<crate::ui::elemen
             | Role::Banner
             | Role::ContentInfo
             | Role::Complementary => 50026,
-            Role::ScrollArea | Role::Custom => 50033,
+            Role::Tab => 50019,
+            Role::TabList => 50018,
+            Role::ScrollArea | Role::TabPanel | Role::Custom => 50033,
         };
         nodes.push(Arc::new(Node {
             key: NodeId::Element(node.id.0),
@@ -279,6 +283,7 @@ fn sync_now(window: Hwnd, version: (u64, u64, u64, u64, Option<crate::ui::elemen
             selection_container: node.selection_container.map(|id| NodeId::Element(id.0)),
             range: node.range,
             expanded: node.select.as_ref().map(|s| s.expanded).or(node.expanded),
+            current: node.current.map(crate::ui::element::CurrentItem::token),
             read_only: node.read_only,
             bounds: physical(node.bounds, origin, scale),
             clipped: physical(node.clipped_bounds, origin, scale),
@@ -299,7 +304,7 @@ fn sync_now(window: Hwnd, version: (u64, u64, u64, u64, Option<crate::ui::elemen
     if let Some(info) = runtime::tooltip() {
         tooltip::append(&mut nodes, info, origin, scale, visible);
     }
-    let snapshot = Arc::new(Snapshot { nodes });
+    let snapshot = Arc::new(Snapshot::new(nodes));
     let old = {
         let mut current = lock(&bridge.snapshot);
         std::mem::replace(&mut *current, Arc::clone(&snapshot))
@@ -311,8 +316,7 @@ fn sync_now(window: Hwnd, version: (u64, u64, u64, u64, Option<crate::ui::elemen
     lock(&bridge.providers).retain(|key, cached| {
         cached.provider.upgrade().is_some()
             && snapshot
-                .nodes
-                .iter()
-                .any(|n| n.key == *key && cached.capabilities == provider::Capabilities::of(n))
+                .node(*key)
+                .is_ok_and(|n| cached.capabilities == provider::Capabilities::of(&n))
     });
 }

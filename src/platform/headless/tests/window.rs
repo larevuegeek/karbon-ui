@@ -47,3 +47,50 @@ fn interactive_entry_points_are_unsupported_without_a_native_backend() {
     );
     assert!(matches!(result, Err(crate::Error::Unsupported { .. })));
 }
+
+#[test]
+fn window_states_reach_the_application() {
+    use crate::{
+        application::{Application, ViewContext},
+        ui::{element::Element, widgets},
+        window::WindowState,
+    };
+    #[derive(Default)]
+    struct Player {
+        state: WindowState,
+        released: u32,
+    }
+    impl Application for Player {
+        type Message = ();
+        fn view(&self, _: &ViewContext) -> Element {
+            widgets::text(1, format!("{}x{}", self.state.width, self.state.height))
+        }
+        fn update(&mut self, _: ()) -> bool {
+            false
+        }
+        fn window_changed(&mut self, state: WindowState) -> bool {
+            // Fin d'un geste : la taille est retenue une fois.
+            if self.state.dragging && !state.dragging {
+                self.released += 1;
+            }
+            self.state = state;
+            true
+        }
+    }
+    let mut app = HeadlessApp::new(Player::default()).unwrap();
+    let dragging = WindowState {
+        width: 300,
+        height: 300,
+        scale: 1.,
+        dragging: true,
+        ..Default::default()
+    };
+    assert!(app.window_changed(dragging).unwrap());
+    assert!(app.contains_text("300x300"));
+    let released = WindowState {
+        dragging: false,
+        ..dragging
+    };
+    app.window_changed(released).unwrap();
+    assert_eq!(app.app().released, 1);
+}

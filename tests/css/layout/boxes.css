@@ -29,3 +29,24 @@
     .media-pad { padding-top: 2px; }
     .media-px { padding-left: 1rem; }
 }
+
+/* `width: max-content` : piste de pastilles plus large que son parent (WhatsNewArt de
+   RustMusic), texte sans retour à la ligne ; tailles au-delà de 100 % et décalages
+   négatifs en pourcentage. */
+.narrow { display: flex; flex-direction: column; width: 100px; height: 200px; }
+.piste { display: flex; width: max-content; }
+.pastille { flex-shrink: 0; width: 80px; height: 20px; }
+.mot { width: max-content; height: max-content; }
+.tache-host { position: relative; width: 200px; height: 100px; }
+.tache { position: absolute; left: -10%; top: -30%; width: 55%; height: 110%; }
+.rangees { display: flex; flex-direction: column; gap: 20px; padding: 32px 0; width: 100px; }
+.piste.decalee { margin-left: -40px; }
+.scene { position: relative; width: 100px; height: 200px; overflow: hidden; }
+.centree { position: absolute; left: 0; right: 0; top: 50%; display: flex; flex-direction: column; gap: 20px; padding: 32px 0; }
+@keyframes defile { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.defile { display: flex; width: max-content; animation: defile 46s linear infinite; }
+.defile.inverse { animation-direction: reverse; margin-left: -40px; }
+/* `content-visibility` : lignes éloignées de la vue sautées, contenu rogné à la ligne. */
+.cv-liste { height: 300px; overflow-y: auto; }
+.cv-ligne { content-visibility: auto; contain-intrinsic-size: auto 40px; height: 40px; border-radius: 8px; }
+.cv-marque { width: 30px; height: 60px; background: #ff0000; }

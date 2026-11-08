@@ -326,3 +326,28 @@ fn before_and_after_generate_styled_boxes_that_follow_host_states() {
         Some(Color::hex(0x00ff00))
     );
 }
+
+#[test]
+fn hover_survives_a_rebuild_under_a_still_pointer() {
+    // Vue reconstruite (horloge, message) sous un pointeur immobile : l'élément survolé
+    // garde son style `:hover` ; avant, ses styles étaient résolus avant qu'il ait une
+    // position et le survol disparaissait jusqu'au mouvement suivant.
+    let mut ui =
+        runtime(|| ui! {@styles(css);<div class="control" style="height:40px">Bouton</div>});
+    let now = std::time::Instant::now();
+    prepare_headless(&mut ui, now);
+    let hovered = |ui: &karbon_ui::ui::runtime::UiRuntime| {
+        ui.root().unwrap().style.background == Some(Color::hex(0x304050))
+    };
+    ui.event(karbon_ui::ui::runtime::UiEvent::PointerMove(PointF {
+        x: 20.,
+        y: 20.,
+    }));
+    prepare_headless(&mut ui, now);
+    assert!(hovered(&ui));
+    for _ in 0..3 {
+        ui.invalidate();
+        prepare_headless(&mut ui, now);
+        assert!(hovered(&ui));
+    }
+}

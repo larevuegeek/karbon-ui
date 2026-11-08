@@ -6,6 +6,7 @@
 //! moteur (`session.rs` : application, renderers, tâches, réveils).
 pub(super) mod chrome;
 pub(super) mod composition;
+pub(super) mod facts;
 pub(super) mod keyboard;
 #[cfg(test)]
 pub(super) mod probe;

@@ -23,12 +23,32 @@ pub(in crate::css) fn emit(
         "text_transform" | "white_space" | "text_overflow" | "line_clamp" | "font_italic"
         | "direction_rtl" | "tabular_numbers" => Some(format!(".{name}({{}})")),
         "custom_property" => Some(".custom_properties(const{&[{}]})".into()),
-        "cursor" | "pointer_events" | "hidden" | "grid_rows" | "order" | "aspect_ratio"
-        | "inline_level" | "justify_self" | "justify_items" | "outline_color" | "mask_image"
-        | "text_clip" | "container_type" | "container_name" | "scrollbar_width"
-        | "grid_auto_repeat" | "overscroll_contain" | "scrollbar_color" | "scrollbar_gutter"
+        "cursor"
+        | "pointer_events"
+        | "hidden"
+        | "grid_rows"
+        | "order"
+        | "aspect_ratio"
+        | "inline_level"
+        | "justify_self"
+        | "justify_items"
+        | "outline_color"
+        | "mask_image"
+        | "text_clip"
+        | "container_type"
+        | "container_name"
+        | "scrollbar_width"
+        | "grid_auto_repeat"
+        | "overscroll_contain"
+        | "scroll_initial_target"
+        | "content_visibility"
+        | "scrollbar_color"
+        | "scrollbar_gutter"
         | "reveal" => Some(format!(".{name}({{}})")),
         "backdrop" => Some(format!(".backdrop_filter({cx}.filters({{}}))")),
+        "contain_intrinsic_size" => Some(format!(
+            ".contain_intrinsic_size({{let (i,a,n):(usize,bool,Option<f32>)={{}};(i,__ui_root::ui::element::ContainIntrinsicLength{{remembered:a,length:n.map(|n|n*{cx}.scale)}})}})"
+        )),
         "decoration_color" => Some(".decoration_color({})".into()),
         "scroll_margin_edge" | "scroll_padding_edge" => Some(format!(
             ".{name}({{let (i,n):(usize,f32)={{}};(i,n*{cx}.scale)}})"

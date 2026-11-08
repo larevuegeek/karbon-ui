@@ -31,6 +31,10 @@ pub(super) fn role(role: Role) -> &'static NSString {
             Role::Checkbox | Role::Switch => NSAccessibilityCheckBoxRole,
             Role::RadioButton => NSAccessibilityRadioButtonRole,
             Role::RadioGroup => NSAccessibilityRadioGroupRole,
+            // Comme WebKit : un onglet est un bouton radio (sous-rôle AXTabButton), une
+            // liste d'onglets un groupe d'onglets.
+            Role::Tab => NSAccessibilityRadioButtonRole,
+            Role::TabList => NSAccessibilityTabGroupRole,
             Role::Slider => NSAccessibilitySliderRole,
             Role::Select => NSAccessibilityPopUpButtonRole,
             Role::Menu => NSAccessibilityMenuRole,
@@ -47,18 +51,36 @@ pub(super) fn role(role: Role) -> &'static NSString {
             | Role::Banner
             | Role::ContentInfo
             | Role::Complementary
+            | Role::TabPanel
             | Role::Custom => NSAccessibilityGroupRole,
         }
     }
 }
 /// Rôle AppKit d'un élément : celui de son rôle, sauf un champ multiligne
-/// (`<textarea>`), annoncé comme zone de texte.
+/// (`<textarea>`), annoncé comme zone de texte, et un bouton à `aria-pressed`, case à
+/// cocher de sous-rôle AXToggle comme dans WebKit.
 pub(super) fn element_role(e: &AccessibleElement) -> &'static NSString {
     if e.role == Role::TextInput && e.text.as_ref().is_some_and(|t| t.multiline) {
         // SAFETY : constante d'AppKit.
         return unsafe { NSAccessibilityTextAreaRole };
     }
+    if toggle_button(e) {
+        // SAFETY : constante d'AppKit.
+        return unsafe { NSAccessibilityCheckBoxRole };
+    }
     role(e.role)
+}
+/// Bouton bascule (`aria-pressed`).
+fn toggle_button(e: &AccessibleElement) -> bool {
+    e.role == Role::Button && matches!(e.choice, Some(ChoiceState::Toggle(_)))
+}
+/// Sous-rôle AppKit d'un élément : celui de son rôle, ou AXToggle pour un bouton bascule.
+pub(super) fn element_subrole(e: &AccessibleElement) -> Option<Retained<NSString>> {
+    if toggle_button(e) {
+        // SAFETY : constante d'AppKit.
+        return Some(unsafe { NSAccessibilityToggleSubrole }.copy());
+    }
+    subrole(e.role)
 }
 /// Sous-rôle AppKit, quand il précise le rôle : interrupteur, dialogue, et repères de
 /// page (`AXLandmark…`, ceux de WebKit, que VoiceOver propose dans son rotor).
@@ -69,6 +91,7 @@ pub(super) fn subrole(role: Role) -> Option<Retained<NSString>> {
         match role {
             Role::Switch => Some(NSAccessibilitySwitchSubrole.copy()),
             Role::Dialog => Some(NSAccessibilityDialogSubrole.copy()),
+            Role::Tab => Some(NSAccessibilityTabButtonSubrole.copy()),
             Role::Main => landmark("AXLandmarkMain"),
             Role::Navigation => landmark("AXLandmarkNavigation"),
             Role::Banner => landmark("AXLandmarkBanner"),
@@ -121,7 +144,13 @@ pub(super) fn press(e: &AccessibleElement) -> Option<AccessibilityAction> {
     }
     match e.role {
         Role::Checkbox | Role::Switch => Some(AccessibilityAction::Toggle(e.id)),
-        Role::RadioButton => Some(AccessibilityAction::SelectChoice(e.id)),
+        Role::RadioButton | Role::Tab => Some(AccessibilityAction::SelectChoice(e.id)),
+        _ if matches!(e.choice, Some(ChoiceState::Toggle(_))) => {
+            Some(AccessibilityAction::Toggle(e.id))
+        }
+        _ if matches!(e.choice, Some(ChoiceState::Radio(_))) => {
+            Some(AccessibilityAction::SelectChoice(e.id))
+        }
         Role::Select => Some(AccessibilityAction::ExpandSelect {
             id: e.id,
             expanded: !e.select.as_ref().is_some_and(|s| s.expanded),

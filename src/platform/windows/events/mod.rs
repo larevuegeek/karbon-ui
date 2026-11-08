@@ -3,6 +3,7 @@
 pub(crate) mod caption;
 mod clipboard;
 mod dispatch;
+pub(crate) mod grip;
 mod keyboard;
 mod nonclient;
 mod pointer;

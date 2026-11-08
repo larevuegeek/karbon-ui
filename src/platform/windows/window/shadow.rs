@@ -227,7 +227,7 @@ pub(crate) fn update(main_window: Hwnd) {
         IsWindowVisible(main_window) != 0
             && IsIconic(main_window) == 0
             && IsZoomed(main_window) == 0
-    };
+    } && !super::change::fullscreen();
     if !visible {
         SHADOW.with(|state| {
             if let Ok(state) = state.try_borrow()

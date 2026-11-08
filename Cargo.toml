@@ -69,6 +69,7 @@ windows = { version = "0.62", features = [
     "Win32_System_Variant",
     "Win32_UI_Accessibility",
     "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
 ] }
 windows-core = "0.62"
 windows-numerics = "0.3"
@@ -97,12 +98,15 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "NSAttributedString",
     "NSString",
     "NSThread",
+    "NSURL",
     "NSValue",
 ] }
 objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "std",
+    "block2",
     "objc2-core-foundation",
     "objc2-quartz-core",
+    "objc2-uniform-type-identifiers",
     "NSAccessibility",
     "NSAccessibilityConstants",
     "NSAccessibilityElement",
@@ -118,9 +122,12 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "NSGraphicsContext",
     "NSMenu",
     "NSMenuItem",
+    "NSOpenPanel",
+    "NSPanel",
     "NSPasteboard",
     "NSResponder",
     "NSRunningApplication",
+    "NSSavePanel",
     "NSScreen",
     "NSTextInputClient",
     "NSTextInputContext",
@@ -205,3 +212,10 @@ objc2-image-io = { version = "0.3.2", default-features = false, features = [
     "CGImageProperties",
     "CGImageSource",
 ] }
+# Dialogues de fichiers : types de fichiers proposés (`UTType`) et fin de la feuille
+# (bloc Objective-C).
+objc2-uniform-type-identifiers = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "UTType",
+] }
+block2 = { version = "0.6.2", default-features = false, features = ["std"] }

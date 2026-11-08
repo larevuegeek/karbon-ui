@@ -80,6 +80,17 @@ pub enum UiEvent {
         /// Vertical delta.
         delta_y: f32,
     },
+    /// One or more notches of a mouse wheel, in logical units like [`UiEvent::Scroll`]:
+    /// the scroll container glides to its target (smooth scrolling, as in browsers)
+    /// instead of jumping. Precise devices (touchpads) send [`UiEvent::Scroll`].
+    Wheel {
+        /// Pointer position, used to find the scroll container.
+        position: PointF,
+        /// Horizontal delta.
+        delta_x: f32,
+        /// Vertical delta.
+        delta_y: f32,
+    },
     /// Key pressed.
     KeyDown {
         /// Pressed key.

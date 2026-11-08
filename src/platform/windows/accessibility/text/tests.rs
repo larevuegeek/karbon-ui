@@ -61,7 +61,7 @@ fn replace(bridge: &Bridge, text: TextData) {
     let node = Arc::make_mut(&mut nodes[1]);
     node.value = Some(text.value.to_string());
     node.text = Some(Arc::new(text));
-    *lock(&bridge.snapshot) = Arc::new(Snapshot { nodes });
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(nodes));
 }
 fn document_range(simple: &IRawElementProviderSimple) -> ITextRangeProvider {
     let provider: ITextProvider = simple.cast().unwrap();
@@ -197,7 +197,7 @@ fn text_search_endpoints_and_read_only_attributes() {
     let previous = lock(&bridge.snapshot).clone();
     let mut nodes = previous.nodes.clone();
     Arc::make_mut(&mut nodes[1]).read_only = true;
-    *lock(&bridge.snapshot) = Arc::new(Snapshot { nodes });
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(nodes));
     // SAFETY: interfaces vivantes ; les VARIANT rendus sont adoptés puis libérés.
     unsafe {
         let value = Variant::adopt(r.GetAttributeValue(UIA_TEXTATTRIBUTE_ID(40015)).unwrap());
@@ -265,7 +265,7 @@ fn retained_ranges_rebase_after_edits_and_expire_after_removal() {
     assert!(unsafe { r.Compare(&original) }.unwrap().as_bool());
     replace(&bridge, sample(""));
     assert_eq!(text(&r, -1), "");
-    *lock(&bridge.snapshot) = Arc::new(Snapshot { nodes: Vec::new() });
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(Vec::new()));
     // SAFETY: interface vivante ; le nœud a disparu du snapshot.
     assert_eq!(code(unsafe { r.GetText(-1) }), UNAVAILABLE);
     assert!(r.cast::<ITextRangeProvider>().is_ok());

@@ -18,6 +18,7 @@ pub(super) enum Output {
     SwapChain {
         chain: IDXGISwapChain1,
         premultiplied: bool,
+        slot: swapchain::FrameSlot,
     },
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -92,7 +93,8 @@ impl Renderer {
                 Kind::Readback => self.readback_target(width, height, scale)?,
                 Kind::SwapChain { premultiplied } => {
                     let gpu = self.gpu.gpu();
-                    let chain = swapchain::create(&gpu.device, width, height, premultiplied)?;
+                    let (chain, slot) =
+                        swapchain::create(&gpu.device, width, height, premultiplied)?;
                     let context = device::context(&gpu.d2d)?;
                     swapchain::bind(&context, &chain, scale)?;
                     Target {
@@ -100,6 +102,7 @@ impl Renderer {
                         output: Output::SwapChain {
                             chain,
                             premultiplied,
+                            slot,
                         },
                         width,
                         height,
@@ -158,10 +161,25 @@ impl Renderer {
                 DXGI_ERROR_DEVICE_REMOVED,
             ));
         }
-        let chain = self
-            .swap_chain()
-            .ok_or_else(|| crate::Error::invalid_input("no swap chain to present"))?;
-        swapchain::present(chain)
+        match self.target.as_mut().map(|t| &mut t.output) {
+            Some(Output::SwapChain { chain, slot, .. }) => swapchain::present(chain, slot),
+            _ => Err(crate::Error::invalid_input("no swap chain to present")),
+        }
+    }
+    /// Attend une place dans la file de présentation avant de préparer une image (voir
+    /// `swapchain::FrameSlot`) ; sans effet sans chaîne d'échange ou place déjà prise.
+    pub(in crate::platform::windows) fn wait_for_frame(&mut self) {
+        if let Some(Output::SwapChain { slot, .. }) = self.target.as_mut().map(|t| &mut t.output) {
+            slot.acquire();
+        }
+    }
+    /// Temps passé à attendre la place de l'image en cours dans la file (pas du travail :
+    /// la cadence de l'écran), remis à zéro par `present`.
+    pub(in crate::platform::windows) fn frame_wait(&self) -> std::time::Duration {
+        match self.target.as_ref().map(|t| &t.output) {
+            Some(Output::SwapChain { slot, .. }) => slot.waited,
+            _ => std::time::Duration::ZERO,
+        }
     }
     #[cfg(test)]
     pub(in crate::platform::windows) fn simulate_device_loss(&mut self) {

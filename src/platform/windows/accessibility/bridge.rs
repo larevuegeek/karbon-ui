@@ -48,7 +48,7 @@ impl Bridge {
     pub(super) fn new(window: Hwnd) -> Arc<Self> {
         Arc::new(Self {
             window: window as usize,
-            snapshot: Mutex::new(Arc::new(Snapshot { nodes: Vec::new() })),
+            snapshot: Mutex::new(Arc::new(Snapshot::new(Vec::new()))),
             providers: Mutex::new(HashMap::new()),
             requests: Mutex::new(VecDeque::new()),
             next: AtomicUsize::new(1),
@@ -175,6 +175,6 @@ impl Bridge {
             *lock(&request.reply) = Some(UNAVAILABLE);
         }
         lock(&self.providers).clear();
-        *lock(&self.snapshot) = Arc::new(Snapshot { nodes: Vec::new() });
+        *lock(&self.snapshot) = Arc::new(Snapshot::new(Vec::new()));
     }
 }

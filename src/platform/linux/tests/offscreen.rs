@@ -69,11 +69,14 @@ fn offscreen_protocol_waits_for_chained_tasks_and_measures_scroll_without_relayo
     )
     .unwrap();
     assert_eq!(value.get(), 2);
-    assert_eq!(report.phases.len(), 2);
+    assert_eq!(report.phases.len(), 6);
     assert!(report.phases[0].after.working_set_bytes > 0);
     assert_eq!(report.phases[1].view_rebuilds, 0);
     assert_eq!(report.phases[1].layouts, 0);
     assert_eq!(report.phases[1].scene_paints, 4);
+    // Reconstruction : la vue redemandée à chaque image.
+    assert_eq!(report.phases[2].view_rebuilds, 4);
+    assert_eq!(report.phases[2].layouts, 4);
     assert!(
         report
             .phases

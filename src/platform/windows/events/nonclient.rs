@@ -5,11 +5,12 @@ use super::{
         ffi::{Hwnd, invalidate, scale, screen_to_client},
         present::runtime,
         window::{
+            change,
             dwm::{apply_style, update_frame},
             shadow,
         },
     },
-    accessibility, caption,
+    accessibility, caption, grip,
     pointer::{client_rect, point_from_message},
     state,
 };
@@ -29,9 +30,10 @@ use windows_sys::Win32::{
 };
 
 /// WM_ENTERSIZEMOVE.
-pub(super) fn enter_size_move() -> isize {
+pub(super) fn enter_size_move(window: Hwnd) -> isize {
     state::SIZING.with(|s| s.set(true));
     runtime::set_live_resize(true);
+    change::notify(window);
     0
 }
 /// WM_EXITSIZEMOVE.
@@ -43,6 +45,7 @@ pub(super) fn exit_size_move(window: Hwnd) -> isize {
         shadow::update(window);
     }
     accessibility::sync(window);
+    change::notify(window);
     0
 }
 /// WM_DPICHANGED.
@@ -87,6 +90,7 @@ pub(super) fn position_changed(window: Hwnd, default_proc: impl FnOnce() -> isiz
         shadow::update(window);
     }
     accessibility::sync(window);
+    change::notify(window);
     result
 }
 /// WM_DWMCOMPOSITIONCHANGED.
@@ -119,6 +123,10 @@ pub(super) unsafe fn min_max_info(window: Hwnd, lparam: isize) -> isize {
     let scale = scale(window);
     limits.ptMinTrackSize.x = (options.min_width as f32 * scale).ceil() as i32;
     limits.ptMinTrackSize.y = (options.min_height as f32 * scale).ceil() as i32;
+    if let Some((width, height)) = change::max_track_size(window) {
+        limits.ptMaxTrackSize.x = width;
+        limits.ptMaxTrackSize.y = height;
+    }
 
     // Agrandir dans la zone de travail de l'écran concerné,
     // en laissant la barre des tâches accessible.
@@ -138,7 +146,8 @@ pub(super) unsafe fn min_max_info(window: Hwnd, lparam: isize) -> isize {
     0
 }
 /// WM_NCHITTEST : Windows demande quelle zone se trouve sous le pointeur.
-/// Priorité aux coins, puis aux bords, puis à la bande de déplacement.
+/// Priorité aux poignées de l'application, puis aux coins, aux bords, et enfin à la
+/// bande ou aux zones de déplacement.
 pub(super) fn hit_test(window: Hwnd, lparam: isize, default_proc: impl FnOnce() -> isize) -> isize {
     // Windows stocke deux coordonnées signées de 16 bits dans lparam.
     // Lire la position locale et les dimensions actuelles, à chaque test.
@@ -162,9 +171,17 @@ pub(super) fn hit_test(window: Hwnd, lparam: isize, default_proc: impl FnOnce() 
     }
     point.x = (point.x as f32 / scale).floor() as i32;
     point.y = (point.y as f32 / scale).floor() as i32;
+    // Poignée de l'application : zone cliente, son geste est suivi à la main (`grip.rs`)
+    // et redimensionne même une fenêtre fixe. Elle l'emporte sur les bords et sur une
+    // zone de déplacement qui la contiendrait.
+    if grip::at(window, logical).is_some() {
+        return HTCLIENT as isize;
+    }
 
+    // Fenêtre agrandie, fixe ou en plein écran : pas de bords à tirer.
     // SAFETY : simple lecture de l'état de la fenêtre.
-    let zone = match title_bar::hit_test(&area, &point, unsafe { IsZoomed(window) } != 0) {
+    let fixed = unsafe { IsZoomed(window) } != 0 || !change::edges_resizable();
+    let zone = match title_bar::hit_test(&area, &point, fixed) {
         HitRegion::Outside => HTNOWHERE,
         HitRegion::Caption if state::options().title_bar => HTCAPTION,
         HitRegion::Caption | HitRegion::Client if runtime::drag_region_at(logical) => HTCAPTION,

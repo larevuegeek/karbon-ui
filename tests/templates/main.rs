@@ -4,9 +4,12 @@
 //! utilisatrice. Les templates inclus sont dans `ui/`, les feuilles à côté de leur module.
 //!
 //! `cargo test --test templates`
+mod aria;
 mod compilation;
 mod components;
+mod exit;
 mod html;
+mod pointer;
 mod runtime;
 mod support;
 mod svg;

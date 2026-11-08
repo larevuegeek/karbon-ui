@@ -7,7 +7,7 @@
 //! y a un compositeur, sinon X11 (`KARBON_BACKEND` impose l'une ou l'autre) ; fenêtres
 //! présentées par le renderer GPU Vulkan, Cairo en repli ; barre de titre et bords du
 //! moteur quand le compositeur ne décore pas ; méthodes d'entrée (`zwp_text_input_v3`,
-//! IBus) ; accessibilité AT-SPI.
+//! IBus) ; dialogues de fichiers par le portail XDG ; accessibilité AT-SPI.
 //!
 //! Carte des modules, en miroir de `platform/macos/` :
 //!
@@ -17,6 +17,7 @@
 //! | `wayland/` | boucle Wayland : connexion, protocoles transcrits, fenêtres, siège, presse-papiers, `zwp_text_input_v3` |
 //! | `x11/` | boucle X11 : connexion XCB, fenêtres, entrées (XInput 2), presse-papiers, méthode d'entrée IBus |
 //! | `ime/` | client IBus sur D-Bus (fenêtres X11) |
+//! | `portal/` | portails XDG par D-Bus : dialogues de fichiers (`FileChooser`) |
 //! | `accessibility/` | pont AT-SPI par D-Bus (Orca) : arbre, interfaces, événements |
 //! | `vulkan/` | renderer GPU Vulkan : appareil, pipeline des quads, shaders SPIR-V, atlas, textures, filtres, présentation |
 //! | `graphics/` | renderer Cairo/Pango : canvas, formes, dégradés, texte, filtres CPU |
@@ -43,6 +44,7 @@ mod graphics;
 mod imaging;
 mod ime;
 mod offscreen;
+mod portal;
 mod shell;
 #[cfg(test)]
 mod tests;

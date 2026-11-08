@@ -29,6 +29,7 @@ fn node(key: NodeId, parent: Option<NodeId>, value: Option<&str>) -> Arc<Node> {
         selection_container: None,
         range: None,
         expanded: None,
+        current: None,
         read_only: false,
         bounds: UiaRect {
             left: 100.,
@@ -46,12 +47,10 @@ fn node(key: NodeId, parent: Option<NodeId>, value: Option<&str>) -> Arc<Node> {
 }
 pub(super) fn bridge() -> Arc<Bridge> {
     let bridge = Bridge::new(null_mut());
-    *lock(&bridge.snapshot) = Arc::new(Snapshot {
-        nodes: vec![
-            node(NodeId::Root, None, None),
-            node(NodeId::Element(92), Some(NodeId::Root), Some("Café 😃")),
-        ],
-    });
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(vec![
+        node(NodeId::Root, None, None),
+        node(NodeId::Element(92), Some(NodeId::Root), Some("Café 😃")),
+    ]));
     bridge
 }
 /// HRESULT d'un appel : S_OK en cas de succès, sinon le code d'erreur exact.
@@ -108,20 +107,14 @@ fn variant_abi_and_tree_navigation() {
 }
 #[test]
 fn menu_events_follow_appearance_replacement_and_removal_without_firing_on_hover() {
-    let empty = Snapshot {
-        nodes: vec![node(NodeId::Root, None, None)],
-    };
+    let empty = Snapshot::new(vec![node(NodeId::Root, None, None)]);
     let menu = |key| {
         let mut n = (*node(key, Some(NodeId::Root), None)).clone();
         n.control_type = 50009;
         Arc::new(n)
     };
-    let first = Snapshot {
-        nodes: vec![menu(NodeId::Element(10))],
-    };
-    let second = Snapshot {
-        nodes: vec![menu(NodeId::Element(20))],
-    };
+    let first = Snapshot::new(vec![menu(NodeId::Element(10))]);
+    let second = Snapshot::new(vec![menu(NodeId::Element(20))]);
     assert_eq!(
         menu_events(&empty, &first),
         vec![(NodeId::Element(10), MENU_OPENED_EVENT_20003)]
@@ -180,7 +173,7 @@ fn provider_getters_are_thread_safe_and_removed_nodes_become_unavailable() {
     for worker in workers {
         worker.join().unwrap();
     }
-    *lock(&bridge.snapshot) = Arc::new(Snapshot { nodes: vec![] });
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(vec![]));
     assert_eq!(code(property(&owner, 30005)), UNAVAILABLE);
 }
 #[test]

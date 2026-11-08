@@ -1,0 +1,4 @@
+/* Survol après un défilement à la molette (hover_scroll.rs). */
+.list { width: 300px; height: 200px; overflow-y: auto; }
+.line { height: 40px; background: #101010; transition: background-color 150ms; }
+.line:hover { background: #ff0000; }

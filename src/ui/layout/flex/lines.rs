@@ -136,6 +136,10 @@ pub(super) fn plan(
             child.style.min_height = constraints.0;
             child.style.max_height = constraints.1;
         }
+        // Limites relatives : résolues contre la place de cette mesure, pas laissées par
+        // un appel précédent (la mesure ne dépend que de ses contraintes, condition du
+        // layout incrémental).
+        crate::ui::layout::resolve_limits(child, size);
         let desired = desired?;
         let automatic = automatic.transpose()?;
         let (natural, cross) = axis(desired, row);

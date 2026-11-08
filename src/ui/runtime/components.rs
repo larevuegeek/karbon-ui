@@ -72,6 +72,10 @@ pub(super) struct SplitState {
 pub(super) struct ScrollState {
     pub(super) offsets: HashMap<ElementId, f32>,
     pub(super) drag: Option<ScrollDrag>,
+    /// Glissement doux en cours (molette à crans).
+    pub(super) smooth: Option<super::smooth_scroll::SmoothScroll>,
+    /// L'événement de molette en cours de traitement vient d'un cran (`UiEvent::Wheel`).
+    pub(super) wheel_smooth: bool,
 }
 /// Ligne active de chaque liste virtuelle.
 #[derive(Default)]
@@ -251,6 +255,12 @@ impl ComponentState for ScrollState {
     fn retain_rebuilt(&mut self, root: &Element, _live: &HashSet<ElementId>) -> bool {
         self.offsets
             .retain(|id, _| root.find(*id).is_some_and(is_scroll));
+        if self
+            .smooth
+            .is_some_and(|m| !root.find(m.id).is_some_and(is_scroll))
+        {
+            self.smooth = None;
+        }
         let lost = self
             .drag
             .is_some_and(|d| !root.find(d.id).is_some_and(is_scroll));

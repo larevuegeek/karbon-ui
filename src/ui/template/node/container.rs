@@ -136,6 +136,29 @@ impl<W: Widget + 'static> Node<W> {
         self.element.layout_rules().justify_items = value;
         self
     }
+    /// Sets `content-visibility`: with [`ContentVisibility::Auto`], the contents of an
+    /// element far from the viewport are neither laid out nor painted, and the element
+    /// clips its contents to its padding box.
+    pub fn content_visibility(mut self, value: ContentVisibility) -> Self {
+        self.element.layout_rules().content_visibility = value;
+        self
+    }
+    /// Sets the size of the contents while they are skipped: `axis` 0 is
+    /// `contain-intrinsic-width`, 1 `contain-intrinsic-height`.
+    pub fn contain_intrinsic_size(
+        mut self,
+        (axis, value): (usize, ContainIntrinsicLength),
+    ) -> Self {
+        if let Some(slot) = self
+            .element
+            .layout_rules()
+            .contain_intrinsic_size
+            .get_mut(axis)
+        {
+            *slot = value;
+        }
+        self
+    }
     /// Sets horizontal and vertical overflow; clipping follows rounded corners.
     pub fn overflow(mut self, x: Overflow, y: Overflow) -> Self {
         let rules = self.element.layout_rules();
@@ -169,6 +192,13 @@ impl<W: Widget + 'static> Node<W> {
             index,
             value,
         );
+        self
+    }
+    /// Makes this element the initial scroll target of its nearest scroll container
+    /// (`scroll-initial-target: nearest`): when the container first appears, it starts
+    /// scrolled to this element; later rebuilds keep the user's offset.
+    pub fn scroll_initial_target(mut self, value: bool) -> Self {
+        self.element.layout_rules().scroll_initial_target = value;
         self
     }
     /// Keeps the rest of a wheel scroll in this scroll container

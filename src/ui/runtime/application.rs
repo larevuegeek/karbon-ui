@@ -22,18 +22,31 @@ impl UiRuntime {
         self.app.take_task_commands()
     }
 
-    /// Deliver a finished task to the application on the UI thread; returns `true` (and
-    /// invalidates the view) if the application asked for a rebuild.
+    /// Deliver a finished task to the application on the UI thread; returns `true` if a
+    /// new frame is needed: the application asked for a rebuild (the view is
+    /// invalidated), or the task delivered images to
+    /// [`ImageSlot`](crate::ui::template::ImageSlot)s (they are repainted, without
+    /// rebuilding the view).
     pub fn task_completed(&mut self, result: crate::task::TaskResult) -> bool {
         let changed = self.app.task_completed(result);
         if changed {
             self.invalidate();
         }
-        changed
+        self.images_arrived() || changed
     }
 
     /// Drain the application's window requests for the window-management loop.
     pub fn take_window_commands(&mut self) -> Vec<crate::window::WindowCommand> {
         self.app.take_window_commands()
+    }
+
+    /// Deliver the window's new geometry and state to the application; returns `true`
+    /// (and invalidates the view) if the application asked for a rebuild.
+    pub fn window_changed(&mut self, state: crate::window::WindowState) -> bool {
+        let changed = self.app.window_changed(state);
+        if changed {
+            self.invalidate();
+        }
+        changed
     }
 }

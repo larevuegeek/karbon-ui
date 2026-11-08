@@ -30,6 +30,10 @@ les opérations sur les plages de texte. Voir la
 | Scroll et liste | Conteneurs et enfants actuellement construits. |
 | Séparateur redimensionnable | Rôle, position et focus ; pas encore de `RangeValuePattern`. |
 | Boutons de fenêtre | Réduire, agrandir/restaurer et fermer par `InvokePattern`. |
+| Bouton bascule (`aria-pressed`) | Button + `TogglePattern` (pas d’`InvokePattern`) ; Toggle active l’élément comme un clic. |
+| Onglets (`role="tab"`, `aria-selected`) | TabItem + `SelectionItemPattern` ; la liste (`role="tablist"`) est un Tab avec `SelectionPattern` ; le panneau (`role="tabpanel"`) un Pane. |
+| Case, interrupteur, radio dessinés (`aria-checked`) | Mêmes patterns que les contrôles natifs ; Toggle ou Select activent l’élément. |
+| Élément courant (`aria-current`) | `AriaProperties` = `current=page` (ou `step`, `location`, `date`, `time`, `true`). |
 
 Les propriétés comprennent aussi l’identifiant stable, la visibilité, les limites
 en pixels écran et la disponibilité du focus. Les positions tiennent compte du DPI
@@ -89,6 +93,14 @@ existants fournissent ces informations. Un widget personnalisé doit décrire so
 sens, en plus de dessiner ses pixels. Un bouton uniquement représenté par une
 icône doit notamment conserver un nom compréhensible.
 
+Les états ARIA déclarés par l’application (`Element::aria_pressed`, `aria_checked`,
+`aria_selected`, `aria_current`, ou les attributs du même nom dans un gabarit)
+complètent ce contrat sans widget dédié : l’état de choix exposé (`choice`) est celui
+du widget natif, sinon `aria-checked`, sinon `aria-pressed` (`Toggle`), sinon
+`aria-selected` (`Radio`). macOS et Linux les reprennent : VoiceOver (case AXToggle,
+AXTabGroup, AXTabButton, `isAccessibilitySelected`) et AT-SPI (bouton bascule, page tab,
+états `PRESSED`, `SELECTABLE`, `SELECTED`, `ACTIVE`, attribut `current`).
+
 Le chemin des données est le suivant :
 
 ```text
@@ -130,7 +142,13 @@ la fenêtre invalide aussi les requêtes restantes et libère son snapshot.
 Le snapshot est renouvelé lorsque changent la vue, le layout, le scroll, le texte,
 la sélection, le focus ou la géométrie native. Le survol et le seul clignotement du caret ne
 déclenchent pas sa reconstruction. Les notifications signalent notamment les
-changements de structure, de focus, de valeur, de nom, d’état et de position.
+changements de structure, de focus, de valeur, de nom et d’état ; la position
+(`BoundingRectangle`) n'est signalée que pour l'élément focalisé. Comme dans Chromium,
+un défilement ne signale pas le déplacement de chaque élément : sur une liste de
+morceaux, ces milliers d'événements par publication occupaient plus du tiers du thread
+de l'interface dès qu'un client UI Automation écoutait. Les nœuds de l'ancien snapshot
+sont indexés par clé, et le fournisseur n'est demandé que pour un nœud qui change ; le
+snapshot indexe aussi ses nœuds pour les requêtes des clients.
 TextPattern reçoit également les événements de changement de texte et de sélection.
 
 La liste virtualisée expose seulement ses lignes matérialisées : le fournisseur

@@ -11,17 +11,25 @@ use crate::{
 
 impl Generator {
     pub(super) fn exit(&mut self, a: &Attr) -> Result<String> {
-        let Value::Text(text) = &a.value else {
-            return Err(a.loc.error("data-exit expects \"name [duration] [easing] [delay]\", e.g. data-exit=\"fade-out 200ms\""));
+        let text = match &a.value {
+            Value::Text(text) => text,
+            // Animation Rust calculée par la vue (sens de sortie qui suit la navigation).
+            Value::Expr(expr) => {
+                return Ok(format!("__ui_context.animation({})", self.out.value(expr)));
+            }
+            Value::Bool => {
+                return Err(a.loc.error("data-exit expects \"name [duration] [easing] [delay]\", e.g. data-exit=\"fade-out 200ms\", or a Rust Animation"));
+            }
         };
-        let words = text.split_whitespace().collect::<Vec<_>>();
-        let Some(name) = words.first() else {
+        let words = words(text);
+        let Some(name) = words.first().map(String::as_str) else {
             return Err(a.loc.error("data-exit needs an animation name"));
         };
         let mut duration = None;
         let mut delay = None;
         let mut easing = None;
         for word in &words[1..] {
+            let word = word.as_str();
             if let Some(ms) = html::duration(word) {
                 if duration.is_none() {
                     duration = Some(ms);
@@ -32,15 +40,15 @@ impl Generator {
                         .loc
                         .error("data-exit takes at most a duration and a delay"));
                 }
-            } else if let Some(e) = html::easing(word) {
+            } else if let Some(e) = easing_code(word) {
                 easing = Some(e);
             } else {
                 return Err(a.loc.error(format!(
-                    "Invalid data-exit value '{word}': expected a duration (200ms, 0.3s) or an easing (linear, ease, ease-in, ease-out, ease-in-out)"
+                    "Invalid data-exit value '{word}': expected a duration (200ms, 0.3s) or an easing (linear, ease, ease-in, ease-out, ease-in-out, cubic-bezier(x1, y1, x2, y2))"
                 )));
             }
         }
-        let preset = html::EXIT_PRESETS.iter().find(|(n, _)| n == name);
+        let preset = html::EXIT_PRESETS.iter().find(|(n, _)| *n == name);
         let base = match preset {
             Some((_, code)) => code
                 .replace("Animation", &format!("{R}::ui::animation::Animation"))
@@ -70,8 +78,8 @@ impl Generator {
             code += &format!(".delay({delay})");
         }
         code += &format!(
-            ".easing({R}::ui::animation::Easing::{})",
-            easing.unwrap_or("EaseIn")
+            ".easing({})",
+            easing.unwrap_or_else(|| format!("{R}::ui::animation::Easing::EaseIn"))
         );
         Ok(format!("__ui_context.animation({code})"))
     }
@@ -96,7 +104,8 @@ impl Generator {
         let mut duration = None;
         let mut delay = None;
         let mut easing = None;
-        for word in text.split_whitespace() {
+        for word in words(&text) {
+            let word = word.as_str();
             if let Some(ms) = html::duration(word) {
                 if duration.is_none() {
                     duration = Some(ms);
@@ -105,7 +114,7 @@ impl Generator {
                 } else {
                     return Err(a.loc.error(usage));
                 }
-            } else if let Some(e) = html::easing(word).filter(|_| easing.is_none()) {
+            } else if let Some(e) = easing_code(word).filter(|_| easing.is_none()) {
                 easing = Some(e);
             } else {
                 return Err(a
@@ -115,9 +124,9 @@ impl Generator {
         }
         let duration = duration.ok_or_else(|| a.loc.error(usage))?;
         Ok(Some(format!(
-            "{R}::ui::animation::Transition::new().duration({duration}).delay({}).easing({R}::ui::animation::Easing::{})",
+            "{R}::ui::animation::Transition::new().duration({duration}).delay({}).easing({})",
             delay.unwrap_or(0),
-            easing.unwrap_or("Ease")
+            easing.unwrap_or_else(|| format!("{R}::ui::animation::Easing::Ease"))
         )))
     }
     pub(super) fn stagger(&self, e: &Element) -> Result<String> {
@@ -140,4 +149,47 @@ impl Generator {
             "{R}::ui::template::stagger(&mut __ui_children,{ms});"
         ))
     }
+}
+/// Mots d'une valeur `data-exit` ou `data-reveal` ; une fonction entre parenthèses
+/// (`cubic-bezier(.2, .8, .2, 1)`) reste un seul mot.
+fn words(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut word = String::new();
+    let mut depth = 0usize;
+    for c in text.chars() {
+        match c {
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+        if c.is_whitespace() && depth == 0 {
+            if !word.is_empty() {
+                out.push(std::mem::take(&mut word));
+            }
+        } else {
+            word.push(c);
+        }
+    }
+    if !word.is_empty() {
+        out.push(word);
+    }
+    out
+}
+/// Code d'une courbe : mot-clé CSS ou `cubic-bezier(x1, y1, x2, y2)` (X dans 0..1).
+fn easing_code(word: &str) -> Option<String> {
+    let root = format!("{R}::ui::animation::Easing");
+    if let Some(name) = html::easing(word) {
+        return Some(format!("{root}::{name}"));
+    }
+    let args = word
+        .strip_prefix("cubic-bezier(")?
+        .strip_suffix(')')?
+        .split(',')
+        .map(|n| n.trim().parse::<f32>().ok().filter(|n| n.is_finite()))
+        .collect::<Option<Vec<_>>>()?;
+    let [x1, y1, x2, y2] = args.as_slice() else {
+        return None;
+    };
+    ((0. ..=1.).contains(x1) && (0. ..=1.).contains(x2))
+        .then(|| format!("{root}::CubicBezier({x1:?},{y1:?},{x2:?},{y2:?})"))
 }

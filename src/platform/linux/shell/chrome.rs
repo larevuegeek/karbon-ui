@@ -90,7 +90,8 @@ impl Session {
             x: point.x.floor() as i32,
             y: point.y.floor() as i32,
         };
-        match hit_test(&self.area(), &at, self.tiled) {
+        let fixed = self.tiled || !self.facts.resizable || self.facts.fullscreen;
+        match hit_test(&self.area(), &at, fixed) {
             // Sans barre du moteur, la bande du haut appartient à l'application.
             HitRegion::Caption if !self.chrome_visible() => HitRegion::Client,
             region => region,
@@ -127,6 +128,11 @@ impl Session {
         if let Some((edge, _)) = edge(&region) {
             return Ok(Press::Resize(edge));
         }
+        // Poignée de l'application (`data-resize-region`), même sur une fenêtre fixe.
+        self.prepare()?;
+        if let Some(edge) = self.resize_region_at(point) {
+            return Ok(Press::Resize(from_resize_edge(edge)));
+        }
         let double = self.last_press.is_some_and(|(at, previous)| {
             now.duration_since(at) <= DOUBLE_CLICK
                 && (previous.x - point.x).abs() <= DOUBLE_CLICK_DISTANCE
@@ -140,14 +146,13 @@ impl Session {
             return Ok(Press::Button);
         }
         // Barre du moteur ou zone de déplacement de l'application (`data-drag-region`),
-        // jugée sur un arbre à jour.
-        let drag = matches!(region, HitRegion::Caption) || {
-            self.prepare()?;
-            self.runtime.drag_region_at(point)
-        };
+        // jugée sur l'arbre mis à jour ci-dessus.
+        let drag = matches!(region, HitRegion::Caption) || self.runtime.drag_region_at(point);
+        // Une fenêtre fixe ou en plein écran ne s'agrandit pas au double clic.
+        let zoomable = self.facts.resizable && !self.facts.fullscreen;
         Ok(match (drag, double) {
-            (true, true) => Press::Maximize,
-            (true, false) => Press::Move,
+            (true, true) if zoomable => Press::Maximize,
+            (true, _) => Press::Move,
             (false, _) => Press::Content,
         })
     }
@@ -188,5 +193,20 @@ pub(in crate::platform::linux) fn cursor_names(
         crate::ui::runtime::Cursor::Crosshair => &["crosshair", "cross"],
         crate::ui::runtime::Cursor::ResizeDiagonal => &["nwse-resize", "bd_double_arrow"],
         crate::ui::runtime::Cursor::ResizeAntiDiagonal => &["nesw-resize", "fd_double_arrow"],
+    }
+}
+
+/// Bord du moteur pour une poignée de l'application.
+fn from_resize_edge(edge: crate::window::ResizeEdge) -> Edge {
+    use crate::window::ResizeEdge;
+    match edge {
+        ResizeEdge::Left => Edge::Left,
+        ResizeEdge::Right => Edge::Right,
+        ResizeEdge::Top => Edge::Top,
+        ResizeEdge::Bottom => Edge::Bottom,
+        ResizeEdge::TopLeft => Edge::TopLeft,
+        ResizeEdge::TopRight => Edge::TopRight,
+        ResizeEdge::BottomLeft => Edge::BottomLeft,
+        ResizeEdge::BottomRight => Edge::BottomRight,
     }
 }

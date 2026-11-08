@@ -3,6 +3,7 @@
 use super::*;
 mod border;
 mod chrome;
+mod cull;
 mod decoration;
 mod surface;
 use border::border_sides;
@@ -22,6 +23,32 @@ pub(super) struct PaintResources<'a> {
     pub sliders: &'a Sliders,
     pub selects: &'a Selects,
     pub motions: &'a crate::ui::animation::timeline::Timeline,
+    /// Éléments dont le sous-arbre contient un élément `fixed`, peint après les autres
+    /// (`None` : tout parcourir). Calculé au layout : la peinture d'une image de
+    /// défilement ne parcourt pas tout l'arbre pour les chercher.
+    pub fixed: Option<&'a crate::ui::core::hash::FastMap<ElementId, ()>>,
+}
+/// Éléments `fixed` de `root` et leurs ancêtres, et présence d'une liste virtuelle.
+pub(super) fn fixed_paths(root: &Element) -> (crate::ui::core::hash::FastMap<ElementId, ()>, bool) {
+    fn walk(
+        node: &Element,
+        out: &mut crate::ui::core::hash::FastMap<ElementId, ()>,
+        lists: &mut bool,
+    ) -> bool {
+        *lists |= node.virtual_list.is_some();
+        let mut any = layout::fixed(node);
+        for child in &node.children {
+            any |= walk(child, out, lists);
+        }
+        if any {
+            out.insert(node.id, ());
+        }
+        any
+    }
+    let mut out = crate::ui::core::hash::FastMap::default();
+    let mut lists = false;
+    walk(root, &mut out, &mut lists);
+    (out, lists)
 }
 pub(super) fn paint_node(
     node: &Element,
@@ -44,6 +71,9 @@ fn paint_fixed(
 ) {
     for index in layout::paint_order(node) {
         let child = &node.children[index];
+        if resources.fixed.is_some_and(|f| !f.contains_key(&child.id)) {
+            continue;
+        }
         if layout::fixed(child) {
             paint_inner(child, scene, theme, runtime, resources);
         }
@@ -62,8 +92,11 @@ fn paint_inner(
         sliders,
         selects,
         motions,
+        ..
     } = *resources;
-    if layout::width(node.clip) <= 0. || layout::height(node.clip) <= 0. {
+    // Découpe locale : celle du layout, recalculée sous une transformation d'ancêtre.
+    let node_clip = motions.paint_clip(node);
+    if layout::width(node_clip) <= 0. || layout::height(node_clip) <= 0. {
         return;
     }
     let effect = motions.local(node);
@@ -75,7 +108,7 @@ fn paint_inner(
     let bounds = node
         .styles
         .as_ref()
-        .map_or(node.clip, |s| s.shadow_cache.bounds(node.rect, node.clip));
+        .map_or(node_clip, |s| s.shadow_cache.bounds(node.rect, node_clip));
     if let Some((transform, opacity)) = effect {
         scene.commands.push(DrawCommand::PushEffect {
             transform,
@@ -107,7 +140,7 @@ fn paint_inner(
     let clip = node
         .styles
         .as_ref()
-        .map_or(node.clip, |s| s.painted_rect(node.clip));
+        .map_or(node_clip, |s| s.painted_rect(node_clip));
     scene.commands.push(DrawCommand::PushClip(clip));
     if let Some(filters) = local.and_then(|l| l.backdrop) {
         scene.commands.push(DrawCommand::Backdrop {
@@ -270,7 +303,10 @@ fn paint_inner(
                 state.keyboard_pressed = Some(id);
             }
         }
-        paint_inner(child, scene, theme, state, resources);
+        // Sous-arbre sans pixel dans sa découpe (ligne sortie de la vue d'une liste…).
+        if cull::reaches(child, motions.paint_clip(child), motions) {
+            paint_inner(child, scene, theme, state, resources);
+        }
         if matches!(node.layout, Layout::Layers) {
             paint_fixed(child, scene, theme, state, resources);
         }

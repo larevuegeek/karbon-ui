@@ -19,7 +19,7 @@ fn fixture() -> (Arc<Bridge>, IRawElementProviderSimple) {
         read_only: false,
         axis: Axis::Horizontal,
     });
-    *lock(&bridge.snapshot) = Arc::new(Snapshot { nodes });
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(nodes));
     let provider = bridge.interface(NodeId::Element(92)).unwrap();
     (bridge, provider)
 }
@@ -68,7 +68,7 @@ fn range_setter_rejects_invalid_disabled_and_read_only_values_before_queueing() 
         .as_mut()
         .unwrap()
         .read_only = true;
-    *lock(&bridge.snapshot) = Arc::new(Snapshot { nodes });
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(nodes));
     // SAFETY: interface vivante ; seules des valeurs scalaires sont échangées.
     unsafe {
         assert!(range.IsReadOnly().unwrap().as_bool());
@@ -77,7 +77,7 @@ fn range_setter_rejects_invalid_disabled_and_read_only_values_before_queueing() 
     let old = lock(&bridge.snapshot).clone();
     let mut nodes = old.nodes.clone();
     Arc::make_mut(&mut nodes[1]).enabled = false;
-    *lock(&bridge.snapshot) = Arc::new(Snapshot { nodes });
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(nodes));
     // SAFETY: interface vivante ; la commande est refusée avant la file.
     assert_eq!(code(unsafe { range.SetValue(50.) }), DISABLED);
     assert!(lock(&bridge.requests).is_empty());

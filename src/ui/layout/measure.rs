@@ -2,7 +2,7 @@ use super::*;
 pub(super) fn resolve(length: Length, available: f32, natural: f32) -> f32 {
     match length {
         Length::Computed(value) => value.evaluate(Default::default(), available, None).max(0.),
-        Length::Auto => natural,
+        Length::Auto | Length::MaxContent => natural,
         Length::Px(n) => n,
         Length::Percent(n) => available * n / 100.,
         Length::Fill(_) => available,
@@ -18,6 +18,21 @@ pub fn measure(
     let margin = node.style.margin;
     if super::position::hidden(node) {
         return Ok(SizeF::default());
+    }
+    // `width: max-content` : largeur naturelle sans limite de place (pas de retour à la
+    // ligne ni de rétrécissement), retenue ensuite comme une largeur définie.
+    if matches!(node.style.width, Length::MaxContent) {
+        node.style.width = Length::Auto;
+        let unbounded = SizeF {
+            width: f32::INFINITY,
+            height: available.height,
+        };
+        let result = match measure(node, unbounded, text) {
+            Ok(size) if size.width.is_finite() => Ok(size),
+            _ => measure(node, available, text),
+        };
+        node.style.width = Length::MaxContent;
+        return result;
     }
     // Révélation : mesure naturelle avec la hauteur déclarée (pas celle qu'impose le
     // parent), retenue pour `arrange`, puis réduite à la fraction animée.
@@ -39,6 +54,25 @@ pub fn measure(
         size.height = natural * reveal.progress + margin.vertical();
         return Ok(size);
     }
+    // Conteneur inchangé depuis l'image précédente : sa mesure d'alors.
+    if super::memo::cacheable(node) {
+        if let Some((size, natural)) = super::memo::carried(node, available) {
+            super::resolve_limits(node, available);
+            node.intrinsic = natural;
+            return Ok(size);
+        }
+        let size = measure_unmemoized(node, available, text)?;
+        super::memo::record(node, available, size);
+        return Ok(size);
+    }
+    measure_unmemoized(node, available, text)
+}
+/// Mesure avec la mémoire de la passe (mêmes contraintes plus tôt dans la passe).
+fn measure_unmemoized(
+    node: &mut Element,
+    available: SizeF,
+    text: &mut dyn TextMeasurer,
+) -> crate::Result<SizeF> {
     // Mêmes contraintes plus tôt dans la passe : taille déjà calculée (voir `memo`).
     let key = match super::memo::lookup(node, available) {
         Some((_, Some((size, natural)))) => {
@@ -170,6 +204,29 @@ fn measure_box(
             - p.bottom)
             .max(0.),
     };
+    // `content-visibility` : contenu sauté, de la taille retenue ou déclarée.
+    if super::containment::skipped(node) {
+        let natural = super::containment::placeholder(node);
+        node.intrinsic = natural;
+        return Ok(SizeF {
+            width: resolve(
+                node.style.width,
+                available.width,
+                natural.width + p.horizontal(),
+                containing.width,
+                p.horizontal(),
+            )
+            .clamp(min_width, max_width),
+            height: resolve(
+                node.style.height,
+                available.height,
+                natural.height + p.vertical(),
+                containing.height,
+                p.vertical(),
+            )
+            .clamp(min_height, max_height),
+        });
+    }
     let natural = match node.layout {
         Layout::Layers => {
             for child in &mut node.children {

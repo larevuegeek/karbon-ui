@@ -203,3 +203,64 @@ fn app_with_bar_at_bottom() -> HeadlessApp<Profile> {
     )
     .unwrap()
 }
+
+/// `offset={…}` et `cross-offset={…}` calculés, et entrée riche `disabled` sautée par le
+/// clavier (« Épingler l'album en cours » sans morceau en cours, menus de RustMusic).
+struct Computed {
+    gap: f32,
+    picked: Vec<u32>,
+}
+
+impl Application for Computed {
+    type Message = Msg;
+    fn view(&self, _: &ViewContext) -> Element {
+        let cx = TemplateContext::default();
+        ui! { @context(cx); @styles(css);
+            <div class="page"><div class="bar">
+                <button id="more" class="trigger" onclick={Msg::Toggle}><div>Plus</div></button>
+                <k-popover id="menu" anchor="more" menu placement="bottom-start" offset={self.gap}
+                           cross-offset={self.gap * 2.} aria-label="Menu" onclose={Msg::Close} class="menu">
+                    <button id="m1" class="item" role="menuitem" disabled onclick={Msg::Pick(1)}><div>Inactif</div></button>
+                    <button id="m2" class="item" role="menuitem" onclick={Msg::Pick(2)}><div>Actif</div></button>
+                </k-popover>
+            </div></div>
+        }
+    }
+    fn update(&mut self, message: Msg) -> bool {
+        if let Msg::Pick(n) = message {
+            self.picked.push(n);
+        }
+        true
+    }
+}
+
+#[test]
+fn computed_offsets_place_the_menu_and_disabled_rich_items_are_skipped() -> karbon_ui::Result<()> {
+    let mut app = HeadlessApp::with_options(
+        Computed {
+            gap: 6.,
+            picked: Vec::new(),
+        },
+        HeadlessOptions {
+            width: 800.,
+            height: 500.,
+            ..Default::default()
+        },
+    )?;
+    let trigger = app.bounds("more").unwrap();
+    let menu = app.bounds("menu").unwrap();
+    assert!(
+        (menu.top - trigger.bottom - 6.).abs() < 0.01,
+        "{menu:?} {trigger:?}"
+    );
+    assert!(
+        (menu.left - (trigger.left + 12.)).abs() < 0.01,
+        "{menu:?} {trigger:?}"
+    );
+    // Le focus va à la première entrée active ; un clic sur l'entrée inactive ne fait rien.
+    assert_eq!(app.focused(), Some(ElementId::named("m2")));
+    app.click("m1")?;
+    assert!(app.app().picked.is_empty());
+    assert!(!app.accessible("m1").unwrap().enabled);
+    Ok(())
+}

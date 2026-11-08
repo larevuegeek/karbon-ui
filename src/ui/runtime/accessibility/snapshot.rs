@@ -20,7 +20,7 @@ impl UiRuntime {
         fn visit(
             node: &Element,
             parent: Option<ElementId>,
-            radio_group: Option<ElementId>,
+            selection_group: Option<ElementId>,
             runtime: &UiRuntime,
             order: &HashSet<ElementId>,
             result: &mut Vec<AccessibleElement>,
@@ -33,6 +33,7 @@ impl UiRuntime {
             if let Some(widget) = &node.widget {
                 let s = widget.semantics();
                 let input = widget.text_input();
+                let choice = choice(node);
                 let bounds = runtime.motions.bounds(node.id, layout::content_rect(node));
                 let clipped = layout::intersect(bounds, runtime.motions.clip(node));
                 descriptor = Some(AccessibleElement {
@@ -47,12 +48,12 @@ impl UiRuntime {
                     clipped_bounds: clipped,
                     focusable: order.contains(&node.id),
                     offscreen: layout::width(clipped) <= 0. || layout::height(clipped) <= 0.,
-                    invokable: widget.choice().is_none()
+                    invokable: choice.is_none()
                         && (matches!(s.role, Role::Button | Role::MenuItem)
                             || widget.action().is_some()),
-                    choice: widget.choice(),
-                    selection_container: matches!(widget.choice(), Some(ChoiceState::Radio(_)))
-                        .then_some(radio_group)
+                    choice,
+                    selection_container: matches!(choice, Some(ChoiceState::Radio(_)))
+                        .then_some(selection_group)
                         .flatten(),
                     value: input.and_then(|i| {
                         runtime.components.inputs.snapshot(node.id, i).map(|s| {
@@ -83,6 +84,7 @@ impl UiRuntime {
                         |i| i.placeholder.to_string(),
                     ),
                     expanded: node.expanded,
+                    current: node.aria.current,
                 });
             }
             if let Layout::Split(split) = node.layout
@@ -111,6 +113,7 @@ impl UiRuntime {
                     read_only: true,
                     help: String::new(),
                     expanded: None,
+                    current: None,
                 });
             }
             if node.scroll.is_some() {
@@ -142,16 +145,18 @@ impl UiRuntime {
                     read_only: true,
                     help: String::new(),
                     expanded: None,
+                    current: None,
                 });
             }
-            let radio_group = if node
+            // Conteneur de sélection unique : groupe radio ou liste d'onglets.
+            let selection_group = if node
                 .widget
                 .as_ref()
-                .is_some_and(|w| w.semantics().role == Role::RadioGroup)
+                .is_some_and(|w| matches!(w.semantics().role, Role::RadioGroup | Role::TabList))
             {
                 Some(node.id)
             } else {
-                radio_group
+                selection_group
             };
             if let Some(descriptor) = &mut descriptor
                 && let Some(tooltip) = &node.tooltip
@@ -172,7 +177,7 @@ impl UiRuntime {
                 parent
             };
             for child in &node.children {
-                visit(child, parent, radio_group, runtime, order, result);
+                visit(child, parent, selection_group, runtime, order, result);
             }
         }
         let mut result = Vec::new();
@@ -188,4 +193,12 @@ impl UiRuntime {
         }
         result
     }
+}
+/// État de choix d'un élément : celui de son widget (case, interrupteur, radio natifs),
+/// sinon celui déclaré par `aria-checked`, `aria-pressed` ou `aria-selected`.
+pub(super) fn choice(node: &Element) -> Option<ChoiceState> {
+    node.widget
+        .as_ref()
+        .and_then(|w| w.choice())
+        .or_else(|| node.aria.choice())
 }

@@ -9,7 +9,7 @@ pub mod paint;
 mod properties;
 mod spacing;
 pub(crate) mod variables;
-pub use color::{ColorExpression, MixSpace};
+pub use color::{ColorExpression, MixSpace, color_mix};
 pub use layout::LayoutProperties;
 pub use media::{Container, ContainerQuery, ContainerType, MediaQuery};
 pub use spacing::SpacingExpressions;
@@ -20,7 +20,9 @@ pub mod text;
 /// Pre-tokenized values of framework stylesheets evaluated while styles resolve.
 pub mod tokens;
 pub use properties::*;
-pub use resolve::{ElementColors, StyleChanges, StyleEnvironment, resolve};
+pub use resolve::{
+    AnimatedSizes, ElementColors, ElementSizes, StyleChanges, StyleEnvironment, resolve,
+};
 
 use crate::ui::element::Style;
 #[derive(Default)]
@@ -50,6 +52,13 @@ pub(crate) struct Styles {
     pub base_rules: Option<Option<Box<crate::ui::element::LayoutRules>>>,
     /// Transition du template, gardée quand une règle de la feuille la remplace.
     pub base_transition: Option<Option<crate::ui::animation::Transition>>,
+    /// Animation du template, gardée quand une règle d'état en remplace des réglages, et
+    /// celle affichée par la dernière résolution (une autre valeur vient d'une nouvelle
+    /// vue : elle devient la base).
+    pub base_animation: Option<(
+        Option<crate::ui::animation::Animation>,
+        Option<crate::ui::animation::Animation>,
+    )>,
     pub computed: ComputedStyle,
     pub ready: bool,
     /// Query container type declared by `container-type` (`@container`).

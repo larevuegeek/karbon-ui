@@ -195,3 +195,154 @@ fn spacing_in_viewport_units_and_conditional_rules_follows_the_viewport() {
     check(media, [2., 10., 10., 10.]);
     check(px, [4., 4., 4., 20.]);
 }
+
+#[test]
+fn max_content_width_keeps_the_unwrapped_content_width() {
+    let mut root = ui! {@styles(css);
+        <div><div class="narrow">
+            <div class="piste"><div class="pastille"></div><div class="pastille"></div><div class="pastille"></div></div>
+            <div class="mot">une phrase bien plus longue</div>
+            <div style="height:20px"></div>
+        </div></div>
+    };
+    arrange(&mut root, 600., 400.);
+    let column = &root.children[0];
+    // Trois pastilles qui ne rétrécissent pas : 240 px, au-delà des 100 px du parent.
+    near(layout::width(column.children[0].bounds()), 240.);
+    near(column.children[0].bounds().left, 0.);
+    near(column.children[0].children[2].bounds().left, 160.);
+    // Le texte garde sa ligne au lieu de se couper dans 100 px ; un voisin `auto` est étiré.
+    let word = layout::width(column.children[1].bounds());
+    assert!(word > 100., "{word}");
+    near(layout::width(column.children[2].bounds()), 100.);
+}
+
+#[test]
+fn percentages_beyond_the_containing_block_are_kept() {
+    let mut root =
+        ui! {@styles(css);<div><div class="tache-host"><div class="tache"></div></div></div>};
+    arrange(&mut root, 600., 400.);
+    let host = root.children[0].bounds();
+    let tache = root.children[0].children[0].bounds();
+    near(tache.left - host.left, -20.);
+    near(tache.top - host.top, -30.);
+    near(layout::width(tache), 110.);
+    near(layout::height(tache), 110.);
+}
+
+#[test]
+fn max_content_rows_add_their_heights_in_a_column() {
+    let mut root = ui! {@styles(css);
+        <div><div class="rangees">
+            <div class="piste"><div class="pastille"></div><div class="pastille"></div></div>
+            <div class="piste decalee"><div class="pastille"></div><div class="pastille"></div></div>
+        </div></div>
+    };
+    arrange(&mut root, 600., 400.);
+    let column = &root.children[0];
+    near(layout::height(column.bounds()), 32. + 20. + 20. + 20. + 32.);
+    near(column.children[1].bounds().left, -40.);
+    near(layout::height(column.children[1].bounds()), 20.);
+}
+
+#[test]
+fn max_content_rows_size_an_absolute_column() {
+    let mut root = ui! {@styles(css);
+        <div><div class="scene"><div class="centree">
+            <div class="piste"><div class="pastille"></div><div class="pastille"></div></div>
+            <div class="piste decalee"><div class="pastille"></div><div class="pastille"></div></div>
+        </div></div></div>
+    };
+    arrange(&mut root, 600., 400.);
+    let column = &root.children[0].children[0];
+    near(layout::height(column.bounds()), 32. + 20. + 20. + 20. + 32.);
+}
+
+#[test]
+fn animated_max_content_rows_with_a_compound_class_keep_their_height() {
+    let mut root = ui! {@styles(css);
+        <div><div class="scene"><div class="centree">
+            {#each [0usize, 1] as i (i)}
+                <div class="defile" class:inverse={i > 0}><div class="pastille"></div><div class="pastille"></div></div>
+            {/each}
+        </div></div></div>
+    };
+    arrange(&mut root, 600., 400.);
+    let column = &root.children[0].children[0];
+    near(layout::height(column.bounds()), 32. + 20. + 20. + 20. + 32.);
+}
+
+#[test]
+fn animated_max_content_rows_keep_their_height_in_the_runtime() {
+    fn view() -> Element {
+        ui! {@styles(css);
+            <div><div class="scene"><div class="centree">
+                {#each [0usize, 1] as i (i)}
+                    <div class="defile" class:inverse={i > 0}><div class="pastille"></div><div class="pastille"></div></div>
+                {/each}
+            </div></div></div>
+        }
+    }
+    let mut ui = runtime(view);
+    let now = std::time::Instant::now();
+    prepare_headless(&mut ui, now);
+    prepare_headless(&mut ui, now + std::time::Duration::from_millis(16));
+    let column = &ui.root().unwrap().children[0].children[0];
+    let rows: Vec<_> = column.children.iter().map(|c| c.bounds()).collect();
+    assert!(
+        (layout::height(column.bounds()) - 124.).abs() < 0.01,
+        "{:?} {rows:?}",
+        column.bounds()
+    );
+}
+
+/// `content-visibility: auto` : le contenu des lignes éloignées de la vue n'est pas
+/// disposé, chaque ligne garde sa hauteur, et le contenu d'une ligne est rogné à sa boîte
+/// arrondie (confinement de la peinture).
+#[test]
+fn content_visibility_skips_far_rows_and_contains_their_painting() {
+    let mut ui = runtime(|| {
+        ui! {@styles(css);
+            <div id="cv-list" class="cv-liste">
+                {#each (0..100usize) as i (i)}
+                    <div class="cv-ligne"><div class="cv-marque"></div></div>
+                {/each}
+            </div>
+        }
+    });
+    prepare(&mut ui, std::time::Instant::now());
+    let list = ui
+        .root()
+        .unwrap()
+        .find(ElementId::named("cv-list"))
+        .unwrap();
+    near(list.scroll_metrics().unwrap().extent, 4000.);
+    let rows = &list.children[0].children;
+    near(layout::width(rows[0].children[0].bounds()), 30.);
+    near(layout::width(rows[90].children[0].bounds()), 0.);
+    assert!(
+        ui.scene()
+            .commands
+            .iter()
+            .any(|c| matches!(c, DrawCommand::PushShapeClip { .. }))
+    );
+    // Lignes rendues par un défilement : styles résolus à ce moment (sautés jusque-là),
+    // puis disposées à leur place.
+    for _ in 0..4 {
+        ui.event(karbon_ui::ui::runtime::UiEvent::Scroll {
+            position: PointF { x: 50., y: 50. },
+            delta_x: 0.,
+            delta_y: 600.,
+        });
+        prepare(&mut ui, std::time::Instant::now());
+    }
+    let list = ui
+        .root()
+        .unwrap()
+        .find(ElementId::named("cv-list"))
+        .unwrap();
+    let row = &list.children[0].children[62];
+    let marque = row.children[0].bounds();
+    near(layout::width(marque), 30.);
+    near(marque.top, row.bounds().top);
+}

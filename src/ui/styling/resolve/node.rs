@@ -160,6 +160,57 @@ pub(super) fn sample_sizes(
         }
     }
 }
+/// Dimensions animées par `@keyframes` : elles remplacent la valeur déclarée (ou celle
+/// d'une transition en cours), qui sert aux étapes extrêmes absentes.
+pub(super) fn keyframe_sizes(
+    node: &mut Element,
+    local: &Properties,
+    laid_out: [Length; 2],
+    env: &StyleEnvironment,
+    changes: &mut StyleChanges,
+) {
+    let (Some(animate), Some(animation)) = (
+        env.animate_sizes,
+        node.motion
+            .as_ref()
+            .and_then(|m| m.animation)
+            .filter(|a| a.animates_sizes()),
+    ) else {
+        return;
+    };
+    let transition = node
+        .motion
+        .as_ref()
+        .and_then(|m| m.transition)
+        .is_some_and(|t| t.animates_sizes());
+    let base = node.styles.as_ref().and_then(|s| s.base);
+    let declared = |own: Option<Length>, base: Option<Length>, current: Length| {
+        if transition {
+            current
+        } else {
+            own.or(base).unwrap_or(current)
+        }
+    };
+    let underlying = [
+        declared(local.layout.width, base.map(|b| b.width), node.style.width),
+        declared(
+            local.layout.height,
+            base.map(|b| b.height),
+            node.style.height,
+        ),
+    ];
+    let shown = animate(node.id, animation, underlying);
+    for (property, value) in shown.into_iter().enumerate() {
+        let value = value.unwrap_or(underlying[property]);
+        let slot = if property == 0 {
+            &mut node.style.width
+        } else {
+            &mut node.style.height
+        };
+        changes.layout |= laid_out[property] != value;
+        *slot = value;
+    }
+}
 pub(super) fn reveal(node: &mut Element, env: &StyleEnvironment, changes: &mut StyleChanges) {
     // Révélation de hauteur (`Element::reveal`) : affiché ↔ `display: none` anime une
     // fraction de la hauteur naturelle (piste `2` des longueurs), mesurée au layout.

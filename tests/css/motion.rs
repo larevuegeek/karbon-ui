@@ -246,3 +246,122 @@ fn keyframed_colours_and_animation_lists_follow_their_own_timing() {
     assert_eq!(painted(&ui).0, Some(Color::hex(0x000000)));
     assert!(ui.next_wake().is_none());
 }
+
+/// `@keyframes` de `height` (égaliseur) et de `width` en pourcentage (progression) :
+/// un layout par image, la barre reste collée au bas de sa rangée.
+#[test]
+fn size_keyframes_animate_heights_and_percentage_widths() {
+    use std::time::Duration;
+    let mut ui = runtime(|| {
+        ui! {@styles(css);
+            <div>
+                <div class="eq-row"><div class="eq"></div></div>
+                <div class="track"><div class="progress"></div></div>
+            </div>
+        }
+    });
+    let now = std::time::Instant::now();
+    prepare_headless(&mut ui, now);
+    let bounds = |ui: &karbon_ui::ui::runtime::UiRuntime, i: usize| {
+        ui.root().unwrap().children[i].children[0].bounds()
+    };
+    let bar = bounds(&ui, 0);
+    assert_eq!((bar.right - bar.left, bar.bottom - bar.top), (3., 4.));
+    assert_eq!(bar.bottom, bounds(&ui, 0).bottom);
+    let layouts = ui.stats().layouts;
+    prepare_headless(&mut ui, now + Duration::from_millis(200));
+    let bar = bounds(&ui, 0);
+    assert!((bar.bottom - bar.top - 11.).abs() < 0.01, "{bar:?}");
+    let row = ui.root().unwrap().children[0].bounds();
+    assert_eq!(bar.bottom, row.bottom);
+    assert_eq!(ui.stats().layouts, layouts + 1);
+    let progress = bounds(&ui, 1);
+    assert!(
+        (progress.right - progress.left - 160.).abs() < 0.01,
+        "{progress:?}"
+    );
+    prepare_headless(&mut ui, now + Duration::from_millis(1200));
+    let progress = bounds(&ui, 1);
+    assert_eq!(progress.right - progress.left, 0.);
+}
+
+static PAUSED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// `.pause .slide { animation-play-state: paused }` : la classe d'un ancêtre basculée par
+/// la vue fige l'animation, puis la reprend là où elle s'était arrêtée.
+#[test]
+fn an_ancestor_state_rule_pauses_and_resumes_the_animation() {
+    use std::{sync::atomic::Ordering, time::Duration};
+    fn view() -> Element {
+        let paused = PAUSED.load(Ordering::Relaxed);
+        ui! {@styles(css); <div><div class:pause={paused}><div class="slide"></div></div></div>}
+    }
+    PAUSED.store(false, Ordering::Relaxed);
+    let mut ui = runtime(view);
+    let now = std::time::Instant::now();
+    let x = |ui: &mut karbon_ui::ui::runtime::UiRuntime, ms: u64| {
+        prepare_headless(ui, now + Duration::from_millis(ms));
+        painted(ui).2
+    };
+    assert!(x(&mut ui, 0).abs() < 0.01);
+    assert!((x(&mut ui, 250) - 25.).abs() < 0.01);
+    PAUSED.store(true, Ordering::Relaxed);
+    ui.invalidate();
+    assert!((x(&mut ui, 250) - 25.).abs() < 0.01);
+    assert!((x(&mut ui, 700) - 25.).abs() < 0.01);
+    assert!(ui.next_wake().is_none());
+    PAUSED.store(false, Ordering::Relaxed);
+    ui.invalidate();
+    assert!((x(&mut ui, 700) - 25.).abs() < 0.01);
+    assert!((x(&mut ui, 800) - 35.).abs() < 0.01);
+}
+
+/// `style="animation-delay: …"` règle le minutage de l'animation posée par la classe
+/// (satellites décalés de -1,4 s de RustMusic) ; `animation-duration` aussi.
+#[test]
+fn inline_animation_longhands_adjust_the_class_animation() {
+    use std::time::Duration;
+    let mut ui = runtime(|| {
+        ui! {@styles(css); <div><div class="slide" style="animation-delay: -250ms; animation-duration: 2s"></div></div>}
+    });
+    let now = std::time::Instant::now();
+    prepare_headless(&mut ui, now);
+    // 250 ms d'avance sur 2 s : 12,5 % du trajet de 100 px.
+    assert!((painted(&ui).2 - 12.5).abs() < 0.01, "{}", painted(&ui).2);
+    prepare_headless(&mut ui, now + Duration::from_millis(250));
+    assert!((painted(&ui).2 - 25.).abs() < 0.01, "{}", painted(&ui).2);
+}
+
+/// Règle composée `.slide.back { animation-direction: reverse; animation-delay: -100ms }` :
+/// les réglages remplacent ceux de l'animation de la classe.
+#[test]
+fn a_compound_rule_overrides_direction_and_delay() {
+    use std::time::Duration;
+    let mut ui = runtime(|| ui! {@styles(css); <div><div class="slide back"></div></div>});
+    let now = std::time::Instant::now();
+    prepare_headless(&mut ui, now);
+    // À rebours, déjà avancée de 100 ms : 90 px.
+    assert!((painted(&ui).2 - 90.).abs() < 0.01, "{}", painted(&ui).2);
+    prepare_headless(&mut ui, now + Duration::from_millis(150));
+    assert!((painted(&ui).2 - 75.).abs() < 0.01, "{}", painted(&ui).2);
+}
+
+/// `.swap:hover { transition: none }` : la règle d'état remplace la transition de
+/// l'élément (`motion-reduce:transition-none` de Tailwind), la largeur change d'emblée.
+#[test]
+fn a_state_rule_replaces_the_transition() {
+    use karbon_ui::ui::runtime::UiEvent;
+    use std::time::Duration;
+    let mut ui = runtime(|| ui! {@styles(css);<div><div class="swap"></div></div>});
+    let now = std::time::Instant::now();
+    prepare_headless(&mut ui, now);
+    let width = |ui: &karbon_ui::ui::runtime::UiRuntime| {
+        let b = ui.root().unwrap().children[0].bounds();
+        b.right - b.left
+    };
+    assert_eq!(width(&ui), 100.);
+    ui.event(UiEvent::PointerMove(PointF { x: 10., y: 10. }));
+    prepare_headless(&mut ui, now + Duration::from_millis(10));
+    prepare_headless(&mut ui, now + Duration::from_millis(20));
+    assert_eq!(width(&ui), 200.);
+}

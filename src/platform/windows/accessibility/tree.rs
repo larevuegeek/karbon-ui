@@ -42,25 +42,47 @@ pub(super) struct Node {
     pub(super) selection_container: Option<NodeId>,
     pub(super) range: Option<crate::ui::slider::RangeInfo>,
     pub(super) expanded: Option<bool>,
+    /// `aria-current` : jeton exposé dans AriaProperties (`current=page`).
+    pub(super) current: Option<&'static str>,
     pub(super) read_only: bool,
     pub(super) bounds: UiaRect,
     pub(super) clipped: UiaRect,
 }
 pub(super) struct Snapshot {
     pub(super) nodes: Vec<Arc<Node>>,
+    pub(super) index: std::sync::OnceLock<std::collections::HashMap<NodeId, usize>>,
+}
+impl Snapshot {
+    pub(super) fn new(nodes: Vec<Arc<Node>>) -> Self {
+        Self {
+            nodes,
+            index: Default::default(),
+        }
+    }
 }
 impl Node {
     pub(super) fn selection_container(&self) -> bool {
-        !self.is_dialog && matches!(self.control_type, 50026 | 50003)
+        // Groupe (radios), liste déroulante, liste d'onglets.
+        !self.is_dialog && matches!(self.control_type, 50026 | 50003 | 50018)
     }
 }
 impl Snapshot {
     pub(super) fn node(&self, key: NodeId) -> Result<Arc<Node>> {
-        self.nodes
-            .iter()
-            .find(|node| node.key == key)
-            .cloned()
+        self.index()
+            .get(&key)
+            .map(|&i| Arc::clone(&self.nodes[i]))
             .ok_or_else(|| fail(UNAVAILABLE))
+    }
+    /// Position de chaque nœud, construite au premier accès : les clients interrogent les
+    /// nœuds un par un, une recherche linéaire parcourait tout l'arbre à chaque requête.
+    fn index(&self) -> &std::collections::HashMap<NodeId, usize> {
+        self.index.get_or_init(|| {
+            self.nodes
+                .iter()
+                .enumerate()
+                .map(|(i, n)| (n.key, i))
+                .collect()
+        })
     }
     pub(super) fn navigate(&self, key: NodeId, direction: i32) -> Result<Option<NodeId>> {
         let node = self.node(key)?;

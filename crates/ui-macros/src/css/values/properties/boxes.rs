@@ -14,10 +14,18 @@ pub(super) fn property(name: &str, value: &str, next: Next) -> Result<Properties
                 "fill" => {
                     return Err("Use a percentage or Rust fraction() for fill dimensions".into());
                 }
+                // Hauteur `max-content` : celle du contenu, comme `auto`.
+                "max-content" if name == "height" => format!("{ROOT}::view::AUTO"),
+                "max-content" => format!("{ROOT}::element::Length::MaxContent"),
+                "min-content" | "fit-content" => {
+                    return Err(format!(
+                        "{name}: {value} is not implemented (use max-content, auto, a length or a percentage)"
+                    ));
+                }
                 v if v.ends_with('%') => {
                     let n = number(&v[..v.len() - 1])?;
-                    if !(0. ..=100.).contains(&n) {
-                        return Err("Percentage outside 0..100%".into());
+                    if n < 0. {
+                        return Err("A width or height percentage cannot be negative".into());
                     }
                     format!("{ROOT}::view::percent({n:?})")
                 }
@@ -48,8 +56,8 @@ pub(super) fn property(name: &str, value: &str, next: Next) -> Result<Properties
                         .unwrap_or(0);
                     let length = if let Some(n) = value.strip_suffix('%') {
                         let n = number(n)?;
-                        if !(0. ..=100.).contains(&n) {
-                            return Err("Percentage outside 0..100%".into());
+                        if n < 0. {
+                            return Err("A size limit percentage cannot be negative".into());
                         }
                         format!("{ROOT}::view::percent({n:?})")
                     } else {
@@ -78,6 +86,40 @@ pub(super) fn property(name: &str, value: &str, next: Next) -> Result<Properties
                 format!("Some({ratio:?})")
             },
         ),
+        // Contenu sauté loin de la vue (`auto`) ou toujours (`hidden`), et sa taille
+        // pendant ce temps.
+        "content-visibility" => one(
+            "content_visibility",
+            format!(
+                "{ROOT}::element::ContentVisibility::{}",
+                match value {
+                    "visible" => "Visible",
+                    "auto" => "Auto",
+                    "hidden" => "Hidden",
+                    _ => return Err("Use content-visibility: visible, auto or hidden".into()),
+                }
+            ),
+        ),
+        "contain-intrinsic-size" | "contain-intrinsic-width" | "contain-intrinsic-height" => {
+            let lengths = intrinsic_lengths(value)?;
+            let axes: &[usize] = match (name, lengths.len()) {
+                ("contain-intrinsic-width", 1) => &[0],
+                ("contain-intrinsic-height", 1) => &[1],
+                ("contain-intrinsic-size", 1 | 2) => &[0, 1],
+                _ => return Err(format!("Invalid {name}: '{value}'")),
+            };
+            Ok(axes
+                .iter()
+                .map(|&axis| {
+                    let (remembered, length) = lengths[axis.min(lengths.len() - 1)];
+                    let length = length.map_or("None".into(), |n| format!("Some({n:?})"));
+                    (
+                        "contain_intrinsic_size".into(),
+                        format!("({axis}usize,{remembered},{length})"),
+                    )
+                })
+                .collect())
+        }
         "box-sizing" => one(
             "box_sizing",
             format!(
@@ -91,4 +133,26 @@ pub(super) fn property(name: &str, value: &str, next: Next) -> Result<Properties
         ),
         _ => next(),
     }
+}
+
+/// Valeurs de `contain-intrinsic-*` : `[auto] none | <longueur>`, une ou deux fois.
+fn intrinsic_lengths(value: &str) -> Result<Vec<(bool, Option<f32>)>> {
+    let mut lengths = Vec::new();
+    let mut remembered = false;
+    for word in words(value)? {
+        match word.as_str() {
+            "auto" if !remembered => remembered = true,
+            "none" => lengths.push((std::mem::take(&mut remembered), None)),
+            _ => {
+                let n = px(&word, false)?;
+                lengths.push((std::mem::take(&mut remembered), Some(n)));
+            }
+        }
+    }
+    if remembered || lengths.is_empty() || lengths.len() > 2 {
+        return Err(format!(
+            "Use contain-intrinsic-size: [auto] <length> or none (one or two values), not '{value}'"
+        ));
+    }
+    Ok(lengths)
 }

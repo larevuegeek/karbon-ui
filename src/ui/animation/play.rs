@@ -19,6 +19,9 @@ pub struct Animation {
     pub(crate) advance: u32,
     /// Horloge figée (`animation-play-state: paused`).
     pub(crate) paused: bool,
+    /// `animation-play-state` d'une règle d'état ou de media (`.pause .x`) : remplace
+    /// celui de chaque membre tant que la règle s'applique.
+    pub(crate) play_state: Option<bool>,
     pub(crate) key: u64,
     pub(crate) frames: &'static [Keyframe],
     /// Animations jouées ensemble (liste CSS `animation: a 1s, b 2s`) ; vide pour une
@@ -54,6 +57,7 @@ impl Animation {
             reverse: false,
             advance: 0,
             paused: false,
+            play_state: None,
             key: 0,
             frames: &[],
             group: &[],

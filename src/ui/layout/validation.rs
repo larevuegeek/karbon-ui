@@ -1,5 +1,8 @@
 use super::*;
-/// Checks a tree before layout: depth (at most 64) and size (at most 10,000 elements) limits,
+/// Most elements in a tree. Large lists stay cheap between frames (memoized subtrees,
+/// incremental styles and layout); beyond this, use a virtual list.
+pub const MAX_ELEMENTS: usize = 50_000;
+/// Checks a tree before layout: depth (at most 64) and size (at most [`MAX_ELEMENTS`]) limits,
 /// effect/animation values, lengths, grid tracks and unsupported combinations. Returns an
 /// [`Error::InvalidInput`](crate::Error::InvalidInput) error describing the first problem found.
 pub fn validate(root: &Element) -> crate::Result<()> {
@@ -16,9 +19,9 @@ pub fn validate(root: &Element) -> crate::Result<()> {
             ));
         }
         *count += 1;
-        if depth > 64 || *count > 10000 {
+        if depth > 64 || *count > MAX_ELEMENTS {
             return Err(invalid(
-                "element tree too deep (over 64 levels) or too large (over 10,000 elements)",
+                "element tree too deep (over 64 levels) or too large (over 50,000 elements)",
             ));
         }
         let spatial = inherited || node.motion.as_deref().is_some_and(|m| m.spatial());
@@ -67,9 +70,9 @@ pub fn validate(root: &Element) -> crate::Result<()> {
     crate::ui::layers::validate(root)?;
     type Ids = crate::ui::core::hash::FastMap<ElementId, ()>;
     fn walk(node: &Element, ids: &mut Ids, depth: usize) -> crate::Result<()> {
-        if depth > 64 || ids.len() >= 10000 {
+        if depth > 64 || ids.len() >= MAX_ELEMENTS {
             return Err(invalid(
-                "element tree too deep (over 64 levels) or too large (over 10,000 elements)",
+                "element tree too deep (over 64 levels) or too large (over 50,000 elements)",
             ));
         }
         if ids.insert(node.id, ()).is_some() {
@@ -85,7 +88,7 @@ pub fn validate(root: &Element) -> crate::Result<()> {
                     Length::Px(n) | Length::Percent(n) => n.is_finite(),
                     Length::Computed(v) => v.valid(),
                     Length::Auto => true,
-                    Length::Fill(_) => false,
+                    Length::Fill(_) | Length::MaxContent => false,
                 };
                 if !valid {
                     return Err(invalid("invalid offset"));
@@ -107,7 +110,7 @@ pub fn validate(root: &Element) -> crate::Result<()> {
             if let Some(basis) = r.flex_basis {
                 let valid = match basis {
                     Length::Computed(value) => value.valid(),
-                    Length::Auto => true,
+                    Length::Auto | Length::MaxContent => true,
                     Length::Px(n) | Length::Percent(n) => n.is_finite() && n >= 0.,
                     Length::Fill(n) => n.is_finite() && n > 0.,
                 };
@@ -148,9 +151,10 @@ pub fn validate(root: &Element) -> crate::Result<()> {
         for length in [s.width, s.height] {
             let valid = match length {
                 Length::Computed(value) => value.valid(),
-                Length::Auto => true,
+                Length::Auto | Length::MaxContent => true,
                 Length::Px(n) => n.is_finite() && n >= 0.,
-                Length::Percent(n) => n.is_finite() && (0. ..=100.).contains(&n),
+                // CSS accepte une taille au-delà de 100 % du bloc conteneur (`h-[110%]`).
+                Length::Percent(n) => n.is_finite() && n >= 0.,
                 Length::Fill(n) => n.is_finite() && n > 0.,
             };
             if !valid {

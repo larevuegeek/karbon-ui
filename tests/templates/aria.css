@@ -1,0 +1,5 @@
+/* Sélecteurs d'attributs sur les états ARIA écrits en expressions. */
+.etat { width: 20px; height: 10px; }
+.etat[aria-pressed="true"] { width: 40px; }
+.etat[aria-checked="mixed"] { width: 50px; }
+.etat[aria-current="page"] { width: 60px; }

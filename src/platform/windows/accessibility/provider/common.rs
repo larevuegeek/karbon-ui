@@ -59,6 +59,10 @@ impl Core {
                 "SelectOption"
             } else if n.range.is_some() {
                 "Slider"
+            } else if n.control_type == 50019 {
+                "Tab"
+            } else if n.control_type == 50018 {
+                "TabList"
             } else if n.control_type == 50026 {
                 "RadioGroup"
             } else if matches!(n.choice, Some(ChoiceState::Radio(_))) {
@@ -95,6 +99,10 @@ impl Core {
             30045 if n.value.is_some() => Variant::string(n.value.as_deref().unwrap())?,
             30046 if n.value.is_some() => Variant::boolean(n.read_only),
             30107 => Variant::string("Window Engine native UI Automation provider")?,
+            // AriaProperties : `aria-current`, comme les navigateurs.
+            30102 if n.current.is_some() => {
+                Variant::string(&format!("current={}", n.current.unwrap()))?
+            }
             _ => choices::property(&self.bridge, &n, property)?,
         })
     }

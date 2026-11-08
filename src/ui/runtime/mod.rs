@@ -28,12 +28,15 @@ use std::{
 
 mod accessibility;
 mod activation;
+mod anchoring;
 mod application;
 mod components;
 pub mod drag_drop;
 mod events;
 mod focus;
 mod hit_test;
+mod hover;
+mod images;
 mod interaction;
 mod invalidation;
 mod overlays;
@@ -42,12 +45,14 @@ mod prepare;
 mod responses;
 mod restyle;
 mod scrolling;
+mod smooth_scroll;
 mod split;
 mod text_cache;
 mod text_input;
 mod tooltip;
 mod tree;
 mod virtualization;
+mod wheel;
 pub use accessibility::{AccessibilityAction, AccessibilityError, AccessibleElement};
 use components::{ComponentStates, Drag, ScrollDrag, SyncContext};
 pub use events::{Cursor, EventResult, Key, UiEvent};
@@ -55,6 +60,8 @@ use interaction::Interaction;
 use invalidation::{Invalidation, StyleSignature};
 use painting::{paint_chrome, paint_node};
 use tree::visit_tree;
+pub use wheel::WheelEvent;
+pub(crate) use wheel::WheelHandler;
 /// Counters of the work done by a [`UiRuntime`], for diagnostics and benchmarks.
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct RuntimeStats {
@@ -68,6 +75,17 @@ pub struct RuntimeStats {
     pub scrolls: u64,
     /// Rows currently materialized by virtual lists.
     pub virtual_rows: usize,
+    /// Cumulative time spent building the view (application `view`, validation,
+    /// indexing, state carried over from the previous tree).
+    pub view_time: std::time::Duration,
+    /// Cumulative time spent resolving styles.
+    pub style_time: std::time::Duration,
+    /// Style resolutions limited to the elements whose pointer state or animation changed.
+    pub partial_styles: u64,
+    /// Cumulative time spent in layout (measure and arrange).
+    pub layout_time: std::time::Duration,
+    /// Cumulative time spent painting the scene.
+    pub paint_time: std::time::Duration,
 }
 /// State of the window chrome (custom title bar) supplied by the backend on each frame.
 #[derive(Clone, Copy, PartialEq)]

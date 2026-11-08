@@ -94,6 +94,20 @@ impl<A: Application> HeadlessApp<A> {
         commands.extend(self.ui.take_window_commands());
         commands
     }
+    /// Deliver a window geometry and state to [`Application::window_changed`], as a
+    /// window does after it moves or changes size, then prepare the next frame. Returns
+    /// what `window_changed` returned. The simulated window keeps its own size: use
+    /// [`resize`](Self::resize) for the layout.
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`prepare`](Self::prepare).
+    pub fn window_changed(&mut self, state: crate::window::WindowState) -> crate::Result<bool> {
+        self.prepare()?;
+        let rebuilt = self.ui.window_changed(state);
+        self.prepare()?;
+        Ok(rebuilt)
+    }
     /// Change the application directly, then rebuild and prepare the view.
     ///
     /// # Errors

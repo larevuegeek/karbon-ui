@@ -102,8 +102,9 @@ unsafe extern "C" {
     fn dbus_message_iter_next(iter: *mut Iter) -> c_uint;
     fn dbus_message_iter_recurse(iter: *mut Iter, sub: *mut Iter);
 }
-/// Erreur locale, initialisée et libérée autour d'un appel.
-fn with_error<R>(f: impl FnOnce(*mut Error) -> R) -> (R, bool) {
+/// Erreur locale, initialisée et libérée autour d'un appel ; son texte (`nom : message`)
+/// en cas d'échec.
+fn with_error_text<R>(f: impl FnOnce(*mut Error) -> R) -> (R, Option<String>) {
     let mut error = Error {
         name: std::ptr::null(),
         message: std::ptr::null(),
@@ -113,10 +114,20 @@ fn with_error<R>(f: impl FnOnce(*mut Error) -> R) -> (R, bool) {
     // SAFETY : erreur locale valide pendant l'appel, libérée ensuite.
     unsafe { dbus_error_init(&mut error) };
     let result = f(&mut error);
-    let failed = !error.name.is_null();
+    let failure = (!error.name.is_null()).then(|| {
+        let name = text(error.name).unwrap_or_default();
+        match text(error.message) {
+            Some(message) => format!("{name}: {message}"),
+            None => name,
+        }
+    });
     // SAFETY : idem.
     unsafe { dbus_error_free(&mut error) };
-    (result, failed)
+    (result, failure)
+}
+fn with_error<R>(f: impl FnOnce(*mut Error) -> R) -> (R, bool) {
+    let (result, failure) = with_error_text(f);
+    (result, failure.is_some())
 }
 fn text(value: *const c_char) -> Option<String> {
     // SAFETY : chaîne possédée par le message, copiée aussitôt.
@@ -182,14 +193,20 @@ impl Connection {
     }
     /// Appel bloquant (au plus `timeout` ms) ; `None` en cas d'erreur ou de délai.
     pub fn call(&self, message: &Message, timeout: c_int) -> Option<Message> {
+        self.request(message, timeout).ok()
+    }
+    /// Appel bloquant (au plus `timeout` ms) ; l'erreur D-Bus en texte en cas d'échec.
+    pub fn request(&self, message: &Message, timeout: c_int) -> Result<Message, String> {
         // SAFETY : connexion et message valides ; réponse possédée.
-        let (reply, failed) = with_error(|e| unsafe {
+        let (reply, failure) = with_error_text(|e| unsafe {
             dbus_connection_send_with_reply_and_block(self.raw(), message.0.as_ptr(), timeout, e)
         });
-        if failed {
-            return None;
+        if let Some(failure) = failure {
+            return Err(failure);
         }
-        NonNull::new(reply).map(Message)
+        NonNull::new(reply)
+            .map(Message)
+            .ok_or_else(|| "no reply".to_owned())
     }
     pub fn send(&self, message: &Message) {
         // SAFETY : connexion et message valides.
@@ -199,6 +216,12 @@ impl Connection {
     pub fn pump(&self) {
         // SAFETY : connexion valide ; délai nul.
         unsafe { dbus_connection_read_write(self.raw(), 0) };
+    }
+    /// Attend au plus `timeout` ms que des messages arrivent (thread propre à la
+    /// connexion) ; `false` quand la connexion est perdue.
+    pub fn wait(&self, timeout: c_int) -> bool {
+        // SAFETY : connexion valide.
+        unsafe { dbus_connection_read_write(self.raw(), timeout) != 0 }
     }
     pub fn pop(&self) -> Option<Message> {
         // SAFETY : connexion valide ; message possédé.
@@ -328,6 +351,9 @@ impl Writer<'_> {
         let value = c(value);
         let pointer = value.as_ptr();
         self.basic(b'o', (&raw const pointer).cast())
+    }
+    pub fn byte(&mut self, value: u8) -> &mut Self {
+        self.basic(b'y', (&raw const value).cast())
     }
     pub fn i32(&mut self, value: i32) -> &mut Self {
         self.basic(b'i', (&raw const value).cast())

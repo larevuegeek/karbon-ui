@@ -14,33 +14,45 @@ pub(super) fn carry_caches(
     new: &mut Element,
     live: &std::collections::HashSet<ElementId>,
 ) {
-    type Carried = (crate::ui::rendering::component_shadow::Cache, Option<SizeF>);
+    type Carried = (
+        crate::ui::rendering::component_shadow::Cache,
+        Option<SizeF>,
+        RectF,
+        RectF,
+    );
     fn take(
         node: &mut Element,
         live: &std::collections::HashSet<ElementId>,
         out: &mut std::collections::HashMap<ElementId, Carried>,
     ) {
-        if live.contains(&node.id)
-            && let Some(styles) = node.styles.as_deref_mut()
-        {
-            out.insert(
-                node.id,
-                (
-                    std::mem::take(&mut styles.shadow_cache),
-                    styles.container_seen,
-                ),
-            );
+        // Élément vide laissé par un sous-arbre mémorisé repris : rien à reporter (le
+        // sous-arbre a gardé son état).
+        let placeholder = node.memo.as_deref().is_some_and(|m| m.placeholder);
+        if live.contains(&node.id) && !placeholder {
+            let (shadows, seen) = node
+                .styles
+                .as_deref_mut()
+                .map_or((Default::default(), None), |s| {
+                    (std::mem::take(&mut s.shadow_cache), s.container_seen)
+                });
+            out.insert(node.id, (shadows, seen, node.rect, node.clip));
         }
         for child in &mut node.children {
             take(child, live, out);
         }
     }
     fn give(node: &mut Element, carried: &mut std::collections::HashMap<ElementId, Carried>) {
-        if let Some(styles) = node.styles.as_deref_mut()
-            && let Some((shadows, seen)) = carried.remove(&node.id)
-        {
-            styles.shadow_cache = shadows;
-            styles.container_seen = seen;
+        if let Some((shadows, seen, rect, clip)) = carried.remove(&node.id) {
+            if let Some(styles) = node.styles.as_deref_mut() {
+                styles.shadow_cache = shadows;
+                styles.container_seen = seen;
+            }
+            // Élément neuf (sans layout) : la position de l'ancien, pour que les styles
+            // résolus avant le layout voient le même survol qu'après (`:hover`, `group-*`).
+            if node.rect == RectF::new(0., 0., 0., 0.) {
+                node.rect = rect;
+                node.clip = clip;
+            }
         }
         for child in &mut node.children {
             give(child, carried);
@@ -71,8 +83,10 @@ impl UiRuntime {
     fn pointer_facts(&self) -> Option<crate::ui::styling::resolve::PointerFacts> {
         let root = self.root.as_ref()?;
         let project = |id, p| self.motions.point(id, p);
+        let hovered = self.hover_chain();
         let environment = crate::ui::styling::StyleEnvironment {
             pointer: self.interaction.pointer,
+            hovered: Some(&hovered),
             project: Some(&project),
             ..Default::default()
         };
@@ -102,18 +116,110 @@ impl UiRuntime {
             && self.invalidation.pointer_facts.is_some()
             && self.invalidation.pointer_facts == self.pointer_facts()
     }
+    /// Le dernier layout a changé ce que le pointeur touche depuis la résolution des
+    /// styles (positions des éléments d'une vue reconstruite, contenu déplacé).
+    pub(super) fn hover_moved_by_layout(&self) -> bool {
+        self.interaction.pointer.is_some()
+            && self.invalidation.pointer_facts.is_some()
+            && self.pointer_facts() != self.invalidation.pointer_facts
+    }
     /// Résout les styles de la vue pour l'état courant (pointeur, focus, transitions).
+    /// `partial` : depuis la dernière résolution, seuls le pointeur et des animations ont
+    /// pu changer ; la cascade ne refait alors que les éléments touchés (voir
+    /// `styling::resolve::Partial`).
     pub(super) fn resolve_styles(
         &mut self,
         context: ViewContext,
         now: Instant,
+        partial: bool,
     ) -> crate::Result<crate::ui::styling::StyleChanges> {
+        // Les styles peuvent créer ou retirer des animations (`hover:scale-105`).
+        self.motions.invalidate_paths();
         // Faits du pointeur lus par cette résolution, comparés à la suivante.
-        self.invalidation.pointer_facts = self
-            .invalidation
-            .incremental
-            .then(|| self.pointer_facts())
-            .flatten();
+        let previous = self.invalidation.pointer_facts.take();
+        self.invalidation.pointer_facts = self.pointer_facts();
+        let partial = match (&previous, &self.invalidation.pointer_facts, &self.root) {
+            (Some(previous), Some(facts), Some(root)) if partial => {
+                facts.changed(previous).map(|mut touched| {
+                    touched.extend(self.motions.colors.borrow().unsettled(now));
+                    touched.extend(self.motions.lengths.borrow().unsettled(now));
+                    style_animated(root, &mut touched);
+                    crate::ui::styling::resolve::Partial::new(root, touched)
+                })
+            }
+            _ => None,
+        };
+        if partial.as_ref().is_some_and(|p| p.is_empty()) {
+            return Ok(Default::default());
+        }
+        // Résolution complète : un sous-arbre mémorisé repris garde ses styles sauf si un
+        // de ses éléments a changé d'état (pointeur, focus, appui, animation).
+        if partial.is_none()
+            && let (Some(previous), Some(facts), Some(root)) =
+                (&previous, &self.invalidation.pointer_facts, &mut self.root)
+        {
+            let mut touched = facts.changed_by_id(previous);
+            touched.extend(self.motions.colors.borrow().unsettled(now));
+            touched.extend(self.motions.lengths.borrow().unsettled(now));
+            style_animated(root, &mut touched);
+            touched.extend(self.invalidation.style_targets.into_iter().flatten());
+            touched.extend(
+                [self.interaction.focused, self.interaction.active_press()]
+                    .into_iter()
+                    .flatten(),
+            );
+            mark_memo_dirty(root, &touched.into_iter().map(|id| (id, ())).collect());
+        }
+        self.invalidation.style_targets =
+            [self.interaction.focused, self.interaction.active_press()];
+        if partial.is_some() {
+            self.invalidation.stats.partial_styles += 1;
+        }
+        self.cascade(context, now, partial.as_ref())
+    }
+
+    /// Styles du contenu `content-visibility` qui vient d'approcher de la vue (sauté par
+    /// les résolutions précédentes, ou résolu avant de s'éloigner) : `ids` et leurs
+    /// sous-arbres en entier, leurs ancêtres sur le chemin.
+    pub(super) fn resolve_revealed(
+        &mut self,
+        ids: &[ElementId],
+        context: ViewContext,
+        now: Instant,
+    ) -> crate::Result<crate::ui::styling::StyleChanges> {
+        let Some(root) = self.root.as_ref().filter(|_| !ids.is_empty()) else {
+            return Ok(Default::default());
+        };
+        let partial = crate::ui::styling::resolve::Partial::new(root, ids.iter().copied());
+        self.cascade(context, now, Some(&partial))
+    }
+
+    /// Cascade de l'arbre pour l'état d'interaction ; `partial` : seuls ces éléments.
+    /// La proximité des éléments `content-visibility: auto` lui est prêtée (contenu sauté).
+    fn cascade(
+        &mut self,
+        context: ViewContext,
+        now: Instant,
+        partial: Option<&crate::ui::styling::resolve::Partial>,
+    ) -> crate::Result<crate::ui::styling::StyleChanges> {
+        let lent = !layout::containment::entered();
+        if lent {
+            layout::containment::enter(std::mem::take(&mut self.invalidation.containment));
+        }
+        let result = self.cascade_inner(context, now, partial);
+        if lent {
+            self.invalidation.containment = layout::containment::leave();
+        }
+        result
+    }
+
+    fn cascade_inner(
+        &mut self,
+        context: ViewContext,
+        now: Instant,
+        partial: Option<&crate::ui::styling::resolve::Partial>,
+    ) -> crate::Result<crate::ui::styling::StyleChanges> {
+        let hovered = self.hover_chain();
         let Some(root) = self.root.as_mut() else {
             return Ok(Default::default());
         };
@@ -135,6 +241,7 @@ impl UiRuntime {
         let motions = &self.motions;
         let animate_colors =
             |id, animation, colors| motions.animate_colors(id, animation, colors, now);
+        let animate_sizes = |id, animation, sizes| motions.animate_sizes(id, animation, sizes, now);
         self.motions.colors.borrow_mut().begin();
         self.motions.lengths.borrow_mut().begin();
         let changes = crate::ui::styling::resolve(
@@ -146,6 +253,7 @@ impl UiRuntime {
                     height: context.height,
                 },
                 pointer: self.interaction.pointer,
+                hovered: Some(&hovered),
                 pressed: self.interaction.active_press(),
                 focused: self.interaction.focused,
                 focus_visible: self.interaction.focus_visible,
@@ -154,12 +262,50 @@ impl UiRuntime {
                 transition_color: Some(&transition_color),
                 transition_length: Some(&transition_length),
                 animate_colors: Some(&animate_colors),
+                animate_sizes: Some(&animate_sizes),
                 pixel_scale: context.scale,
                 reduced_motion: self.motions.reduced,
+                partial,
             },
         );
-        self.motions.colors.borrow_mut().end();
-        self.motions.lengths.borrow_mut().end();
+        // Une résolution partielle ne revoit pas toutes les transitions : celles des
+        // éléments laissés de côté sont gardées.
+        if partial.is_none() {
+            self.motions.colors.borrow_mut().end();
+            self.motions.lengths.borrow_mut().end();
+        }
         changes
     }
+}
+
+/// Éléments dont une animation `@keyframes` anime des couleurs ou des dimensions,
+/// échantillonnées pendant la résolution des styles.
+fn style_animated(node: &Element, out: &mut Vec<ElementId>) {
+    if node
+        .motion
+        .as_ref()
+        .and_then(|m| m.animation)
+        .is_some_and(|a| a.animates_colors() || a.animates_sizes())
+    {
+        out.push(node.id);
+    }
+    for child in &node.children {
+        style_animated(child, out);
+    }
+}
+
+/// Marque les sous-arbres mémorisés repris qui contiennent un élément de `touched` ;
+/// `true` si `node` en contient un.
+fn mark_memo_dirty(
+    node: &mut Element,
+    touched: &crate::ui::core::hash::FastMap<ElementId, ()>,
+) -> bool {
+    let mut any = touched.contains_key(&node.id);
+    for child in &mut node.children {
+        any |= mark_memo_dirty(child, touched);
+    }
+    if any && let Some(memo) = node.memo.as_deref_mut() {
+        memo.style_dirty = true;
+    }
+    any
 }

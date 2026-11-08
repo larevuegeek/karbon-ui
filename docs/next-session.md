@@ -19,6 +19,111 @@ du redimensionnement interactif, partage d’un périphérique entre fenêtres, 
 clic traversant sur les zones vides d’une fenêtre transparente composée
 (`HTTRANSPARENT` ne sert que les fenêtres du même thread).
 
+## Défilement, retours de RustMusic (2026-11-07)
+
+Retours du clone RustMusic sur karbon-ui (liste de 9 440 titres, grilles d'artistes) :
+
+- **Zone visible = boîte de padding** (`layout/scrolling.rs`) : le padding d'un
+  conteneur défilant défile avec le contenu au lieu de le rogner (avant : `pb-16`
+  coupait la grille 64 unités au-dessus du bord, la barre se logeait dans le padding).
+- **`onscroll`** (`Element::on_scroll`, `ScrollMetrics` après chaque déplacement),
+  **ancrage du défilement** (`runtime/anchoring.rs`, `overflow-anchor: auto`),
+  **`scroll-initial-target: nearest`** et **survol limité à un rafraîchissement par
+  100 ms pendant un défilement** (lignes qui clignotaient sous un pointeur immobile).
+  Voir [scroll.md](scroll.md#événement-ancrage-et-cible-initiale).
+- Export de référence 960 × 700 rebasé : seul change un liseré de 3 px du haut de la
+  première playlist, désormais visible dans le `pb-3` de la barre latérale qui défile,
+  comme dans un navigateur ; SHA-256 `C62E1D02C16B84B4…` (1280 × 900 inchangé,
+  `A69EA80E3D31DB2D…`).
+- **Sous-arbres mémorisés** (`memo={clé}` des gabarits, `view::lazy` en Rust,
+  `view/lazy.rs`, `layout/lazy.rs`, `core/element/memo.rs`) : la vue saute un sous-arbre
+  dont la clé n'a pas changé, le runtime remet l'ancien avec ses styles, ses mesures et
+  son placement. Page Morceaux du clone (150 lignes) : reconstruction de 57 à 23 ms.
+  Banc d'essai : phase `rebuild` et temps par étape (`view_ms`, `style_ms`, `layout_ms`,
+  `paint_ms`, `RuntimeStats::*_time`). Suite : sauter la résolution des styles d'un
+  sous-arbre repris (≈ 9 ms restants, entrées : typographie héritée, variables, faits des
+  ancêtres pour `group-*`, frères, pointeur, focus, animations), puis
+  `content-visibility: auto`.
+- **Résolution partielle des styles** (survol, transitions), **sous-arbres repris qui
+  sautent la cascade**, **layout incrémental** de tout conteneur inchangé, et **survol
+  gardé après une reconstruction** (il disparaissait jusqu'au mouvement suivant). Banc
+  d'essai : phase `hover`. Page Morceaux (150 lignes) : reconstruction 57 → 18 ms,
+  survol 5,6 ms (layout 2,7).
+- Limite de l'arbre relevée de 10 000 à 50 000 éléments (`layout::MAX_ELEMENTS`) : le
+  clone reprend la fenêtre de 500 lignes de la source et ses étoiles d'origine.
+
+## Fluidité, retours de RustMusic (2026-11-08)
+
+Retours : défilement de la liste « par à-coups, effet de pompage », diapos des
+nouveautés saccadées, survol des lignes à travers le menu contextuel, micro-lecteur
+non redimensionnable.
+
+- **Molette douce** (`runtime/smooth_scroll.rs`) : chaque image échantillonne la courbe
+  à son instant (une image arrivée un peu avant le réveil prévu était sautée) ; un cran
+  pendant un glissement garde la vitesse acquise (courbe cubique raccordée, comme
+  `UpdateTarget` de Chromium, au lieu d'un nouvel élan à chaque cran) ; un ancrage du
+  défilement (lignes retirées au-dessus par une liste chargée par pages) déplace aussi
+  la cible du glissement, qui ramenait sinon le contenu vers l'ancienne position et
+  relançait le chargement. Tests dans `tests/layout/anchoring.rs`.
+- **Passes par image proportionnelles au contenu animé** : la synchronisation des
+  animations ne parcourt plus que les branches qui mènent à un élément animé
+  (`animation/timeline/paths.rs`, relevées quand l'arbre ou les styles changent) ; les
+  indicateurs de la passe de layout sont posés sur les éléments (`Element::layout_bits`)
+  au lieu de deux tables reconstruites à chaque passe.
+- **Limites relatives et layout incrémental** : la ligne flex résout les limites
+  relatives d'un enfant contre la place de sa mesure (`flex/lines.rs`) au lieu de relire
+  celles d'un appel précédent ; elles ne bloquent plus la reprise des mesures de leurs
+  ancêtres (une dizaine de `max-w-full` remesuraient en cascade toute la page à chaque
+  survol et chaque reconstruction). Exports de référence inchangés.
+- **Survol occulté** (`runtime/hover.rs`) : `:hover` ne touche que l'élément peint au
+  sommet et ses ancêtres (menus, `fixed`, `z-index`), le contenu sous un menu ou un
+  dialogue ouvert n'est plus survolé ; un élément qui couvre le point arrête la
+  recherche des cibles de clic ; un bouton se touche dans son padding.
+- **Carrousel** : visibilité des animations et ombres calculées avec la découpe sous la
+  transformation des ancêtres (diapos 2 et suivantes figées et sans ombres) ; phase de
+  banc `animation` (`BenchmarkOptions::click`, horloge simulée, `frame_requests`).
+- **Redimensionnement d'une fenêtre fixe par sa poignée** (Windows) : geste suivi à la
+  main comme sous macOS (`events/grip.rs` : capture, taille « départ + déplacement » en
+  coordonnées de l'écran, une taille par image), plus de `WS_THICKFRAME` temporaire ni
+  de boucle modale ; règle commune `window::change::grip_size` (un coin à proportions
+  fixes suit le plus grand des deux déplacements, `max(dx, dy)` du micro-lecteur).
+- **Défilement dans la vraie fenêtre** : mesuré avec `--profile` (nouvelles lignes
+  `Slow frame`, écarts `intervals` et `late_frames`, protocole `window-present-v4`) et
+  des crans de molette postés à la fenêtre du clone. Deux causes, corrigées : chaque
+  pochette arrivée reconstruisait la vue (`ImageSlot` : repeinte seule, voir
+  [les performances](performance.md#défilement-à-la-molette-dans-la-fenêtre-windows-gpu))
+  et l'horloge d'une image d'animation était lue avant l'attente d'un tampon libre
+  (`FrameSlot` : chaîne à latence d'une image, attente avant la lecture, bornée à
+  34 ms). Phase de banc `wheel`. `DwmFlush` avant chaque image a été essayé et rejeté.
+- **Dialogues de fichiers** (2026-11-08) : `WindowCommand::FileDialog` (ouvrir un ou
+  plusieurs fichiers, choisir un dossier, enregistrer sous), choix rendu comme le résultat
+  d'une tâche ; Windows (`IFileOpenDialog`) essayé dans le clone, macOS (`NSOpenPanel` en
+  feuille) et Linux (portail XDG sur un thread) compilés seulement, voir
+  [les fenêtres](windows.md#dialogues-de-fichiers).
+- **Liste des morceaux** (bibliothèque chargée, « le jour et la nuit » face à Tauri) :
+  les 200 lignes étaient peintes à chaque image (lignes en `overflow: visible` gardant
+  la découpe de la liste ; 12 336 commandes, 704 calques d'opacité nulle), la mémoire
+  des mesures était coupée par chaque élément cliquable, et les lignes restantes
+  recalculaient styles et mesures quand la liste perdait ses premières lignes. Corrigé
+  (`painting/cull.rs`, saut des groupes d'opacité nulle sous Direct2D,
+  `Widget::paints_natural_size`, rangs hors de l'empreinte des sous-arbres mémorisés,
+  images en pourcentage d'une case fixée) : banc 203 → 8,6 ms par image, rendu en
+  fenêtre ~10 → ~3,5 ms, voir
+  [les performances](performance.md#liste-des-morceaux-2026-11-08-suite). Puis
+  (« ne vide pas la mémoire ou les dessins ») : `content-visibility: auto` et
+  `contain-intrinsic-size` (`layout/containment.rs`, comme l'original), notifications
+  d'accessibilité sans déplacement de chaque élément (38 % du thread de l'interface),
+  pistes d'animation et vérification de l'arbre allégées, ombres floutées partagées :
+  préparation 0,5 / 0,8 ms (p50 / p95) en défilant, voir
+  [la suite](performance.md#liste-des-morceaux-2026-11-08-fin). Ensuite : styles du
+  contenu sauté résolus seulement quand il approche (`UiRuntime::resolve_revealed`),
+  ancien arbre d'une reconstruction libéré par tranches (`UiRuntime::bury`, à partir de
+  4 096 éléments) : pire écart en défilant 133 → 67 ms. Reste : ~25 + ~15 ms aux deux
+  reconstructions d'un chargement de page (création des lignes, surtout les allocations
+  de `Styles`, 3 824 octets par élément ; layout ~8 ms). Mémoire : ~280 Mo du
+  clone viennent du cache SQLite réglé par le backend commun avec Tauri (64 Mo par
+  connexion).
+
 ## Publication (décidée le 2026-11-06)
 
 karbon-ui devient un **dépôt public séparé**, `github.com/larevuegeek/karbon-ui`,

@@ -71,6 +71,7 @@ pub(super) fn append_nodes(
         selection_container: None,
         range: None,
         expanded: None,
+        current: None,
         read_only: true,
         bounds,
         clipped: bounds,

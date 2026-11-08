@@ -5,8 +5,10 @@
 //! harnais headless : tout backend (Windows, macOS, Linux) doit les satisfaire.
 //!
 //! `cargo test --test css`
+mod hover_scroll;
 mod layout;
 mod motion;
+mod occlusion;
 mod paint;
 mod responsive;
 mod selectors;

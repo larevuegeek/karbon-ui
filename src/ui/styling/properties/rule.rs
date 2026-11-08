@@ -96,6 +96,10 @@ pub struct Properties {
     /// Transition evaluated from a framework stylesheet (`transition`, possibly a composed
     /// list read through `var()`); replaces the element's own transition while set.
     pub transition: Option<crate::ui::animation::Transition>,
+    /// Animation longhands of a state or media rule (`.track.reverse
+    /// { animation-direction: reverse }`, `.paused .bar { animation-play-state: paused }`),
+    /// replacing those of the element's animation while the rule matches.
+    pub animation: crate::ui::animation::AnimationOverride,
 }
 /// Property receiving a [`ColorExpression`] of
 /// [`Properties::color_expressions`].
@@ -275,6 +279,7 @@ impl Properties {
             slider_thumb: self.slider_thumb.over(base.slider_thumb),
             slider_track: self.slider_track.over(base.slider_track),
             transition: self.transition.or(base.transition),
+            animation: self.animation.over(base.animation),
         }
     }
     /// Sides drawn individually: one side has its own width or colour.

@@ -5,7 +5,7 @@ mod keyframes;
 #[cfg(test)]
 mod tests;
 use super::{parser, values};
-pub(super) use instance::{declaration, instance, names};
+pub(super) use instance::{declaration, instance, names, state_override};
 pub(super) use keyframes::{frames, frames_at};
 type Result<T> = std::result::Result<T, String>;
 const ROOT: &str = "__ui_root::ui::animation";

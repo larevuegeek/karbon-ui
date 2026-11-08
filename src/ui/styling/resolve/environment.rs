@@ -3,6 +3,10 @@ use crate::ui::{element::ElementId, scene::PointF};
 
 /// Text, background and border colours of an element, `None` when not set.
 pub type ElementColors = [Option<crate::ui::theme::Color>; 3];
+/// Declared width and height of an element.
+pub type ElementSizes = [crate::ui::element::Length; 2];
+/// Width and height shown by an animation, `None` for a dimension it leaves alone.
+pub type AnimatedSizes = [Option<crate::ui::element::Length>; 2];
 /// Interaction and viewport state used to match style conditions.
 #[derive(Clone, Copy, Default)]
 pub struct StyleEnvironment<'a> {
@@ -12,6 +16,12 @@ pub struct StyleEnvironment<'a> {
     pub root_font: Option<f32>,
     /// Pointer position in window coordinates, for `:hover`.
     pub pointer: Option<PointF>,
+    /// Elements under the pointer, as a browser hit-tests them: the topmost painted
+    /// element at [`pointer`](Self::pointer) and its ancestors. When set, `:hover`
+    /// matches only these elements, so an element covered by another one (overlay,
+    /// `position: fixed` panel, open menu) is not hovered through it. `None` matches
+    /// every element whose box contains the pointer.
+    pub hovered: Option<&'a [ElementId]>,
     /// Pressed element, for `:active`.
     pub pressed: Option<ElementId>,
     /// Focused element, for `:focus` and `:focus-within`.
@@ -46,11 +56,20 @@ pub struct StyleEnvironment<'a> {
     pub animate_colors: Option<
         &'a dyn Fn(ElementId, crate::ui::animation::Animation, ElementColors) -> ElementColors,
     >,
+    /// Width and height of an element whose `@keyframes` animation animates sizes:
+    /// receives the element, its animation and its declared width and height, and
+    /// returns the lengths to lay out now (`None` for a dimension left unanimated).
+    pub animate_sizes: Option<
+        &'a dyn Fn(ElementId, crate::ui::animation::Animation, ElementSizes) -> AnimatedSizes,
+    >,
     /// Physical pixels per logical pixel; border widths snap to whole physical pixels.
     /// `0` (the default) or `1` leaves them unchanged.
     pub pixel_scale: f32,
     /// The user asked to reduce animations (`prefers-reduced-motion: reduce`).
     pub reduced_motion: bool,
+    /// Resolve only these elements and what depends on them, keeping the computed styles
+    /// of the rest (`None`: the whole tree).
+    pub partial: Option<&'a super::Partial>,
 }
 impl StyleEnvironment<'_> {
     pub(super) fn pixel_scale(&self) -> f32 {

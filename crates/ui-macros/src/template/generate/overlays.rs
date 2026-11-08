@@ -187,6 +187,14 @@ impl Generator {
                 None => ("Bottom", "Start"),
             };
             let offset = match e.attr("offset") {
+                // `offset={expr}` : distance calculée en px (`f32`), bornée comme le littéral.
+                Some(Attr {
+                    value: Value::Expr(t),
+                    ..
+                }) => {
+                    let value = self.out.value(t);
+                    format!("(({value}) as f32).clamp(0.,256.)*__ui_context.scale")
+                }
                 Some(a) => {
                     let text = Self::literal(a)?;
                     let n = text
@@ -205,6 +213,13 @@ impl Generator {
                 None => "4f32*__ui_context.scale".into(),
             };
             let cross = match e.attr("cross-offset") {
+                Some(Attr {
+                    value: Value::Expr(t),
+                    ..
+                }) => {
+                    let value = self.out.value(t);
+                    format!("(({value}) as f32).clamp(-256.,256.)*__ui_context.scale")
+                }
                 Some(a) => {
                     let text = Self::literal(a)?;
                     let n = text

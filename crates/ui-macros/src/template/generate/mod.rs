@@ -11,6 +11,7 @@
 //! (`motion`), texte (`text`, `runs`), conteneurs et mises en page (`layout`),
 //! champs (`inputs`), boutons (`buttons`), listes (`select`), images et SVG
 //! (`media`), surcouches (`overlays`), composants et inclusions (`components`).
+mod aria;
 mod attributes;
 mod buttons;
 mod components;

@@ -14,6 +14,8 @@ pub struct Node<W: Widget> {
     pub(super) element: Element,
     widget: Option<W>,
     action: Option<crate::application::Action>,
+    /// Zone cliquable désactivée (`<button disabled>` à contenu riche).
+    disabled: bool,
 }
 /// Placeholder widget for nodes without content (plain containers); measures
 /// zero and paints nothing.
@@ -34,6 +36,7 @@ impl Node<Empty> {
             element,
             widget: None,
             action: None,
+            disabled: false,
         }
     }
     /// Attaches a widget that paints the container's content.
@@ -51,6 +54,7 @@ impl<W: Widget + 'static> Node<W> {
             element,
             widget: Some(widget),
             action: None,
+            disabled: false,
         }
     }
     /// Transforms the typed widget before it is boxed.
@@ -84,6 +88,7 @@ impl<W: Widget + 'static> Node<W> {
             self.element.widget = Some(Box::new(super::action::ActionArea::new(
                 self.element.widget.take(),
                 action,
+                !self.disabled,
             )));
         }
         self.element
@@ -112,9 +117,20 @@ impl<W: Widget + 'static> Node<W> {
         self.action = Some(crate::application::Action::new(message));
         self
     }
-    /// Shows `value` in a tooltip on hover.
+    /// Disables the clickable area set by [`on_click`](Self::on_click), like `disabled` on
+    /// an HTML `<button>`: no activation, no keyboard focus, and the `:disabled` style
+    /// state instead of `:enabled`.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+    /// Shows `value` in a tooltip on hover. As in HTML, an empty or blank `title` shows
+    /// no tooltip.
     pub fn tooltip(mut self, value: impl Into<std::sync::Arc<str>>) -> Self {
-        self.element = self.element.tooltip(value);
+        let value = value.into();
+        if !value.trim().is_empty() {
+            self.element = self.element.tooltip(value);
+        }
         self
     }
     pub(super) fn properties(&mut self) -> &mut crate::ui::styling::Properties {

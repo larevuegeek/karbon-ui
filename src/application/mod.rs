@@ -141,6 +141,33 @@ pub trait Application: 'static {
     fn take_window_commands(&mut self) -> Vec<crate::window::WindowCommand> {
         Vec::new()
     }
+    /// Receive the window's geometry and state: once when it is shown, then after each
+    /// change of position, size, scale, maximized, minimized or full-screen state, and
+    /// at the start and end of a move or resize with the pointer. Return `true` to
+    /// rebuild the view. Defaults to ignoring them.
+    ///
+    /// ```
+    /// use karbon_ui::{ui::prelude::*, window::WindowState};
+    ///
+    /// #[derive(Default)]
+    /// struct Player {
+    ///     window: WindowState,
+    /// }
+    /// impl Application for Player {
+    ///     type Message = ();
+    ///     fn window_changed(&mut self, state: WindowState) -> bool {
+    ///         // Une poignée de redimensionnement relâchée : la taille est retenue.
+    ///         let released = self.window.dragging && !state.dragging;
+    ///         self.window = state;
+    ///         released
+    ///     }
+    ///     # fn view(&self, _: &ViewContext) -> Element { text("t", "") }
+    ///     # fn update(&mut self, _: ()) -> bool { false }
+    /// }
+    /// ```
+    fn window_changed(&mut self, _state: crate::window::WindowState) -> bool {
+        false
+    }
 }
 
 /// Façade objet d'une application : le runtime et les fenêtres ignorent son type de message.
@@ -152,6 +179,7 @@ pub(crate) trait DynApplication {
     fn take_task_commands(&mut self) -> Vec<crate::task::TaskCommand>;
     fn task_completed(&mut self, result: crate::task::TaskResult) -> bool;
     fn take_window_commands(&mut self) -> Vec<crate::window::WindowCommand>;
+    fn window_changed(&mut self, state: crate::window::WindowState) -> bool;
     /// Accès typé pour le harnais headless, qui connaît le type concret.
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
@@ -198,6 +226,9 @@ impl<A: Application> DynApplication for A {
     }
     fn take_window_commands(&mut self) -> Vec<crate::window::WindowCommand> {
         Application::take_window_commands(self)
+    }
+    fn window_changed(&mut self, state: crate::window::WindowState) -> bool {
+        Application::window_changed(self, state)
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self

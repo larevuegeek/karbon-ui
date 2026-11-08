@@ -27,11 +27,11 @@ src/
 │   ├── view/               Constructeurs de composition (row, column…) et ViewStyle
 │   ├── template/           Support des macros : Node (node/), contexte, slots, HTML
 │   ├── styling/            Cascade CSS : properties/, resolve/, tokens/, color/, texte, variables
-│   ├── layout/             Mesure et placement : flex/, grilles, pistes, positions, scroll, mémoire des mesures
+│   ├── layout/             Mesure et placement : flex/, grilles, pistes, positions, scroll, mémoire des mesures, containment.rs (`content-visibility`)
 │   ├── animation/          Effets, préréglages, courbes, étapes par propriété, minutage ; timeline/ : horloges et pistes
 │   ├── components/         Contrôles ; un dossier par contrôle complexe (select/, slider/…)
 │   ├── overlays/           Modales, popovers et menus, tooltips, couches
-│   ├── runtime/            UiRuntime : événements, focus, accessibilité, glisser-déposer, painting/, text_cache/
+│   ├── runtime/            UiRuntime : événements, focus, accessibilité, glisser-déposer, painting/ (dont cull.rs : sous-arbres hors de leur découpe), text_cache/
 │   ├── rendering/          Scene (scene/), pinceaux, filtres, ombres, SVG, transformations
 │   ├── bootstrap.rs        Actions des composants Bootstrap (code généré par ui-macros)
 │   └── tests/              Tests de contrat du moteur, par thème (voir tests.md)
@@ -189,6 +189,38 @@ résultat (vérifié par les tests d’équivalence, voir [tests](tests.md)) :
   seul le pointeur a bougé et que ces faits n’ont pas changé, elle n’est pas relancée
   (décision dans `runtime/restyle.rs`, qui résout aussi les styles de la vue et reporte
   sur une vue reconstruite les ombres et tailles de conteneurs de l’ancienne).
+
+S'y ajoute la **reprise des sous-arbres mémorisés** (`view/lazy.rs`, attribut `memo`
+des gabarits) : la vue pose un élément vide à la place d'un sous-arbre dont la clé n'a
+pas changé, le runtime y remet l'ancien sous-arbre (`transplant`) ; ses mesures de
+l'image précédente (`layout/memo.rs`, `carried`) et son placement (`layout/lazy.rs`,
+translaté s'il a seulement bougé) sont repris tant que la résolution des styles n'y
+change aucune métrique (`StyleChanges::layout` sous l'élément).
+
+**Layout incrémental** (`core/element/memo.rs` `LayoutCache`, `layout/memo.rs`
+`carried`, `layout/lazy.rs`) : chaque conteneur retient ses mesures et son placement ;
+une image suivante qui le mesure avec les mêmes contraintes et le place avec les mêmes
+entrées les reprend (translaté s'il a seulement bougé), tant que la résolution des
+styles n'a changé aucune métrique dans son sous-arbre (`settled`, remis à `false` en
+remontant comme les bits « sale » des navigateurs). Seuls les sous-arbres dont la mesure
+ne dépend que des contraintes en profitent (pas de limites relatives, de révélation, de
+ligne de base relue ni de liste virtuelle dessous) ; avant de placer un conteneur
+repris, `stale_descendants` le remesure si sa dernière mesure de la passe n'est pas
+celle qui a laissé ses descendants dans leur état. Un sous-arbre mémorisé explicitement
+garde ses mesures sans cette garantie. Un séparateur déplacé oublie tout (`unsettle`).
+
+**Résolution partielle des styles** (`styling/resolve/partial.rs`) : quand seuls le
+pointeur et des animations ont changé depuis la dernière résolution (même arbre, même
+signature hors pointeur, sans conteneur de requêtes changé), la cascade ne refait que
+les éléments dont les faits du pointeur ont changé, ceux dont une transition ou une
+animation de style est en cours, leurs sous-arbres et les frères suivants qui lisent
+un frère précédent, en passant par leurs ancêtres. Après une reconstruction, un
+sous-arbre mémorisé repris saute la cascade tant que l'empreinte de ses entrées
+(typographie héritée, variables, position, faits des ancêtres) est la même et qu'aucun
+de ses éléments n'a changé d'état (`MemoState::style_dirty`). Enfin, si le layout change
+ce que le pointeur touche (éléments d'une vue reconstruite, sans position lors de la
+résolution), les éléments touchés sont restylés dans la même image : le survol ne
+disparaît plus à chaque reconstruction.
 
 `UiRuntime::set_incremental(false)` les désactive (et refait la seconde construction de
 la vue à l’ouverture d’une couche) : c’est la référence des tests d’équivalence. Les
@@ -735,13 +767,17 @@ DirectComposition, sans relecture GPU → CPU :
 1. fenêtre créée avec `WS_EX_NOREDIRECTIONBITMAP` (aucune surface GDI) ;
 2. périphérique D3D11 du renderer (matériel ou WARP, avec `BGRA_SUPPORT`) →
    `IDXGIFactory2::CreateSwapChainForComposition` : modèle flip, 2 tampons,
-   B8G8R8A8, alpha `PREMULTIPLIED` ou `IGNORE` ;
+   B8G8R8A8, alpha `PREMULTIPLIED` ou `IGNORE`, latence d’une image (objet
+   attendable, `FrameSlot`) ;
 3. Direct2D dessine dans un bitmap cible (`TARGET | CANNOT_DRAW`, DPI de la
    fenêtre) créé sur le back buffer ;
 4. `DCompositionCreateDevice` → `CreateTargetForHwnd` → visuel racine dont la
    chaîne d’échange est le contenu → `Commit` ;
-5. chaque WM_PAINT dessine puis appelle `Present(1, 0)` (vsync), sans rectangles
-   sales.
+5. chaque WM_PAINT attend sa place dans la file de présentation (au plus 50 ms),
+   dessine puis appelle `Present(1, 0)` (vsync), sans rectangles sales. Une image
+   d’animation (`FRAME_WAKE`) prend cette place **avant** de lire l’horloge : elle
+   est échantillonnée juste après le balayage qui a pris la précédente et
+   s’affiche au suivant, à intervalle constant (le `BeginFrame` de Chromium).
 
 Fichiers : `platform/windows/present/composition.rs` (choix du chemin, visuel
 DComp), `graphics/swapchain.rs` et `graphics/target.rs` (chaîne d’échange),

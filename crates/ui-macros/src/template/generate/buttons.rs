@@ -19,13 +19,11 @@ impl Generator {
             matches!(c, Node::Element(_))
                 || matches!(c, Node::If { .. } | Node::Each(_)) && !inline(c)
         }) {
-            if let Some(a) = e
-                .attrs
-                .iter()
-                .find(|a| ["type", "disabled"].contains(&a.name.as_str()))
-            {
+            // `disabled` est permis (zone cliquable désactivée) ; `type` reste réservé au
+            // bouton texte, seul à envoyer un formulaire.
+            if let Some(a) = e.attr("type") {
                 return Err(a.loc.error(
-                    "A <button> with element content accepts onclick and common attributes; use type or disabled with a text-only label",
+                    "A <button> with element content accepts onclick, disabled and common attributes; use type with a text-only label",
                 ));
             }
             if e.attr("onclick").is_none() {

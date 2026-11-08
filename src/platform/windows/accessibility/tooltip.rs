@@ -32,6 +32,7 @@ pub(super) fn append(
         selection_container: None,
         range: None,
         expanded: None,
+        current: None,
         read_only: true,
         bounds,
         clipped: bounds,
@@ -61,7 +62,7 @@ mod tests {
         append(&mut nodes, info(92), Point { x: -200, y: 100 }, 1.5, true);
         assert_eq!(nodes.last().unwrap().parent, Some(NodeId::Element(92)));
         assert_eq!(nodes.last().unwrap().bounds.left, -185.);
-        *lock(&bridge.snapshot) = Arc::new(Snapshot { nodes });
+        *lock(&bridge.snapshot) = Arc::new(Snapshot::new(nodes));
         let object: IRawElementProviderSimple = bridge.interface(NodeId::Tooltip(92)).unwrap();
         assert!(object.cast::<IInvokeProvider>().is_err());
         for id in [30009, 30017, 30008, 30031] {
@@ -78,7 +79,7 @@ mod tests {
             let focused = root.GetFocus().unwrap();
             assert!(same(&focused, &owner));
         }
-        *lock(&bridge.snapshot) = Arc::new(Snapshot { nodes: vec![] });
+        *lock(&bridge.snapshot) = Arc::new(Snapshot::new(vec![]));
         assert_eq!(code(property(&object, 30005)), UNAVAILABLE);
     }
 }

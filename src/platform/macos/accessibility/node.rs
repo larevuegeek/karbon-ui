@@ -32,7 +32,14 @@ define_class!(
         }
         #[unsafe(method_id(accessibilitySubrole))]
         fn subrole(&self) -> Option<Retained<NSString>> {
-            self.element().and_then(|e| super::subrole(e.role))
+            self.element().and_then(|e| super::element_subrole(&e))
+        }
+        /// Onglet ou option sélectionnés (`aria-selected`), bouton radio coché.
+        #[unsafe(method(isAccessibilitySelected))]
+        fn selected(&self) -> bool {
+            self.element().is_some_and(|e| {
+                e.choice == Some(crate::ui::element::ChoiceState::Radio(true))
+            })
         }
         #[unsafe(method_id(accessibilityLabel))]
         fn label(&self) -> Option<Retained<NSString>> {

@@ -326,6 +326,32 @@ Les ressources restent empruntées : `TemplateContext::new(&assets, "page")`, pu
 dans la pile de couches de la racine. Le dialogue piège le focus et se ferme
 avec Échap (`onclose`).
 
+## Sous-arbres mémorisés
+
+La vue est reconstruite entière à chaque message qui le demande (une horloge de
+lecture qui avance la position, une saisie…). Pour une longue liste, refaire chaque
+ligne coûte cher : construction, styles, mesures et placement (≈ 50 ms pour 150
+lignes riches). `memo={clé}` sur un conteneur dit que son sous-arbre ne dépend que de
+`clé` (toute valeur `Hash`) : si la vue précédente avait cet élément, à la même
+identité, avec la même clé, le sous-arbre n'est pas construit ; le runtime remet en
+place l'ancien, avec ses styles résolus, ses mesures et son placement (translaté s'il
+a seulement bougé, par exemple au défilement). C'est `Html.Lazy` d'Elm ou `React.memo`.
+
+```html
+{#each table.rows as row (row.id.as_str())}
+    <div memo={(row, self.selected(row.n), cover_ptr(row))} class="ligne">…</div>
+{/each}
+```
+
+La clé doit couvrir **tout** ce que le sous-arbre lit : données, état de l'application
+(`self.…`) et ressources qui arrivent plus tard (une image chargée de façon
+asynchrone : son identité, par exemple `Arc::as_ptr`). Ce que la clé oublie reste figé
+à la valeur de la vue qui l'a construit. Les états d'interaction (survol, focus,
+pressé), les variables CSS héritées et les requêtes média ou de conteneur suivent
+toujours : les styles du sous-arbre repris sont résolus de nouveau, et un changement
+de métrique y annule la reprise des mesures. En Rust : `view::lazy(id, &clé, || …)`.
+`UiRuntime::set_incremental(false)` désactive la reprise (tests d'équivalence).
+
 ## Identités
 
 Les identités automatiques dépendent de la position dans le template et du

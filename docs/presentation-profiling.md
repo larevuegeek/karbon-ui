@@ -22,7 +22,15 @@ fermeture ; F8 permet de consulter les compteurs pendant la session.
 Il détaille préparation, rendu, surface et soumission Windows, les erreurs,
 les recréations du renderer et les changements de taille.
 
-## Protocole `window-present-v3`
+Pendant la session, chaque image dont préparation et rendu dépassent 10 ms, ou
+présentée plus de 25 ms après la précédente, est signalée sur-le-champ, sur la sortie
+standard, par une ligne `Slow frame : {…}` : préparation et sa part moteur (`view_ms`,
+`style_ms`, `layout_ms`, `paint_ms`), rendu, soumission, attente de sa place dans la
+file de présentation (`wait_ms` : la cadence de l'écran, pas du travail, exclue du
+rendu) et écart avec la présentation précédente (`gap_ms`, `null` après un repos).
+C'est la mesure à relever pour une saccade : défiler, puis lire les lignes apparues.
+
+## Protocole `window-present-v4`
 
 Le champ `presentation` indique le chemin mesuré (`composition` ou `layered`,
 voir [l’architecture](architecture.md#présentation-à-lécran-windows)).
@@ -52,7 +60,12 @@ peuvent ne jamais être comptées : on a relevé 0 ms pour une session qui
 consommait en réalité 2,6 milliards de cycles. Pour comparer des chemins rapides,
 utiliser `QueryProcessCycleTime` depuis un outil externe (méthode ci-dessous).
 
-v3 remplace `window-submit-direct-dib-v2` : l’étape `render_readback` s’appelle
+`intervals` résume les écarts entre présentations successives d'un mouvement continu
+(un écart de plus de 100 ms est un repos, ignoré) ; `late_frames` compte ceux de plus de
+25 ms, qui ont manqué au moins une image à 60 Hz. Pendant un défilement ou une
+animation, un `p50_ms` proche de 16,7 et peu d'images en retard disent une cadence tenue.
+
+v4 ajoute `intervals` et `late_frames` à v3. v3 remplace `window-submit-direct-dib-v2` : l’étape `render_readback` s’appelle
 désormais `render` et le champ `presentation` est ajouté.
 
 ## Avant / après la composition (machine de développement)

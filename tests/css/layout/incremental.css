@@ -25,6 +25,9 @@
 .card:hover { background: #404050; }
 .tag:hover { background: #6060a0; }
 .item:hover { background: #283040; }
+/* Résolution partielle des styles : descendant d'un ancêtre survolé, frère suivant. */
+.card:hover .name { color: #ffe080; }
+.tag:hover ~ .tag { background: #205020; }
 .badge { position: absolute; right: 4px; top: 4px; width: 14px; height: 14px; background: #e04040; }
 .panel { container-type: inline-size; container-name: panel; width: 60%; display: flex; gap: 8px; }
 .cell { margin: 0; font-size: 12px; }

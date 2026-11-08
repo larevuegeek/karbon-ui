@@ -1,4 +1,5 @@
 //! Declarative composition: the same elements and runtime, without an extra rendering layer.
+mod lazy;
 mod style;
 use super::{
     element::*,
@@ -6,6 +7,8 @@ use super::{
     popover::{MenuItem, Popover},
     widgets::{Button, Text, TextInput},
 };
+pub use lazy::{lazy, memo_key, memo_placeholder, memo_reusable};
+pub(crate) use lazy::{previous_keys, transplant, with_previous};
 use std::sync::Arc;
 pub use style::ViewStyle;
 #[cfg(test)]

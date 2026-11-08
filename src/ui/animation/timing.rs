@@ -4,7 +4,7 @@ use super::{
     Animation, Effect, FillMode,
     keyframes::{self, property},
 };
-use crate::ui::theme::Color;
+use crate::ui::{element::Length, theme::Color};
 
 /// Prochain changement d'une animation.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -31,9 +31,17 @@ impl Animation {
         let outer = if self.group.is_empty() {
             0.
         } else {
-            self.timing.delay as f64
+            self.timing.delay as f64 - self.advance as f64
         };
         member.advance as f64 - outer
+    }
+    /// Même animation avec le délai CSS `ms` (négatif : déjà avancée), comme un
+    /// `animation-delay` en ligne ; sur une liste, le délai s'applique à toute la liste.
+    pub(crate) fn with_delay(mut self, ms: i64) -> Self {
+        let ms = ms.clamp(-(u32::MAX as i64), u32::MAX as i64);
+        self.timing.delay = ms.max(0) as u32;
+        self.advance = (-ms).max(0) as u32;
+        self
     }
     /// `true` quand l'itération d'indice `index` se joue à rebours.
     fn reversed(self, index: u64) -> bool {
@@ -102,6 +110,18 @@ impl Animation {
             out,
         );
     }
+    /// Dimensions animées (largeur, hauteur) à la progression `t`, écrites dans `out` ;
+    /// `underlying` donne celles de l'élément.
+    pub(crate) fn sizes_at(self, t: f32, underlying: [Length; 2], out: &mut [Option<Length>; 2]) {
+        keyframes::sizes(
+            self.frames,
+            self.properties,
+            t,
+            self.timing.easing,
+            underlying,
+            out,
+        );
+    }
     /// Effet constant sur toute l'animation (aucune image à demander), s'il l'est.
     pub(crate) fn constant_effect(self) -> Option<Effect> {
         if self.properties & property::EFFECTS == 0 {
@@ -139,6 +159,7 @@ impl Animation {
     pub(crate) fn same_run(self, other: Self) -> bool {
         let plain = |a: Animation| Animation {
             paused: false,
+            play_state: None,
             group: &[],
             ..a
         };
@@ -150,9 +171,31 @@ impl Animation {
                 .zip(other.group)
                 .all(|(a, b)| plain(*a) == plain(*b))
     }
+    /// `true` quand le membre `member` est en pause : `animation-play-state` d'une règle
+    /// d'état s'il y en a une, sinon celui du membre ou de toute la liste.
+    pub(crate) fn member_paused(&self, member: &Animation) -> bool {
+        self.play_state
+            .unwrap_or(member.paused || (!self.group.is_empty() && self.paused))
+    }
+    /// Même animation avec l'`animation-play-state` d'une règle d'état (`None` : celui
+    /// de chaque membre).
+    pub(crate) fn with_play_state(mut self, state: Option<bool>) -> Self {
+        self.play_state = state;
+        self
+    }
     /// L'animation anime une couleur (échantillonnée pendant la résolution des styles).
     pub(crate) fn animates_colors(self) -> bool {
         self.properties & property::COLORS != 0
+    }
+    /// L'animation anime une dimension (`width`, `height`) : échantillonnée pendant la
+    /// résolution des styles, chaque image relance le layout.
+    pub(crate) fn animates_sizes(self) -> bool {
+        self.properties & property::SIZES != 0
+    }
+    /// L'animation anime une valeur échantillonnée pendant la résolution des styles
+    /// (couleur ou dimension).
+    pub(crate) fn animates_styles(self) -> bool {
+        self.properties & (property::COLORS | property::SIZES) != 0
     }
     /// Durée (ms) au bout de laquelle une animation de sortie est terminée.
     pub(crate) fn exit_length(self) -> f64 {

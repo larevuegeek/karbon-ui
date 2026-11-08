@@ -156,7 +156,7 @@ fn laid_out(seed: u64, memo: bool) -> crate::Result<Vec<Vec<[u32; 16]>>> {
     let mut passes = Vec::new();
     for (width, height) in [(640., 480.), (517.3, 480.), (903.7, 333.), (517.3, 480.)] {
         layout::validate(&root)?;
-        let pass = layout::LayoutPass::begin(&root, memo);
+        let pass = layout::LayoutPass::begin(&mut root, memo);
         let available = SizeF { width, height };
         let bounds = RectF::new(0., 0., width, height);
         layout::measure(&mut root, available, &mut text)?;

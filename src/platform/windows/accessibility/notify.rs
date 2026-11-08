@@ -94,10 +94,18 @@ pub(super) fn raise_events(bridge: &Arc<Bridge>, old: &Snapshot, new: &Snapshot)
     {
         raise(&provider, 20005);
     }
+    // Index des anciens nœuds : une recherche linéaire par nœud coûtait n² comparaisons
+    // à chaque publication (des milliers de nœuds sur une liste de morceaux).
+    let previous: std::collections::HashMap<NodeId, &Node> =
+        old.nodes.iter().map(|n| (n.key, &**n)).collect();
     for node in &new.nodes {
-        let Some(before) = old.nodes.iter().find(|n| n.key == node.key) else {
+        let Some(&before) = previous.get(&node.key) else {
             continue;
         };
+        // Le fournisseur n'est demandé (créé au besoin) que pour un nœud qui change.
+        if !changed(before, node) {
+            continue;
+        }
         let Ok(provider) = bridge.interface::<IRawElementProviderSimple>(node.key) else {
             continue;
         };
@@ -117,7 +125,10 @@ pub(super) fn raise_events(bridge: &Arc<Bridge>, old: &Snapshot, new: &Snapshot)
                 Variant::string(&node.help),
             );
         }
-        if before.bounds != node.bounds {
+        // Position : seulement pour l'élément focalisé (loupe, suivi du focus). Comme dans
+        // Chromium, un défilement ne signale pas le déplacement de chaque élément : des
+        // milliers d'événements par image occupaient le thread de l'interface.
+        if node.focused && before.bounds != node.bounds {
             raise_property(
                 &provider,
                 30001,
@@ -167,6 +178,31 @@ pub(super) fn raise_events(bridge: &Arc<Bridge>, old: &Snapshot, new: &Snapshot)
         range_value::raise_events(&provider, before.range, node.range);
         expand::raise_events(&provider, before.expanded, node.expanded);
     }
+}
+/// Un événement de propriété est à émettre pour ce nœud (mêmes comparaisons que
+/// [`raise_events`]).
+fn changed(before: &Node, node: &Node) -> bool {
+    before.name != node.name
+        || before.help != node.help
+        || (node.focused && before.bounds != node.bounds)
+        || before.is_dialog != node.is_dialog
+        || before.enabled != node.enabled
+        || before.focusable != node.focusable
+        || before.offscreen != node.offscreen
+        || before.focused != node.focused
+        || before.read_only != node.read_only
+        || before.invokable != node.invokable
+        || before.value != node.value
+        || before.text.is_some() != node.text.is_some()
+        || before
+            .text
+            .as_ref()
+            .zip(node.text.as_ref())
+            .is_some_and(|(a, b)| a.value != b.value || a.selection != b.selection)
+        || before.choice != node.choice
+        || node.selection_container()
+        || before.range != node.range
+        || before.expanded != node.expanded
 }
 /// Les deux valeurs sont libérées (VariantClear) au drop, même si l'émission échoue.
 pub(super) fn raise_property(

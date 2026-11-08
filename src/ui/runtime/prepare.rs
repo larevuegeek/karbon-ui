@@ -65,15 +65,43 @@ impl UiRuntime {
             self.chrome = chrome;
             self.invalidation.repaint = true;
         }
+        // Anciens arbres : une tranche par image qui ne reconstruit pas la vue.
+        if !self.invalidation.rebuild && !self.invalidation.graveyard.is_empty() {
+            self.bury(GRAVEYARD_SLICE);
+        }
+        // Images livrées hors d'une tâche (message, réveil) : repeintes elles aussi.
+        self.images_arrived();
+        // Contenu défilé : un élément `content-visibility: auto` qui s'approche de la vue
+        // est disposé (layout de son seul chemin, sans styles) ; un qui s'en éloigne
+        // cesse d'être peint.
+        let revealed = std::mem::take(&mut self.invalidation.containment_check)
+            && self.reveal_contained(context, chrome, text, now)?;
         let rebuilt = self.invalidation.rebuild;
+        let layouts = self.invalidation.stats.layouts;
+        // Ancres de défilement prises sur l'arbre disposé, avant qu'il ne change.
+        let anchors = if rebuilt || self.invalidation.relayout || self.invalidation.reflow {
+            self.root
+                .as_ref()
+                .map(anchoring::capture)
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         let mut motion_tree_changed = rebuilt || self.invalidation.relayout;
+        let stage = Instant::now();
         if self.invalidation.rebuild {
             if self.components.item_drag.take().is_some() {
                 self.interaction.pressed = None;
                 self.interaction.release_pending = true;
             }
-            let mut root = layers::hoist(self.app.view(&context));
-            layout::validate(&root)?;
+            // Sous-arbres mémorisés (`view::lazy`) : clés de la vue précédente.
+            let keys = self
+                .invalidation
+                .incremental
+                .then(|| crate::ui::view::previous_keys(self.root.as_ref()));
+            let mut root = layers::hoist(crate::ui::view::with_previous(keys.clone(), || {
+                self.app.view(&context)
+            }));
             let layer_changed = self.interaction.layer_focus.changed(&root);
             // Une couche qui s'ouvre ou se ferme garde la modalité de la dernière
             // interaction. Après la souris (clic sur un bouton de menu, choix d'un élément,
@@ -99,10 +127,17 @@ impl UiRuntime {
                 self.interaction.backdrop_capture = backdrop;
                 self.interaction.release_pending |= reply.release && backdrop.is_none();
                 if self.invalidation.rebuild || !self.invalidation.incremental {
-                    root = layers::hoist(self.app.view(&context));
-                    layout::validate(&root)?;
+                    root = layers::hoist(crate::ui::view::with_previous(keys, || {
+                        self.app.view(&context)
+                    }));
                 }
             }
+            crate::ui::view::transplant(&mut root, self.root.as_mut());
+            // Arbre vérifié une fois par reconstruction, sous-arbres repris compris : sa
+            // structure ne change plus jusqu'à la suivante (sauf les lignes qu'une liste
+            // virtuelle fabrique pendant le layout, vérifiées après lui). Trois parcours
+            // par reconstruction coûtaient ~3 ms chacun sur une liste de morceaux.
+            layout::validate(&root)?;
             let live = self.interaction.index_tree(&mut root, &self.components);
             if layer_changed {
                 self.interaction.focus_visible = !pointer_close;
@@ -115,12 +150,18 @@ impl UiRuntime {
             self.interaction.retain_focusable();
             if let Some(mut old) = self.root.take() {
                 carry_caches(&mut old, &mut root, &live);
-                self.motions.collect_ghosts(old, &live, now);
+                // Grand arbre (liste de morceaux : ~10 000 éléments, 4 à 8 ms) : libéré plus
+                // tard, par tranches ; un petit l'est tout de suite.
+                if self.motions.collect_ghosts(&mut old, &live, now) >= GRAVEYARD_MIN {
+                    self.invalidation.graveyard.push(old);
+                    self.invalidation.graveyard_wake = Some(now + GRAVEYARD_DELAY);
+                }
             }
             self.root = Some(root);
             self.invalidation.rebuild = false;
             self.invalidation.relayout = true;
             self.invalidation.stats.views += 1;
+            self.invalidation.stats.view_time += stage.elapsed();
         }
         let signature = self
             .interaction
@@ -137,30 +178,36 @@ impl UiRuntime {
             || self.motions.animating_styles())
             && self.root.is_some()
         {
-            let changes = self.resolve_styles(context, now)?;
+            let stage = Instant::now();
+            // Seuls le pointeur et des animations ont pu changer : résolution partielle.
+            let partial = !rebuilt
+                && !self.invalidation.relayout
+                && self.invalidation.incremental
+                && self
+                    .invalidation
+                    .style_signature
+                    .is_some_and(|previous| previous.same_except_pointer(signature))
+                && self
+                    .root
+                    .as_ref()
+                    .is_some_and(|root| !containers_changed(root));
+            let changes = self.resolve_styles(context, now, partial)?;
+            self.invalidation.stats.style_time += stage.elapsed();
             self.invalidation.relayout |= changes.layout;
             self.invalidation.repaint |= changes.paint;
             motion_tree_changed |= changes.layout;
             self.invalidation.style_signature = Some(signature);
             self.invalidation.dynamic_styles = has_dynamic_styles(self.root.as_ref().unwrap());
         }
-        if self.invalidation.relayout {
+        if self.invalidation.relayout || self.invalidation.reflow {
+            let stage = Instant::now();
+            layout::containment::enter(std::mem::take(&mut self.invalidation.containment));
             let pass = layout::LayoutPass::begin(
-                self.root.as_ref().unwrap(),
+                self.root.as_mut().unwrap(),
                 self.invalidation.incremental,
             );
             let root = self.root.as_mut().unwrap();
-            layout::validate(root)?;
-            let bounds = RectF::new(
-                0.,
-                if chrome.visible {
-                    TITLE_BAR_HEIGHT as f32
-                } else {
-                    0.
-                },
-                context.width,
-                context.height,
-            );
+            let bounds = window_area(context, chrome);
             layout::measure(
                 root,
                 SizeF {
@@ -181,17 +228,22 @@ impl UiRuntime {
                 4
             };
             for _ in 0..settle {
-                if !containers_changed(self.root.as_ref().unwrap()) {
+                let containers = containers_changed(self.root.as_ref().unwrap());
+                // Survol : les éléments que ce layout vient de placer (vue reconstruite,
+                // contenu déplacé) n'avaient pas leur position quand leurs styles ont été
+                // résolus ; ceux que le pointeur touche maintenant sont restylés.
+                let hover = !containers && self.hover_moved_by_layout();
+                if !containers && !hover {
                     break;
                 }
-                let changes = self.resolve_styles(context, now)?;
+                let partial = hover && self.invalidation.incremental;
+                let changes = self.resolve_styles(context, now, partial)?;
                 self.invalidation.repaint |= changes.paint;
                 if !changes.layout {
                     break;
                 }
-                pass.reset(self.root.as_ref().unwrap());
+                pass.reset(self.root.as_mut().unwrap());
                 let root = self.root.as_mut().unwrap();
-                layout::validate(root)?;
                 layout::measure(
                     root,
                     SizeF {
@@ -202,10 +254,45 @@ impl UiRuntime {
                 )?;
                 layout::arrange(root, bounds, bounds, text)?;
             }
+            // `content-visibility: auto` : proximité constatée sur ce placement ; les
+            // éléments qui s'approchent sont disposés à leur tour (leur seul chemin).
+            for _ in 0..3 {
+                let mut state = layout::containment::leave();
+                let root = self.root.as_mut().unwrap();
+                let near = layout::containment::refresh(
+                    &mut state,
+                    root,
+                    bounds,
+                    self.interaction.focused,
+                );
+                layout::containment::enter(state);
+                if !layout::containment::unsettle(root, &near) {
+                    break;
+                }
+                // Contenu rendu : ses styles d'abord (sautés jusque-là).
+                let changes = self.resolve_revealed(&near, context, now)?;
+                self.invalidation.repaint |= changes.paint;
+                // Mesures de la passe oubliées : celles des ancêtres ne tenaient pas compte
+                // du contenu qui vient d'être disposé.
+                pass.reset(self.root.as_mut().unwrap());
+                let root = self.root.as_mut().unwrap();
+                layout::measure(
+                    root,
+                    SizeF {
+                        width: context.width,
+                        height: context.height,
+                    },
+                    text,
+                )?;
+                layout::arrange(root, bounds, bounds, text)?;
+            }
+            self.invalidation.containment = layout::containment::leave();
             drop(pass);
             let root = self.root.as_mut().unwrap();
-            // Les fabriques peuvent ajouter des IDs pendant le layout : vérifier l'arbre final.
-            layout::validate(root)?;
+            for (id, delta) in anchoring::apply(root, &anchors) {
+                self.components.scrolls.shift_smooth(id, delta);
+            }
+            anchoring::initial_targets(root, &self.components.scrolls.offsets);
             let orphan = popover::top(root)
                 .filter(|p| popover::anchor(root, p).is_none())
                 .and_then(popover::config)
@@ -231,30 +318,50 @@ impl UiRuntime {
                 }
             }
             self.components.save(root);
-            self.interaction.hovered = self.interaction.pointer.and_then(|p| self.hit(p));
+            self.refresh_hover();
             self.invalidation.relayout = false;
+            self.invalidation.reflow = false;
             self.invalidation.repaint = true;
+            (
+                self.invalidation.fixed_paths,
+                self.invalidation.virtual_lists,
+            ) = super::painting::fixed_paths(self.root.as_ref().unwrap());
+            // Les fabriques des listes virtuelles ajoutent des IDs pendant le layout.
+            if self.invalidation.virtual_lists {
+                layout::validate(self.root.as_ref().unwrap())?;
+            }
             self.invalidation.stats.layouts += 1;
+            self.invalidation.stats.layout_time += stage.elapsed();
         }
         if let Some(shift) = self.interaction.pending_tab.take() {
             self.move_tab(shift);
         }
         if self.invalidation.repaint {
             let root = self.root.as_mut().unwrap();
-            if virtual_list::refresh_all(root, self.interaction.focused, text)? {
+            // Sans liste virtuelle, rien à matérialiser : pas de parcours de l'arbre.
+            let refreshed = self.invalidation.virtual_lists
+                && virtual_list::refresh_all(root, self.interaction.focused, text)?;
+            if refreshed {
                 motion_tree_changed = true;
                 layout::validate(root)?;
                 self.components.retain_refreshed(root);
+                (
+                    self.invalidation.fixed_paths,
+                    self.invalidation.virtual_lists,
+                ) = super::painting::fixed_paths(root);
             }
-            fn count(node: &Element) -> usize {
-                node.virtual_list
-                    .as_ref()
-                    .map_or(0, |list| list.indices.len())
-                    + node.children.iter().map(count).sum::<usize>()
+            // Arbre changé (vue reconstruite, lignes matérialisées) : compteurs et styles
+            // d'état relevés de nouveau ; une image de défilement ne parcourt pas l'arbre.
+            if refreshed || rebuilt || self.invalidation.stats.layouts != layouts {
+                fn count(node: &Element) -> usize {
+                    node.virtual_list
+                        .as_ref()
+                        .map_or(0, |list| list.indices.len())
+                        + node.children.iter().map(count).sum::<usize>()
+                }
+                self.invalidation.stats.virtual_rows = count(root);
+                self.invalidation.dynamic_styles = has_dynamic_styles(root);
             }
-            self.invalidation.stats.virtual_rows = count(root);
-            // Layout/scroll can materialize styled rows after the initial style pass.
-            self.invalidation.dynamic_styles = has_dynamic_styles(root);
             let viewport = RectF::new(
                 4.,
                 if self.chrome.visible {
@@ -276,33 +383,43 @@ impl UiRuntime {
                 self.invalidation.semantics();
             }
             self.interaction.release_pending |= outcome.release;
-            self.interaction.hovered = self.interaction.pointer.and_then(|p| self.hit(p));
+            self.refresh_hover();
         }
         if self.motions.has_ghosts() {
             self.motions.tick(now);
             self.invalidation.repaint = true;
         }
         let motion_hover = self.motion_hover();
+        if motion_tree_changed {
+            self.motions.invalidate_paths();
+        }
+        // Contenu disposé en approchant de la vue : ses pistes d'animation sont créées.
         if let Some(root) = &self.root
-            && (motion_tree_changed || self.motions.has_tracks())
+            && (motion_tree_changed || revealed || self.motions.has_tracks())
         {
             self.invalidation.repaint |=
                 self.motions
                     .sync(root, motion_hover, self.interaction.active_press(), now);
-            self.interaction.hovered = self.interaction.pointer.and_then(|p| self.hit(p));
+            self.refresh_hover();
         }
         self.sync_tooltip();
         if self.components.tooltips.measure(text)? {
             self.invalidation.repaint_semantics();
         }
         if self.invalidation.repaint {
+            let stage = Instant::now();
             self.scene.commands.clear();
             if let Some(root) = &mut self.root {
                 // Pendant un redimensionnement ou une transition de taille, les éléments
                 // changent de taille à chaque image : leurs ombres floutées sont étirées,
                 // l'image exacte revient à la première image stable.
                 let stretch = self.live_resize || self.motions.animating_lengths();
-                crate::ui::rendering::component_shadow::prepare(root, stretch)?;
+                crate::ui::rendering::component_shadow::prepare(
+                    root,
+                    stretch,
+                    &self.invalidation.fixed_paths,
+                    &|node| self.motions.paint_clip(node),
+                )?;
             }
             paint_chrome(&mut self.scene, context, chrome);
             let state = self.interaction.paint_state();
@@ -312,8 +429,13 @@ impl UiRuntime {
                     sliders: &self.components.sliders,
                     selects: &self.components.selects,
                     motions: &self.motions,
+                    fixed: Some(&self.invalidation.fixed_paths),
                 };
                 paint_node(root, &mut self.scene, context.theme, state, &resources);
+                let resources = super::painting::PaintResources {
+                    fixed: None,
+                    ..resources
+                };
                 // Fantômes des éléments retirés : animation de sortie, sans interaction.
                 for (ghost, transform, opacity) in self.motions.ghosts() {
                     self.scene.commands.push(DrawCommand::PushEffect {
@@ -349,6 +471,7 @@ impl UiRuntime {
                 .paint(&mut self.scene, context.theme);
             self.invalidation.repaint = false;
             self.invalidation.stats.paints += 1;
+            self.invalidation.stats.paint_time += stage.elapsed();
         }
         // Appui qui a fermé un popover : la vue est reconstruite sans lui, l'élément
         // dessous le reçoit maintenant. Sa capture est rendue au relâchement.
@@ -359,5 +482,46 @@ impl UiRuntime {
             self.interaction.replay_release = true;
         }
         Ok(())
+    }
+}
+
+/// Zone de la fenêtre sous la barre de titre du moteur.
+pub(super) fn window_area(context: ViewContext, chrome: ChromeState) -> RectF {
+    RectF::new(
+        0.,
+        if chrome.visible {
+            TITLE_BAR_HEIGHT as f32
+        } else {
+            0.
+        },
+        context.width,
+        context.height,
+    )
+}
+
+/// Taille à partir de laquelle un ancien arbre est libéré par tranches.
+const GRAVEYARD_MIN: usize = 4096;
+/// Durée d'une tranche de libération des anciens arbres pendant une image.
+const GRAVEYARD_SLICE: std::time::Duration = std::time::Duration::from_millis(2);
+/// Délai avant de libérer au repos ce que les images n'ont pas libéré.
+const GRAVEYARD_DELAY: std::time::Duration = std::time::Duration::from_millis(60);
+
+impl UiRuntime {
+    /// Libère des éléments des anciens arbres pendant au plus `budget`, un élément à la
+    /// fois (ses enfants restent à libérer), et planifie la tranche suivante.
+    pub(super) fn bury(&mut self, budget: std::time::Duration) {
+        let start = Instant::now();
+        let graveyard = &mut self.invalidation.graveyard;
+        let mut count = 0usize;
+        while let Some(mut element) = graveyard.pop() {
+            graveyard.append(&mut element.children);
+            drop(element);
+            count += 1;
+            if count.is_multiple_of(64) && start.elapsed() >= budget {
+                break;
+            }
+        }
+        self.invalidation.graveyard_wake =
+            (!graveyard.is_empty()).then(|| Instant::now() + GRAVEYARD_DELAY / 2);
     }
 }

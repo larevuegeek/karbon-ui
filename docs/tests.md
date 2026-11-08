@@ -15,10 +15,17 @@ besoin, le harnais headless.
 
 - `support.rs` : outils partagés (`Msg`, `view_runtime`, `Measure`, `NoResources`,
   `Counter`, `prepare`, `center`, `key`, `wheel`, `near`…).
-- `runtime/` : pointeur, clavier, séparateurs et zones de déplacement (`basics`),
-  tabulation et révélation du focus (`focus`), messages typés (`messages`), tâches (`tasks`).
+- `runtime/` : pointeur, clavier, séparateurs, zones de déplacement et poignées de
+  redimensionnement, y compris une poignée dans une zone de déplacement (`basics`),
+  tabulation et révélation du focus (`focus`), messages typés (`messages`), tâches
+  (`tasks`, dont les images qui arrivent dans un `ImageSlot` : repeintes sans
+  reconstruire la vue, mise en page refaite pour la seule image sans taille fixée, pas
+  pour une image en pourcentage d'une case fixée).
 - `layout/` : lignes, grilles, contraintes (`basics`), texte ajusté (`text_fit`),
-  défilement (`scroll`), listes virtualisées (`virtual_list`), mémoire des mesures d’une
+  défilement (`scroll`, dont 200 lignes en `overflow: visible` dont seules les visibles
+  sont peintes), contenu sauté (`containment` : 200 lignes en `content-visibility:
+  auto`, seules une vingtaine proches de la vue mesurées et disposées, hauteur totale
+  inchangée, lignes rapprochées par la molette disposées à leur place), listes virtualisées (`virtual_list`), mémoire des mesures d’une
   passe (`incremental` : 400 arbres tirés au hasard, mis en page à quatre tailles de
   suite avec et sans elle, doivent laisser les mêmes rectangles, découpes, tailles
   naturelles et limites résolues).
@@ -63,13 +70,17 @@ texte riche (`rich_text`). Le rastériseur et les métriques ont leurs tests dan
 Modèle à reproduire pour chaque nouveau backend :
 
 - `src/platform/windows/tests/` (fenêtres cachées) : cycle de vie et identités des
-  fenêtres (`window`), chemin de présentation et de peinture (`presentation`),
+  fenêtres (`window`), commandes d’une fenêtre ouverte et état remis à l’application,
+  geste d’une poignée sur une fenêtre fixe (carré qui grandit du plus grand déplacement,
+  bornes, aucun bord ni cadre épais, poignée prioritaire sur la zone de déplacement)
+  (`change`), chemin de présentation et de peinture (`presentation`),
   entrées natives vers `UiEvent` (`input`), minuteries et cadence d’images
   (`timers`), réveil et livraison des tâches (`tasks`), rendu hors écran
   (`offscreen`), décodage d’images (`images`) ;
 - `src/platform/windows/graphics/tests/` : scène → pixels sur WARP à plusieurs
   échelles (`paint`, `effects`, `gradients`, `shapes`, `svg`), chaîne d’échange
-  (`swapchain`) et mesure du texte DirectWrite (`text`) ;
+  (`swapchain`, dont la latence d’une image et la place prise dans la file) et mesure du
+  texte DirectWrite (`text`) ;
 - à côté de leur module, parce qu’ils lisent des types privés : pont UI Automation
   (`accessibility/`), composition, enregistreur de présentation, UTF-16 et menus
   contextuels (`events/`), encodeur JPEG (`imaging.rs`).
@@ -232,7 +243,7 @@ caractère) ou `HeadlessTextMeasurer`. Seuls `interaction/previews.rs`
 
 | Crate | Modules | Rôle |
 | --- | --- | --- |
-| `css/` (65) | `selectors`, `values`, `text`, `responsive`, `paint`, `motion`, `layout/{boxes, flex, grid, scroll, content, incremental}` | Sous-ensemble CSS compilé : sélecteurs et états, couleurs/unités/variables, typographie, requêtes média et de conteneur, peinture (fonds, bordures, ombres, filtres, masques), keyframes et transitions, mise en page |
+| `css/` (83) | `selectors`, `occlusion`, `hover_scroll`, `values`, `text`, `responsive`, `paint`, `motion`, `layout/{boxes, flex, grid, scroll, content, incremental}` | Sous-ensemble CSS compilé : sélecteurs et états, premier plan du hit-test (`:hover`, curseur et clic sous un calque ou un menu), survol d’une liste après un défilement à la molette, couleurs/unités/variables, typographie, requêtes média et de conteneur, peinture (fonds, bordures, ombres, filtres, masques), keyframes et transitions, mise en page |
 | `templates/` (25) | `syntax`, `components`, `html`, `runtime`, `svg`, `textarea`, `compilation` | Templates compilés : blocs et boucles à clé, composants et slots, balisage HTML et feuille par défaut, contrôles natifs pilotés par l’accessibilité, SVG en ligne, champ `<textarea>`, diagnostics du compilateur vus par une crate utilisatrice |
 | `frameworks/` (49) | `tailwind/{placement, variants, effects, interaction}`, `bootstrap/{components, controls, demo/}`, `framework_mode` | Utilitaires Tailwind, Bootstrap 5.3 en mode framework (dont la page de `examples/bootstrap_demo` pilotée comme un utilisateur : défilement, accordéon, transitions, rendu à 150 %), cascade générique du mode framework |
 | `interaction/` (7) | `menus`, `combobox`, `previews` | Menus et listes de choix en template (placement, clavier, focus, accessibilité), champ à suggestions, aperçus hors écran inspectés et survolés |

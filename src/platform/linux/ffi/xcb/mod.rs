@@ -85,6 +85,8 @@ library! {
         fn xcb_create_window(c: *mut xcb_connection_t, depth: u8, wid: u32, parent: u32, x: i16, y: i16, width: u16, height: u16, border_width: u16, class: u16, visual: u32, value_mask: u32, value_list: *const c_void) -> xcb_void_cookie_t;
         fn xcb_destroy_window(c: *mut xcb_connection_t, window: u32) -> xcb_void_cookie_t;
         fn xcb_map_window(c: *mut xcb_connection_t, window: u32) -> xcb_void_cookie_t;
+        fn xcb_unmap_window(c: *mut xcb_connection_t, window: u32) -> xcb_void_cookie_t;
+        fn xcb_configure_window(c: *mut xcb_connection_t, window: u32, value_mask: u16, value_list: *const c_void) -> xcb_void_cookie_t;
         fn xcb_change_window_attributes(c: *mut xcb_connection_t, window: u32, value_mask: u32, value_list: *const c_void) -> xcb_void_cookie_t;
         fn xcb_change_property(c: *mut xcb_connection_t, mode: u8, window: u32, property: u32, type_: u32, format: u8, data_len: u32, data: *const c_void) -> xcb_void_cookie_t;
         fn xcb_get_property(c: *mut xcb_connection_t, delete: u8, window: u32, property: u32, type_: u32, long_offset: u32, long_length: u32) -> xcb_cookie_t;

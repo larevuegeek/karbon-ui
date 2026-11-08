@@ -40,6 +40,8 @@ La validation refuse un texte vide, plus de 16 384 octets de texte, un délai
 supérieur à 60 secondes, une largeur hors de 40–4 096 unités ou une taille de
 police hors de 8–96. Les valeurs flottantes doivent être finies. Un délai nul
 permet un affichage immédiat.
+Dans un template, `title=""` (ou un `title={…}` calculé vide ou blanc) n’attache
+aucune info-bulle, comme en HTML : la validation ne voit jamais ce texte vide.
 
 ## Affichage et fermeture
 

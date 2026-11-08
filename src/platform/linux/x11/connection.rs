@@ -37,6 +37,10 @@ pub(super) struct Atoms {
     pub incr: u32,
     /// Propriété de la fenêtre du presse-papiers où arrive le texte demandé.
     pub karbon_clipboard: u32,
+    /// Premier plan, activation et zone de travail (EWMH, `x11/window/change.rs`).
+    pub net_wm_state_above: u32,
+    pub net_active_window: u32,
+    pub net_workarea: u32,
 }
 pub(super) struct Connection {
     pub raw: *mut xcb_connection_t,
@@ -185,6 +189,9 @@ impl Connection {
             "TEXT",
             "INCR",
             "KARBON_CLIPBOARD",
+            "_NET_WM_STATE_ABOVE",
+            "_NET_ACTIVE_WINDOW",
+            "_NET_WORKAREA",
         ];
         let xcb = self.xcb;
         // SAFETY : noms locaux lus pendant l'appel.
@@ -222,6 +229,9 @@ impl Connection {
             text,
             incr,
             karbon_clipboard,
+            net_wm_state_above,
+            net_active_window,
+            net_workarea,
         ] = values;
         Atoms {
             wm_protocols,
@@ -245,6 +255,9 @@ impl Connection {
             text,
             incr,
             karbon_clipboard,
+            net_wm_state_above,
+            net_active_window,
+            net_workarea,
         }
     }
     /// Disposition du clavier du serveur, compilée par xkbcommon d'après ses noms

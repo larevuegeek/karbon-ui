@@ -85,13 +85,12 @@ pub(crate) fn initialize(window: Hwnd) -> crate::Result<()> {
         selection_container: None,
         range: None,
         expanded: None,
+        current: None,
         read_only: true,
         bounds: UiaRect::default(),
         clipped: UiaRect::default(),
     };
-    *lock(&bridge.snapshot) = Arc::new(Snapshot {
-        nodes: vec![Arc::new(empty)],
-    });
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(vec![Arc::new(empty)]));
     let root = bridge
         .interface::<IRawElementProviderSimple>(NodeId::Root)
         .map_err(|e| crate::Error::Platform {

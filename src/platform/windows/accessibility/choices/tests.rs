@@ -2,7 +2,7 @@
 use super::super::tests::{code, same};
 use super::*;
 use windows::Win32::{
-    System::Variant::VariantClear,
+    System::Variant::{VT_BSTR, VariantClear},
     UI::Accessibility::{
         IInvokeProvider, ISelectionItemProvider, ISelectionProvider, IToggleProvider,
     },
@@ -32,7 +32,7 @@ fn fixture() -> Arc<Bridge> {
     second.key = NodeId::Element(102);
     second.choice = Some(ChoiceState::Radio(false));
     nodes.extend([Arc::new(group), Arc::new(first), Arc::new(second)]);
-    *lock(&bridge.snapshot) = Arc::new(Snapshot { nodes });
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(nodes));
     bridge
 }
 fn object<I: Interface>(bridge: &Arc<Bridge>, id: u64) -> I {
@@ -61,7 +61,7 @@ fn toggle_exposes_mixed_state_and_canonical_identity_and_rejects_disabled_action
     let old = lock(&bridge.snapshot).clone();
     let mut nodes = old.nodes.clone();
     Arc::make_mut(&mut nodes[1]).enabled = false;
-    *lock(&bridge.snapshot) = Arc::new(Snapshot { nodes });
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(nodes));
     // SAFETY: interface vivante ; aucun pointeur n'est échangé.
     unsafe {
         assert_eq!(code(toggle_provider.Toggle()), DISABLED);
@@ -101,7 +101,7 @@ fn radio_patterns_report_selection_container_and_prevent_multiple_or_empty_selec
     let old = lock(&bridge.snapshot).clone();
     let mut nodes = old.nodes.clone();
     Arc::make_mut(&mut nodes[3]).choice = Some(ChoiceState::Radio(false));
-    *lock(&bridge.snapshot) = Arc::new(Snapshot { nodes });
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(nodes));
     // SAFETY: interface vivante ; le tableau rendu est détruit par `providers`.
     unsafe {
         assert!(!group.IsSelectionRequired().unwrap().as_bool());
@@ -140,4 +140,37 @@ fn choice_properties_own_and_release_com_arrays_and_container_references() {
         UNSUPPORTED
     );
     assert!(lock(&bridge.requests).is_empty());
+}
+#[test]
+fn tab_lists_select_their_tabs_and_current_items_expose_aria_properties() {
+    let bridge = fixture();
+    // Groupe et radios du montage changés en liste d'onglets (`role="tablist"`) et
+    // onglets (`aria-selected`), le second marqué `aria-current="page"`.
+    let old = lock(&bridge.snapshot).clone();
+    let mut nodes = old.nodes.clone();
+    Arc::make_mut(&mut nodes[2]).control_type = 50018;
+    Arc::make_mut(&mut nodes[3]).control_type = 50019;
+    let second = Arc::make_mut(&mut nodes[4]);
+    second.control_type = 50019;
+    second.current = Some("page");
+    *lock(&bridge.snapshot) = Arc::new(Snapshot::new(nodes));
+    let list: ISelectionProvider = object(&bridge, 100);
+    let tab: ISelectionItemProvider = object(&bridge, 101);
+    // SAFETY: interfaces vivantes ; tableaux et interfaces rendus sont possédés.
+    unsafe {
+        let selected = providers(list.GetSelection().unwrap());
+        assert_eq!(
+            selected[0].as_raw(),
+            object::<IRawElementProviderSimple>(&bridge, 101).as_raw()
+        );
+        assert!(tab.IsSelected().unwrap().as_bool());
+    }
+    let aria = |id: u64| {
+        let simple: IRawElementProviderSimple = object(&bridge, id);
+        super::super::tests::property(&simple, 30102)
+            .unwrap()
+            .kind()
+    };
+    assert_eq!(aria(102), VT_BSTR.0, "AriaProperties « current=page »");
+    assert_eq!(aria(101), 0, "pas d'aria-current : propriété absente");
 }

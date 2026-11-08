@@ -217,6 +217,12 @@ pub enum Role {
     ContentInfo,
     /// Content complementary to the main content.
     Complementary,
+    /// Tab of a tab list (`role="tab"`); its selected state comes from `aria-selected`.
+    Tab,
+    /// List of tabs (`role="tablist"`), the selection container of its tabs.
+    TabList,
+    /// Panel shown by a tab (`role="tabpanel"`).
+    TabPanel,
     /// Custom widget without a specific role.
     Custom,
 }
@@ -369,5 +375,19 @@ pub trait Widget {
     fn hit_test(&self, rect: RectF, point: crate::ui::scene::PointF) -> bool {
         let _ = (rect, point);
         true
+    }
+    /// Image whose pixels may arrive after the view is built
+    /// ([`ImageSlot`](crate::ui::template::ImageSlot)): when it does, the runtime
+    /// repaints the widget, and lays it out again if its measured size was the image's
+    /// and the style does not fix both its width and height.
+    fn deferred_image(&self) -> Option<&crate::ui::template::ImageSlot> {
+        None
+    }
+    /// `paint` reads [`PaintContext::intrinsic`]. When the widget has children, that
+    /// natural size depends on the space each measurement offered, so a layout pass then
+    /// measures every ancestor again instead of reusing an earlier measurement with the
+    /// same constraints.
+    fn paints_natural_size(&self) -> bool {
+        false
     }
 }

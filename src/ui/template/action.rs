@@ -3,10 +3,16 @@ use crate::{application::Action, ui::element::*};
 pub(super) struct ActionArea {
     inner: Option<Box<dyn Widget>>,
     command: Action,
+    /// `false` : bouton riche `disabled` (ni clic, ni focus, `:disabled` en CSS).
+    enabled: bool,
 }
 impl ActionArea {
-    pub fn new(inner: Option<Box<dyn Widget>>, command: Action) -> Self {
-        Self { inner, command }
+    pub fn new(inner: Option<Box<dyn Widget>>, command: Action, enabled: bool) -> Self {
+        Self {
+            inner,
+            command,
+            enabled,
+        }
     }
 }
 impl Widget for ActionArea {
@@ -57,7 +63,7 @@ impl Widget for ActionArea {
         Semantics {
             role: Role::Button,
             name: self.inner.as_ref().map_or("Action", |w| w.semantics().name),
-            enabled: self.inner.as_ref().is_none_or(|w| w.semantics().enabled),
+            enabled: self.enabled && self.inner.as_ref().is_none_or(|w| w.semantics().enabled),
         }
     }
 }

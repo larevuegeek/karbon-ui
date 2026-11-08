@@ -2,7 +2,7 @@
 //! propriété interpole entre ses propres étapes voisines qui la déclarent ; une
 //! propriété absente de `0%` ou de `100%` y prend la valeur de l'élément.
 use super::{Easing, Effect};
-use crate::ui::{animation::timeline::Interpolate, theme::Color};
+use crate::ui::{animation::timeline::Interpolate, element::Length, theme::Color};
 
 /// Bits des propriétés déclarées par une étape ou animées par une animation.
 pub(crate) mod property {
@@ -12,11 +12,20 @@ pub(crate) mod property {
     pub const COLOR: u8 = 4;
     pub const BACKGROUND: u8 = 8;
     pub const BORDER: u8 = 16;
+    /// Largeur (`width`).
+    pub const WIDTH: u8 = 32;
+    /// Hauteur (`height`).
+    pub const HEIGHT: u8 = 64;
     pub const EFFECTS: u8 = OPACITY | TRANSFORM;
     pub const COLORS: u8 = COLOR | BACKGROUND | BORDER;
+    pub const SIZES: u8 = WIDTH | HEIGHT;
     /// Bit de la couleur d'indice `index` (`0` texte, `1` fond, `2` bordure).
     pub const fn color(index: usize) -> u8 {
         COLOR << index
+    }
+    /// Bit de la dimension d'indice `index` (`0` largeur, `1` hauteur).
+    pub const fn size(index: usize) -> u8 {
+        WIDTH << index
     }
 }
 
@@ -38,6 +47,8 @@ pub struct Keyframe {
     pub(crate) declared: u8,
     /// Couleurs déclarées : texte, fond, bordure.
     pub(crate) colors: [Color; 3],
+    /// Dimensions déclarées : largeur, hauteur.
+    pub(crate) sizes: [Length; 2],
 }
 impl Keyframe {
     /// Creates a keyframe at `offset` (`0.0..=1.0`) declaring both the opacity and the
@@ -49,6 +60,7 @@ impl Keyframe {
             easing: None,
             declared: property::EFFECTS,
             colors: [Color::rgba(0, 0, 0, 0); 3],
+            sizes: [Length::Auto; 2],
         }
     }
     /// Creates a keyframe at `offset` (`0.0..=1.0`) that declares no property yet; add
@@ -93,6 +105,21 @@ impl Keyframe {
         self.declared |= property::BORDER;
         self
     }
+    /// Declares the width (CSS `width`) at this step, in pixels or as a percentage of
+    /// the containing block. Two pixel widths, or two percentages, interpolate; other
+    /// pairs switch halfway, like CSS discrete animation. Each frame lays the tree out
+    /// again.
+    pub const fn width(mut self, value: Length) -> Self {
+        self.sizes[0] = value;
+        self.declared |= property::WIDTH;
+        self
+    }
+    /// Declares the height (CSS `height`) at this step; see [`width`](Self::width).
+    pub const fn height(mut self, value: Length) -> Self {
+        self.sizes[1] = value;
+        self.declared |= property::HEIGHT;
+        self
+    }
     /// Sets the easing from this keyframe to the next one declaring the same property.
     pub const fn easing(mut self, value: Easing) -> Self {
         self.easing = Some(value);
@@ -103,6 +130,26 @@ impl Keyframe {
             && (0. ..=1.).contains(&self.offset)
             && self.effect.valid()
             && self.easing.is_none_or(Easing::valid)
+            && self.sizes.iter().enumerate().all(|(i, size)| {
+                self.declared & property::size(i) == 0
+                    || match *size {
+                        Length::Px(n) | Length::Percent(n) => n.is_finite() && n >= 0.,
+                        Length::Auto | Length::MaxContent => true,
+                        Length::Computed(_) | Length::Fill(_) => false,
+                    }
+            })
+    }
+}
+/// Dimension animée : deux longueurs en pixels, ou deux pourcentages, s'interpolent ;
+/// les autres paires basculent à mi-parcours (animation discrète de CSS).
+impl Interpolate for Length {
+    fn lerp(self, to: Self, t: f32) -> Self {
+        match (self, to) {
+            (Length::Px(a), Length::Px(b)) => Length::Px(a.lerp(b, t).max(0.)),
+            (Length::Percent(a), Length::Percent(b)) => Length::Percent(a.lerp(b, t).max(0.)),
+            _ if t < 0.5 => self,
+            _ => to,
+        }
     }
 }
 impl Interpolate for Effect {
@@ -204,6 +251,25 @@ pub(crate) fn colors(
         if declared & bit != 0 {
             let base = underlying[index].unwrap_or(Color::rgba(0, 0, 0, 0));
             *slot = Some(sample(frames, bit, t, easing, base, |f| f.colors[index]));
+        }
+    }
+}
+/// Dimensions déclarées par les étapes à la progression `t`, écrites dans `out` :
+/// `underlying` (largeur et hauteur de l'élément) sert aux étapes extrêmes absentes.
+pub(crate) fn sizes(
+    frames: &[Keyframe],
+    declared: u8,
+    t: f32,
+    easing: Easing,
+    underlying: [Length; 2],
+    out: &mut [Option<Length>; 2],
+) {
+    for (index, slot) in out.iter_mut().enumerate() {
+        let bit = property::size(index);
+        if declared & bit != 0 {
+            *slot = Some(sample(frames, bit, t, easing, underlying[index], |f| {
+                f.sizes[index]
+            }));
         }
     }
 }

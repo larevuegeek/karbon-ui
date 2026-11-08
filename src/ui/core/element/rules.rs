@@ -79,6 +79,29 @@ pub enum Overflow {
     /// elsewhere it clips like `Clip`.
     Scroll,
 }
+/// Rendering of an element's contents, as CSS `content-visibility`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ContentVisibility {
+    /// Contents are laid out and painted (default).
+    #[default]
+    Visible,
+    /// Contents are skipped (neither laid out, painted nor hit) while the element is far
+    /// from the viewport, and laid out again when it approaches. The element always clips
+    /// its contents to its padding box.
+    Auto,
+    /// Contents are always skipped; the element keeps its own box.
+    Hidden,
+}
+/// Size of an element's contents while they are skipped, on one axis, as CSS
+/// `contain-intrinsic-width` or `contain-intrinsic-height`.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct ContainIntrinsicLength {
+    /// `auto`: once the contents have been laid out, their last size is used instead of
+    /// [`length`](Self::length).
+    pub remembered: bool,
+    /// Content-box length in logical pixels; `None` is `none` (empty contents).
+    pub length: Option<f32>,
+}
 /// Line wrapping of flex children, as CSS `flex-wrap`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum FlexWrap {
@@ -207,6 +230,15 @@ pub struct LayoutRules {
     /// A scroll container keeps the rest of a wheel scroll instead of passing it to
     /// the enclosing scroll containers (`overscroll-behavior: contain | none`).
     pub overscroll_contain: bool,
+    /// This element is the initial scroll target of its nearest scroll container
+    /// (`scroll-initial-target: nearest`): a container that first appears (a new
+    /// identifier) starts scrolled to it, then the offset is left to the user.
+    pub scroll_initial_target: bool,
+    /// Rendering of the contents (`content-visibility`).
+    pub content_visibility: ContentVisibility,
+    /// Width and height of the contents while they are skipped
+    /// (`contain-intrinsic-size`).
+    pub contain_intrinsic_size: [ContainIntrinsicLength; 2],
     /// Révélation en cours ([`Element::reveal`]) : l'élément reste affiché (même
     /// `hidden`) à une fraction de sa hauteur naturelle.
     pub(crate) reveal: Option<Reveal>,

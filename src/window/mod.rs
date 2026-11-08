@@ -6,7 +6,12 @@
 //! [`platform::run_windows`](crate::platform::run_windows).
 
 // Configuration et intentions communes à toutes les plateformes.
+pub(crate) mod change;
 pub(crate) mod validation;
+
+pub use change::{WindowChange, WindowState};
+mod dialog;
+pub use dialog::{FileDialog, FileDialogKind, FileDialogResult, FileFilter};
 
 /// Window identity chosen by the application, independent of the native handle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -59,10 +64,19 @@ pub enum WindowCommand {
     Open(WindowDescriptor),
     /// Native action requested by a custom title bar.
     Action(WindowId, WindowAction),
+    /// Change the size, position or state of an open window. Changing a window that is
+    /// already closed does nothing.
+    Change(WindowId, WindowChange),
     /// Close a window. Closing a window that is already closed does nothing.
     Close(WindowId),
     /// Close every window and leave the event loop.
     Exit,
+    /// Show a native file chooser, modal to the window. The choice is delivered to that
+    /// window's [`Application::task_completed`](crate::application::Application::task_completed)
+    /// as a [`TaskResult`](crate::task::TaskResult) with this identifier, carrying a
+    /// [`FileDialogResult`] (no path when the user cancels), or a failure when the system
+    /// dialog cannot be shown. Nothing is delivered if the window is closed.
+    FileDialog(WindowId, crate::task::TaskId, FileDialog),
 }
 
 /// When the event loop started by [`platform::run_windows`](crate::platform::run_windows)
@@ -233,6 +247,28 @@ impl WindowOptions {
         Ok(options)
     }
 }
+/// Edge or corner of a window, for the
+/// [`resize_region`](crate::ui::element::Element::resize_region) of a frameless window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ResizeEdge {
+    /// Left edge.
+    Left,
+    /// Right edge.
+    Right,
+    /// Top edge.
+    Top,
+    /// Bottom edge.
+    Bottom,
+    /// Top-left corner.
+    TopLeft,
+    /// Top-right corner.
+    TopRight,
+    /// Bottom-left corner.
+    BottomLeft,
+    /// Bottom-right corner.
+    BottomRight,
+}
+
 /// Native window action, typically triggered by a custom title bar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WindowAction {
