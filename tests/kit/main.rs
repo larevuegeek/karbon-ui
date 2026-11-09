@@ -275,6 +275,12 @@ fn components_accept_any_resource_type() {
     assert_eq!(element.children.len(), 1);
 }
 
+#[test]
+fn the_theme_variables_are_available_to_application_stylesheets() {
+    assert!(karbon_ui::ui::kit::variables().get("--k-primary").is_some());
+    assert!(karbon_ui::ui::kit::variables().get("--k-surface").is_some());
+}
+
 struct Icons;
 impl Application for Icons {
     type Message = ();
@@ -301,5 +307,52 @@ fn every_icon_is_drawn() -> karbon_ui::Result<()> {
         .filter(|c| matches!(c, DrawCommand::Svg { .. }))
         .count();
     assert_eq!(drawn, ICON_NAMES.len());
+    Ok(())
+}
+
+struct Menu;
+impl Application for Menu {
+    type Message = ();
+    fn update(&mut self, _: ()) -> bool {
+        false
+    }
+    fn view(&self, _: &ViewContext) -> Element {
+        ui! {
+            <Page fixed>
+                <Aurora full flat>
+                    <Navbar brand="Marque" />
+                    <Row grow clip stretch gap="none">
+                        <Sidebar id="menu">
+                            {#each (0..40u64) as n (n)}
+                                <NavItem id={ElementId::named("item").item(n)}>Lien</NavItem>
+                            {/each}
+                        </Sidebar>
+                        <Stack grow><Text>Contenu</Text></Stack>
+                    </Row>
+                </Aurora>
+            </Page>
+        }
+    }
+}
+
+/// Une barre latérale plus haute que la fenêtre reste dans la fenêtre et défile.
+#[test]
+fn a_tall_sidebar_stays_in_the_window_and_scrolls() -> karbon_ui::Result<()> {
+    let mut app = HeadlessApp::with_options(
+        Menu,
+        HeadlessOptions {
+            width: 800.,
+            height: 400.,
+            ..Default::default()
+        },
+    )?;
+    let menu = app.bounds("menu").expect("menu");
+    assert!(menu.bottom <= 400.5, "{menu:?}");
+    let first = ElementId::named("item").item(0);
+    let before = app.bounds(first).expect("item").top;
+    app.scroll("menu", 0., 300.)?;
+    app.advance(std::time::Duration::from_millis(600))?;
+    let after = app.bounds(first).expect("item").top;
+    assert!(after < before, "{before} -> {after}");
     Ok(())
 }

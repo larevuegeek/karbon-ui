@@ -1,0 +1,45 @@
+<Row gap="lg" stretch full>
+    <Stack gap="xs" style="width: 220px">
+        {#each SETTINGS_TABS.iter().enumerate() as tab (tab.0)}
+            <NavItem icon={tab.1.1} active={self.settings_tab == tab.0} onclick={Msg::SettingsTab(tab.0)}>{tab.1.0}</NavItem>
+        {/each}
+    </Stack>
+    <Stack gap="lg" grow>
+        {#if self.settings_tab == 0}
+            <Card title="Profil public" subtitle="Ces informations sont visibles par tous." gap="md">
+                <Row gap="md">
+                    <Avatar lg name="Ada Lovelace" />
+                    <Button faded sm>Changer la photo</Button>
+                    <Button ghost danger sm>Retirer</Button>
+                </Row>
+                <Grid cols={2} gap="md">
+                    <Input label="Prénom" value="Ada" />
+                    <Input label="Nom" value="Lovelace" />
+                </Grid>
+                <Textarea label="Biographie" placeholder="Parlez de vous…" value={&self.bio} oninput={Msg::Bio} />
+                <Button slot="footer" ghost>Annuler</Button>
+                <Button slot="footer" primary shadow onclick={Msg::Save}>Enregistrer</Button>
+            </Card>
+        {:else if self.settings_tab == 1}
+            <Card title="Notifications" subtitle="Choisissez ce qui mérite votre attention." gap="md">
+                <Row between full><Stack gap="none"><Text bold>Nouveautés</Text><Text sm muted>Une fois par mois, pas plus.</Text></Stack><Switch checked={self.notify} onchange={Msg::Notify} /></Row>
+                <Divider />
+                <Row between full><Stack gap="none"><Text bold>Sécurité</Text><Text sm muted>Connexions depuis un nouvel appareil.</Text></Stack><Switch checked={self.security} onchange={Msg::Security} /></Row>
+                <Divider />
+                <Row between full><Stack gap="none"><Text bold>Résumé hebdomadaire</Text><Text sm muted>Vos statistiques chaque lundi.</Text></Stack><Switch checked={self.weekly} onchange={Msg::Weekly} /></Row>
+            </Card>
+        {:else}
+            <Card title="Apparence" gap="md">
+                <RadioGroup label="Densité" row value={self.quality} options={["Compacte", "Normale", "Aérée"]} onchange={Msg::Quality} />
+                <Select label="Couleur principale" value={self.accent} options={["Bleu", "Violet", "Rose", "Vert"]} onchange={Msg::Accent} />
+                <Switch label="Thème sombre" checked={self.dark} onchange={Msg::Dark} />
+            </Card>
+        {/if}
+        <Card title="Zone sensible" subtitle="Ces actions sont irréversibles." gap="md">
+            <Row between full>
+                <Text sm muted>Supprimer définitivement votre compte.</Text>
+                <Button danger soft onclick={Msg::Dialog(true)}>Supprimer le compte</Button>
+            </Row>
+        </Card>
+    </Stack>
+</Row>

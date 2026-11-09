@@ -57,7 +57,7 @@ impl<R> Component<R> for Alert {
         kit_ui!(cx, slots;
             <div class="k-alert" style:--k-fg={t.fg} style:--k-line={t.line}>
                 <div class="k-alert-icon"><Icon name={state_icon(variant)} size={18} /></div>
-                <div class="k-flex k-grow">
+                <div class="k-flex k-fill">
                     {#if !self.title.0.is_empty()}<div class="k-alert-title">{self.title.0}</div>{/if}
                     <div class="k-alert-body"><slot /></div>
                 </div>
@@ -169,7 +169,7 @@ impl<R> Component<R> for Toast {
         kit_ui!(cx, slots;
             <div class="k-toast" style:--k-fg={t.fg}>
                 <div class="k-alert-icon"><Icon name={state_icon(variant)} size={18} /></div>
-                <div class="k-flex k-grow">
+                <div class="k-flex k-fill">
                     {#if !self.title.0.is_empty()}<div class="k-bold">{self.title.0}</div>{/if}
                     <div class="k-muted k-sm"><slot /></div>
                 </div>

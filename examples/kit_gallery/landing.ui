@@ -8,8 +8,8 @@
         </Stack>
         <Text lg muted>Des composants soignés, un thème clair et sombre, et une syntaxe que vous lisez comme du HTML.</Text>
         <Row gap="md">
-            <Button primary shadow pill lg icon_right="arrow-right" onclick={Msg::Section(3)}>Commencer</Button>
-            <Button faded pill lg onclick={Msg::Section(10)}>Voir les événements</Button>
+            <Button primary shadow pill lg icon_right="arrow-right" onclick={Msg::Section(1)}>Voir les exemples</Button>
+            <Button faded pill lg onclick={Msg::Section(EVENTS_SECTION)}>Voir les événements</Button>
         </Row>
     </Stack>
     <Stack gap="lg">
@@ -58,8 +58,20 @@
         </Row>
     </Stack>
 </Grid>
-<Grid cols={3} gap="lg">
-    <Stat label="Composants" value="55" delta="Prêts à l'emploi" up icon="star" />
-    <Stat label="Lignes de CSS à écrire" value="0" delta="Tout est déjà stylé" up icon="edit" />
-    <Stat label="Thèmes" value="2" delta="Clair et sombre" up icon="sun" />
-</Grid>
+<Stack gap="sm">
+    <Title h3>Des écrans complets, prêts à copier</Title>
+    <Grid cols={4} gap="md">
+        {#each SECTIONS.iter().enumerate().skip(1).take(FIRST_COMPONENT - 1) as item (item.0)}
+            <Card padding="md" gap="xs" hover title="" onclick={Msg::Section(item.0)}>
+                <div class="mini" style:background={cover(item.0)}><Icon name={item.1.1} size={20} /></div>
+                <Text bold>{item.1.0}</Text>
+                <Text sm muted>{item.1.2}</Text>
+            </Card>
+        {/each}
+        <Card padding="md" gap="xs" hover title="" onclick={Msg::Section(FIRST_COMPONENT)}>
+            <div class="mini" style:background={cover(7)}><Icon name="plus" size={20} /></div>
+            <Text bold>Tous les composants</Text>
+            <Text sm muted>Boutons, formulaires, données et plus.</Text>
+        </Card>
+    </Grid>
+</Stack>

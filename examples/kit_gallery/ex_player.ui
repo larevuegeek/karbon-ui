@@ -1,0 +1,35 @@
+<Row gap="lg" stretch full>
+    <Card padding="xl" gap="lg" style="flex-grow: 3; flex-basis: 0">
+        <div class="album" style:background={cover(self.track)}><Icon name="music" size={72} /></div>
+        <Row between full>
+            <Stack gap="none">
+                <Title h2>{TRACKS[self.track].0}</Title>
+                <Text muted>{TRACKS[self.track].1}</Text>
+            </Stack>
+            <IconButton icon="heart" label="Aimer" pill soft danger={self.liked} onclick={Msg::Like} />
+        </Row>
+        <Stack gap="none">
+            <Slider max={TRACKS[self.track].2 as f64} value={self.position} oninput={Msg::Seek} />
+            <Row between full>
+                <Text sm muted>{clock(self.position as u32)}</Text>
+                <Text sm muted>{clock(TRACKS[self.track].2)}</Text>
+            </Row>
+        </Stack>
+        <Row main_center gap="md" full>
+            <IconButton icon="chevron-left" label="Précédent" lg pill onclick={Msg::Previous} />
+            <IconButton icon={if self.playing { "pause" } else { "play" }} label="Lecture" lg pill solid primary onclick={Msg::Play} />
+            <IconButton icon="chevron-right" label="Suivant" lg pill onclick={Msg::Next} />
+        </Row>
+    </Card>
+    <Stack gap="sm" style="flex-grow: 2; flex-basis: 0">
+        <Title h3>À suivre</Title>
+        <List>
+            {#each TRACKS.iter().enumerate() as item (item.0)}
+                <ListItem title={item.1.0} subtitle={item.1.1} active={item.0 == self.track} onclick={Msg::Track(item.0)}>
+                    <div slot="leading" class="thumb" style:background={cover(item.0)}></div>
+                    <Text slot="trailing" sm muted>{clock(item.1.2)}</Text>
+                </ListItem>
+            {/each}
+        </List>
+    </Stack>
+</Row>

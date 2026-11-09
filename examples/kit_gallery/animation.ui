@@ -16,3 +16,7 @@
             <Animate spin><Icon name="settings" size={36} /></Animate>
         </Row>
     </Card>
+<Stack gap="sm">
+    <Title h4>Code</Title>
+    <Snippet code={CODE_ANIMATION} />
+</Stack>

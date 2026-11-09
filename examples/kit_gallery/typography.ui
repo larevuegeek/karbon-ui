@@ -22,3 +22,7 @@
             {/each}
         </Row>
     </Card>
+<Stack gap="sm">
+    <Title h4>Thème</Title>
+    <Snippet code={CODE_THEME} />
+</Stack>

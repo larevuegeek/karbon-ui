@@ -97,7 +97,7 @@ impl<R> Component<R> for Steps {
     }
 }
 
-/// Top bar. Slots: default (links), `actions`.
+/// Top bar. Slots: `logo`, default (links), `actions`.
 #[derive(Default)]
 pub struct Navbar {
     /// Name at the start of the bar.
@@ -109,7 +109,7 @@ impl<R> Component<R> for Navbar {
     fn render(self, cx: &TemplateContext<'_, R>, mut slots: Slots) -> Element {
         kit_ui!(cx, slots;
             <header class="k-navbar" class:k-surface-glass={self.glass}>
-                <div class="k-brand">{self.brand.0}</div>
+                <div class="k-brand-row"><slot name="logo" /><div class="k-brand">{self.brand.0}</div></div>
                 <div class="k-navbar-links"><slot /></div>
                 <div class="k-spacer"></div>
                 <div class="k-navbar-links"><slot name="actions" /></div>
@@ -133,6 +133,15 @@ impl<R> Component<R> for Sidebar {
                 <slot />
             </aside>
         )
+    }
+}
+
+/// Heading of a group of links in a [`Sidebar`].
+#[derive(Default)]
+pub struct NavLabel;
+impl<R> Component<R> for NavLabel {
+    fn render(self, cx: &TemplateContext<'_, R>, mut slots: Slots) -> Element {
+        kit_ui!(cx, slots; <div class="k-nav-label"><slot /></div>)
     }
 }
 

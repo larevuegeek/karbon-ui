@@ -6,9 +6,13 @@
     </Carousel>
 </Card>
 <Card title="Plusieurs diapositives">
-    <Carousel value={self.slide} onchange={Msg::Slide} per_view={3}>
+    <Carousel value={self.slide2} onchange={Msg::Slide2} per_view={3}>
         {#each ["Jazz", "Rock", "Classique", "Soul", "Électro", "Folk"].iter() as name (*name)}
             <div class="tile tile-a">{*name}</div>
         {/each}
     </Carousel>
 </Card>
+<Stack gap="sm">
+    <Title h4>Code</Title>
+    <Snippet code={CODE_CAROUSEL} />
+</Stack>

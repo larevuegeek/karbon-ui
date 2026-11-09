@@ -1,0 +1,26 @@
+<Row main_center full style="padding-top: 12px">
+    <Card padding="xl" gap="md" style="width: 420px">
+        <Stack gap="xs" center>
+            <div class="logo-box"><svg src="../../docs/logo/logo-mono.svg" class="logo-img" aria-label="Karbon UI" /></div>
+            <Title h2 center>Bon retour</Title>
+            <Text sm muted center>Connectez-vous pour continuer.</Text>
+        </Stack>
+        {#if self.signed_in}
+            <Alert success title="Connexion réussie">Bienvenue, {self.email}.</Alert>
+        {/if}
+        <Input label="Courriel" icon="mail" placeholder="vous@exemple.fr" value={&self.email}
+            oninput={Msg::Email} error={self.email_error()} onenter={Msg::SignIn} />
+        <Input label="Mot de passe" icon="lock" password={!self.show_password} placeholder="Au moins 6 caractères"
+            value={&self.password} oninput={Msg::Password} error={self.password_error()} onenter={Msg::SignIn}>
+            <IconButton slot="end" sm pill icon={if self.show_password { "eye-off" } else { "eye" }}
+                label="Afficher le mot de passe" onclick={Msg::ShowPassword} />
+        </Input>
+        <Row between full>
+            <Checkbox label="Se souvenir de moi" checked={self.remember} onchange={Msg::Remember} />
+            <Link>Mot de passe oublié ?</Link>
+        </Row>
+        <Button primary shadow full lg onclick={Msg::SignIn}>Se connecter</Button>
+        <Row gap="sm" full><Divider grow /><Text sm muted>ou</Text><Divider grow /></Row>
+        <Button faded full icon="link">Recevoir un lien par courriel</Button>
+    </Card>
+</Row>

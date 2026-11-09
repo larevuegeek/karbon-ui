@@ -16,3 +16,7 @@
         <Slider label="Volume" value={self.volume} oninput={Msg::Volume} />
     </Card>
 </Grid>
+<Stack gap="sm">
+    <Title h4>Code</Title>
+    <Snippet code={CODE_FORMS} />
+</Stack>

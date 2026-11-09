@@ -1,0 +1,48 @@
+<Row between full wrap>
+    <Tabs items={["7 jours", "30 jours", "12 mois"]} value={self.range} onchange={Msg::Range} />
+    <Row gap="sm">
+        <AvatarGroup names={["Ada Lovelace", "Alan Turing", "Grace Hopper"]} extra={4} />
+        <Button faded icon="download">Exporter</Button>
+        <Button primary shadow icon="plus">Nouveau rapport</Button>
+    </Row>
+</Row>
+<Grid cols={4} gap="md">
+    {#each RANGES[self.range].stats.iter() as stat (stat.0)}
+        <Stat label={stat.0} value={stat.1} delta={stat.2} up={stat.3} down={!stat.3} icon={stat.4} />
+    {/each}
+</Grid>
+<Row gap="lg" stretch full>
+    <Card title="Écoutes" subtitle="Par mois, toutes bibliothèques confondues" style="flex-grow: 2; flex-basis: 0">
+        <div class="chart">
+            {#each RANGES[self.range].bars.iter().enumerate() as bar (bar.0)}
+                <div class="chart-col">
+                    <div class="chart-track"><div class="chart-bar" class:chart-bar-on={bar.0 == 11} style:height={Length::Percent(*bar.1)}></div></div>
+                    <div class="chart-label">{MONTHS[bar.0]}</div>
+                </div>
+            {/each}
+        </div>
+    </Card>
+    <Card title="Objectif du mois" style="flex-grow: 1; flex-basis: 0" gap="md">
+        <Title h2>72 %</Title>
+        <Progress value={72} />
+        <Text sm muted>Encore 3 480 € pour atteindre votre objectif.</Text>
+        <Divider />
+        <Row between full><Text sm muted>Nouveaux abonnés</Text><Text sm bold>312</Text></Row>
+        <Row between full><Text sm muted>Panier moyen</Text><Text sm bold>41 €</Text></Row>
+        <Row between full><Text sm muted>Satisfaction</Text><Text sm bold>4,8 / 5</Text></Row>
+    </Card>
+</Row>
+<Stack gap="sm">
+    <Title h3>Commandes récentes</Title>
+    <Table columns={["Client", "Montant", "État"]}>
+        {#each ORDERS.iter() as order (order.0)}
+            <TableRow>
+                <TableCell><User name={order.0} description={order.1} /></TableCell>
+                <TableCell>{order.2}</TableCell>
+                <TableCell>
+                    <Badge dot success={order.3 == 0} warning={order.3 == 1} danger={order.3 == 2}>{STATUS[order.3]}</Badge>
+                </TableCell>
+            </TableRow>
+        {/each}
+    </Table>
+</Stack>

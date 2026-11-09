@@ -1,6 +1,6 @@
 <Card title="Onglets" gap="lg">
     <Tabs items={["Albums", "Artistes", "Genres"]} value={self.tab} onchange={Msg::Tab} />
-    <Tabs underlined items={["Tout", "Favoris", "Récents"]} value={self.tab} onchange={Msg::Tab} />
+    <Tabs underlined items={["Tout", "Favoris", "Récents"]} value={self.tab2} onchange={Msg::Tab2} />
 </Card>
 <Card title="Repères" gap="lg">
     <Breadcrumb items={["Bibliothèque", "Albums", "Blue Train"]} onchange={Msg::Page} />

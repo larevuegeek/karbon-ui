@@ -1,4 +1,4 @@
-.k-card { display: flex; flex-direction: column; background: var(--k-surface); border-radius: var(--k-radius-lg); min-width: 0;
+.k-card { position: relative; display: flex; flex-direction: column; background: var(--k-surface); border-radius: var(--k-radius-lg); min-width: 0;
     box-shadow: 0px 0px 15px 0px rgba(0, 0, 0, 0.03), 0px 2px 30px 0px rgba(0, 0, 0, 0.08), 0px 0px 1px 0px rgba(0, 0, 0, 0.3); }
 .k-card-hover { cursor: pointer; transition: transform 200ms ease; }
 .k-card-hover:hover { transform: translateY(-2px); }
@@ -49,3 +49,15 @@
     background: transparent; color: var(--k-text); font-size: 15px; cursor: pointer; }
 .k-accordion-head:focus-visible { outline: 2px solid var(--k-primary); }
 .k-accordion-body { display: flex; flex-direction: column; gap: 8px; padding: 0 20px 18px; color: var(--k-muted); }
+.k-card-clip { overflow: hidden; }
+.k-card-hit { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background: transparent; border: none; padding: 0; cursor: pointer; border-radius: var(--k-radius-lg); }
+.k-card-hit:focus-visible { outline: 2px solid var(--k-primary); outline-offset: 2px; }
+.k-list-active { background: var(--k-subtle); }
+.k-user { display: flex; flex-direction: row; align-items: center; gap: 10px; min-width: 0; width: max-content; }
+.k-user-name { font-size: 14px; font-weight: 500; color: var(--k-text); }
+.k-avatar-group { display: flex; flex-direction: row; align-items: center; width: max-content; }
+.k-avatar-ring { display: flex; align-items: center; justify-content: center; border: 2px solid var(--k-surface); border-radius: 999px; }
+.k-avatar-more { width: 36px; height: 36px; background: var(--k-subtle); color: var(--k-muted); font-size: 12px; font-weight: 500; }
+.k-snippet { display: flex; flex-direction: column; background: var(--k-subtle); border-radius: var(--k-radius); padding: 12px 14px; min-width: 0; overflow: hidden; }
+.k-snippet-code { margin: 0; font-family: "Cascadia Mono", "SF Mono", "DejaVu Sans Mono", monospace; font-size: 12.5px; line-height: 20px; color: var(--k-text); white-space: pre; }
+.k-card-body { flex-grow: 1; min-height: 0; }

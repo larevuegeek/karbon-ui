@@ -46,13 +46,13 @@ Ils sont rangés par type, dans autant de modules (`kit::typography`, `kit::form
 
 | Type | Composants |
 | --- | --- |
-| Mise en page | `Page`, `Container`, `Stack`, `Row`, `Grid`, `Spacer`, `Divider` |
+| Mise en page | `Page` (`fixed`), `Container`, `Stack`, `Row`, `Grid`, `Spacer`, `Divider` |
 | Texte | `Title` (`display`, `h2`, `h3`, `h4`, `gradient`, `center`), `Text` (`muted`, `sm`, `lg`, `bold`, `center`, `mono`), `Code`, `Kbd`, `Link` |
 | Boutons | `Button` (`icon`, `icon_right`, `loading`, `disabled`, `full`), `IconButton` (`icon`, `label`) |
 | Formulaires | `Field`, `Input` (`label`, `hint`, `error`, `icon`, `outline`, `password`, `search`, `required`), `Textarea`, `Select`, `Checkbox`, `Switch`, `RadioGroup`, `Slider` |
-| Affichage | `Card`, `Badge` (`solid`, `outline`, `dot`, `onclose`), `Avatar`, `Stat`, `Table`, `TableRow`, `TableCell`, `List`, `ListItem`, `EmptyState`, `Accordion`, `Icon` |
+| Affichage | `Card` (`hover`, `glass`, `onclick`), `User`, `AvatarGroup`, `Snippet`, `Badge` (`solid`, `outline`, `dot`, `onclose`), `Avatar`, `Stat`, `Table`, `TableRow`, `TableCell`, `List`, `ListItem`, `EmptyState`, `Accordion`, `Icon` |
 | Retours d'état | `Alert`, `Progress`, `Spinner`, `Skeleton`, `Toasts`, `Toast` |
-| Navigation | `Tabs` (`underlined`), `Breadcrumb`, `Steps`, `Navbar` (`glass`), `Sidebar`, `NavItem` |
+| Navigation | `Tabs` (`underlined`), `Breadcrumb`, `Steps`, `Navbar` (`glass`), `Sidebar` (défile seule si sa rangée porte `clip`), `NavItem`, `NavLabel` |
 | Pagination | `Pagination` |
 | Carrousel | `Carousel` (`per_view`, `loop_around`, `no_arrows`, `no_dots`) |
 | Animation | `Animate` : entrées `fade`, `up`, `down`, `left`, `right`, `zoom`, `bounce`, `shake` ; boucles `pulse`, `float`, `spin` ; `delay`, `duration`, `replay` |
@@ -63,7 +63,7 @@ Icônes : `ICON_NAMES` donne la liste ; `<Icon name="plus" size={20} />`, à la 
 texte. L'état reste dans l'application, comme pour tout contrôle : `<Tabs value={self.tab}
 onchange={Msg::Tab} />`, `<Dialog>` dans un `{#if}` ou avec `open={self.visible}`.
 
-Slots : `Card` (`actions`, `footer`), `Dialog` (`footer`), `Navbar` (`actions`), `ListItem`
+Slots : `Card` (`cover`, `actions`, `footer`), `Input` (`end`), `Dialog` (`footer`), `Navbar` (`actions`), `ListItem`
 (`leading`, `trailing`).
 
 ## Effets
@@ -120,12 +120,27 @@ Du plus simple au plus fin :
    passées par attribut, les rayons, les ombres et les dégradés viennent du thème.
 5. **Composer** : un `Component` à vous qui assemble ceux du kit.
 
+Pour vos propres feuilles, déclarez un repli dans `:root` et passez les vraies valeurs au
+gabarit, qui suivront alors le thème clair ou sombre :
+
+```rust,ignore
+let variables = karbon_ui::ui::kit::variables();
+let cx = TemplateContext::default().with_variables(&variables);
+ui_file!("page.ui", context = cx, styles = css)
+```
+
 Variables : `--k-bg`, `--k-surface`, `--k-subtle`, `--k-border`, `--k-text`, `--k-muted`,
 `--k-primary`, `--k-success`, `--k-warning`, `--k-danger`, `--k-info`, `--k-radius`,
 `--k-radius-sm`, `--k-radius-lg`.
 
 Le thème clair ou sombre vient de `Application::color_preferences`. Une vue qui utilise le
 kit donne aussi ses couleurs au thème du moteur : cases, pistes et listes ouvertes suivent.
+
+## Exemples
+
+La galerie contient des écrans complets et fonctionnels, à copier : tableau de bord,
+boutique, lecteur, tarifs, connexion, réglages et messagerie
+(`examples/kit_gallery/ex_*.ui`).
 
 ## Organisation
 

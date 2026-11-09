@@ -88,7 +88,7 @@ impl<R> Component<R> for Aurora {
             <div class="k-aurora" class:k-full-size={self.full} class:k-aurora-flat={self.flat}>
                 <div class="k-blob k-blob-1" class:k-drift-1={self.animated} style:background={halo(p.primary)}></div>
                 <div class="k-blob k-blob-2" class:k-drift-2={self.animated} style:background={halo(p.accent)}></div>
-                <div class="k-aurora-body"><slot /></div>
+                <div class="k-aurora-body" class:k-aurora-body-full={self.full}><slot /></div>
             </div>
         )
     }

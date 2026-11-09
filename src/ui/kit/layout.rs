@@ -32,6 +32,8 @@ macro_rules! flex_box {
             pub full: bool,
             /// Take the remaining space of the parent.
             pub grow: bool,
+            /// Stay within the space given by the parent instead of growing with the children.
+            pub clip: bool,
         }
         impl<R> Component<R> for $name {
             fn render(self, cx: &TemplateContext<'_, R>, mut slots: Slots) -> Element {
@@ -43,7 +45,7 @@ macro_rules! flex_box {
                         class:k-end={self.end} class:k-stretch={self.stretch}
                         class:k-between={self.between}
                         class:k-main-center={self.main_center} class:k-main-end={self.main_end}
-                        class:k-wrap={self.wrap} class:k-full={self.full} class:k-grow={self.grow}
+                        class:k-wrap={self.wrap} class:k-full={self.full} class:k-grow={self.grow} class:k-clip={self.clip}
                         style:gap={gap} style:padding={padding}>
                         <slot />
                     </div>
@@ -128,11 +130,13 @@ impl<R> Component<R> for Spacer {
 pub struct Divider {
     /// Draw a vertical line.
     pub vertical: bool,
+    /// Share the width of a [`Row`] with its neighbours.
+    pub grow: bool,
 }
 impl<R> Component<R> for Divider {
     fn render(self, cx: &TemplateContext<'_, R>, _: Slots) -> Element {
         kit_ui!(cx;
-            <div class:k-divider={!self.vertical} class:k-divider-v={self.vertical}></div>
+            <div class:k-divider={!self.vertical} class:k-divider-grow={self.grow} class:k-divider-v={self.vertical}></div>
         )
     }
 }

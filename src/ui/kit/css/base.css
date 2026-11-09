@@ -20,8 +20,11 @@
 .k-wrap { flex-wrap: wrap; }
 .k-full { width: 100%; }
 .k-grow { flex-grow: 1; flex-basis: 0px; }
+.k-clip { overflow: hidden; }
+.k-fill { flex-grow: 1; flex-shrink: 1; min-width: 0; }
 .k-spacer { flex-grow: 1; }
 .k-divider { height: 1px; width: 100%; background: var(--k-border); flex-shrink: 0; }
+.k-divider-grow { width: auto; flex-grow: 1; flex-basis: 0px; flex-shrink: 1; }
 .k-divider-v { width: 1px; height: 100%; align-self: stretch; background: var(--k-border); flex-shrink: 0; }
 .k-icon { flex-shrink: 0; }
 .k-grid { display: grid; min-width: 0; }

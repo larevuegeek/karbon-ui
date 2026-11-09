@@ -1,0 +1,30 @@
+<Stack gap="sm" center full>
+    <Title gradient center>Une offre pour chaque projet</Title>
+    <Tabs items={["Mensuel", "Annuel, 2 mois offerts"]} value={self.billing} onchange={Msg::Billing} />
+</Stack>
+<Grid cols={3} gap="lg">
+    {#each PLANS.iter().enumerate() as plan (plan.0)}
+        <Card padding="xl" gap="md" class:plan-featured={plan.0 == 1}>
+            <Row between full>
+                <Title h3>{plan.1.0}</Title>
+                {#if plan.0 == 1}<Badge primary solid>Populaire</Badge>{/if}
+            </Row>
+            <Text sm muted>{plan.1.1}</Text>
+            <Row gap="xs">
+                <Title>{if self.billing == 1 { plan.1.3 } else { plan.1.2 }} €</Title>
+                <Text sm muted>par mois</Text>
+            </Row>
+            <Divider />
+            {#each plan.1.4.iter() as feature (*feature)}
+                <Row gap="sm"><div class="tick"><Icon name="check" size={13} /></div><Text sm>{*feature}</Text></Row>
+            {/each}
+            {#if self.plan == plan.0}
+                <Button full faded disabled>Votre offre actuelle</Button>
+            {:else if plan.0 == 1}
+                <Button full primary shadow onclick={Msg::Plan(plan.0)}>Choisir cette offre</Button>
+            {:else}
+                <Button full faded onclick={Msg::Plan(plan.0)}>Choisir cette offre</Button>
+            {/if}
+        </Card>
+    {/each}
+</Grid>

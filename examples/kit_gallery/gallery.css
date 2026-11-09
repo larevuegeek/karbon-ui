@@ -1,3 +1,5 @@
+/* Valeurs de repli : les vraies viennent de `kit::variables()`, passées au gabarit. */
+:root { --k-primary: #006fee; --k-subtle: #f4f4f5; --k-muted: #71717a; }
 .cover { display: flex; align-items: center; justify-content: center; width: 112px; height: 112px; flex-shrink: 0;
     border-radius: 14px; color: #ffffff; background: linear-gradient(135deg, #006fee, #7828c8); }
 .tile { display: flex; align-items: center; justify-content: center; height: 150px; border-radius: 14px; color: #ffffff;
@@ -5,3 +7,25 @@
 .tile-a { background: linear-gradient(135deg, #006fee, #17a8ee); }
 .tile-b { background: linear-gradient(135deg, #7828c8, #c026d3); }
 .tile-c { background: linear-gradient(135deg, #f31260, #f5a524); }
+.chart { display: flex; flex-direction: row; align-items: stretch; gap: 8px; height: 200px; }
+.chart-col { display: flex; flex-direction: column; gap: 6px; flex-grow: 1; flex-basis: 0px; min-width: 0; }
+.chart-track { display: flex; flex-direction: column; justify-content: flex-end; flex-grow: 1; }
+.chart-bar { border-radius: 6px; background: color-mix(in srgb, var(--k-primary) 22%, transparent); transition: height 400ms ease; }
+.chart-bar-on { background: var(--k-primary); }
+.chart-label { text-align: center; font-size: 12px; color: var(--k-muted); }
+.product { position: relative; display: flex; align-items: center; justify-content: center; height: 150px; color: #ffffff; }
+.product-fav { position: absolute; top: 10px; right: 10px; }
+.album { display: flex; align-items: center; justify-content: center; height: 280px; border-radius: 14px; color: #ffffff; }
+.thumb { width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0; }
+.mini { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; color: #ffffff; margin-bottom: 6px; }
+.tick { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 999px; flex-shrink: 0;
+    background: color-mix(in srgb, var(--k-primary) 16%, transparent); color: var(--k-primary); }
+.plan-featured { outline: 2px solid var(--k-primary); }
+.logo { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 14px; color: #ffffff;
+    background: linear-gradient(135deg, #006fee, #7828c8); margin-bottom: 6px; }
+.bubble { display: flex; flex-direction: row; padding: 9px 14px; border-radius: 16px; background: var(--k-subtle); width: max-content; max-width: 70%; }
+.bubble-me { background: var(--k-primary); color: #ffffff; }
+.nav-logo { width: 30px; height: 30px; color: var(--k-primary); }
+.logo-box { display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+.logo-img { width: 56px; height: 56px; color: var(--k-primary); }
+.nav-brand { display: flex; flex-direction: row; align-items: center; gap: 10px; }

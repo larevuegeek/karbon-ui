@@ -15,7 +15,7 @@ use crate::ui::{
 };
 use std::sync::Arc;
 
-/// Panel with an optional header and footer. Slots: default, `actions`, `footer`.
+/// Panel with an optional header and footer. Slots: default, `cover`, `actions`, `footer`.
 #[derive(Default)]
 pub struct Card {
     /// Title of the header.
@@ -30,20 +30,26 @@ pub struct Card {
     pub hover: bool,
     /// Liquid glass: blurs what lies behind it.
     pub glass: bool,
+    /// Makes the whole card clickable; do not put buttons inside.
+    pub onclick: OnClick,
 }
 impl<R> Component<R> for Card {
     fn render(self, cx: &TemplateContext<'_, R>, mut slots: Slots) -> Element {
         let header = !self.title.0.is_empty() || has_slot(&slots, "actions");
         let footer = has_slot(&slots, "footer");
+        let cover = has_slot(&slots, "cover");
+        let clickable = self.onclick.is_set();
+        let action = self.onclick.action();
         let gap = self.gap.or(12.);
         let padding = self.padding.or(20.);
         let top = self.padding.or(if header { 14. } else { 20. });
         let bottom = if footer { 14. } else { padding };
         kit_ui!(cx, slots;
-            <section class="k-card" class:k-card-hover={self.hover} class:k-surface-glass={self.glass}>
+            <section class="k-card" class:k-card-hover={self.hover} class:k-surface-glass={self.glass} class:k-card-clip={cover}>
+                {#if cover}<slot name="cover" />{/if}
                 {#if header}
                     <div class="k-card-head">
-                        <div class="k-flex k-grow">
+                        <div class="k-flex k-fill">
                             <h3 class="k-title k-title-4">{self.title.0}</h3>
                             {#if !self.subtitle.0.is_empty()}
                                 <div class="k-muted k-sm">{self.subtitle.0}</div>
@@ -52,10 +58,13 @@ impl<R> Component<R> for Card {
                         <slot name="actions" />
                     </div>
                 {/if}
-                <div class="k-flex" style:padding={padding} style:padding_top={top}
+                <div class="k-flex k-card-body" style:padding={padding} style:padding_top={top}
                     style:padding_bottom={bottom} style:gap={gap}><slot /></div>
                 {#if footer}
                     <div class="k-card-foot"><slot name="footer" /></div>
+                {/if}
+                {#if clickable}
+                    <button class="k-card-hit" aria-label={self.title.0.as_str()} onclick={action}><div></div></button>
                 {/if}
             </section>
         )
@@ -164,6 +173,69 @@ impl<R> Component<R> for Avatar {
                 {/if}
             </div>
         )
+    }
+}
+
+/// Picture and name of a person: `<User name="Ada Lovelace" description="Engineer" />`.
+#[derive(Default)]
+pub struct User {
+    /// Person's name.
+    pub name: Text,
+    /// Text under the name.
+    pub description: Text,
+    /// Picture, in place of the initials.
+    pub src: Option<Arc<Image>>,
+}
+impl<R> Component<R> for User {
+    fn render(self, cx: &TemplateContext<'_, R>, _: Slots) -> Element {
+        kit_ui!(cx;
+            <div class="k-user">
+                <Avatar sm name={self.name.0.as_str()} src={self.src} />
+                <div class="k-flex">
+                    <div class="k-user-name">{self.name.0}</div>
+                    {#if !self.description.0.is_empty()}<div class="k-muted k-sm">{self.description.0}</div>{/if}
+                </div>
+            </div>
+        )
+    }
+}
+
+/// Overlapping pictures: `<AvatarGroup names={["Ada", "Alan", "Grace"]} extra={4} />`.
+#[derive(Default)]
+pub struct AvatarGroup {
+    /// Names of the people shown.
+    pub names: Texts,
+    /// Number of people not shown.
+    pub extra: usize,
+}
+impl<R> Component<R> for AvatarGroup {
+    fn render(self, cx: &TemplateContext<'_, R>, _: Slots) -> Element {
+        let names: Vec<(usize, String)> = self.names.0.into_iter().enumerate().collect();
+        let extra = self.extra;
+        kit_ui!(cx;
+            <div class="k-avatar-group">
+                {#each names as item (item.0)}
+                    <div class="k-avatar-ring" style:margin_left={if item.0 == 0 { 0. } else { -10. }}>
+                        <Avatar sm name={item.1.as_str()} />
+                    </div>
+                {/each}
+                {#if extra > 0}
+                    <div class="k-avatar-ring k-avatar-more" style:margin_left={-10.}>{format!("+{extra}")}</div>
+                {/if}
+            </div>
+        )
+    }
+}
+
+/// Block of code: `<Snippet code="cargo run" />`.
+#[derive(Default)]
+pub struct Snippet {
+    /// The code, on one or several lines.
+    pub code: Text,
+}
+impl<R> Component<R> for Snippet {
+    fn render(self, cx: &TemplateContext<'_, R>, _: Slots) -> Element {
+        kit_ui!(cx; <div class="k-snippet"><pre class="k-snippet-code">{self.code.0}</pre></div>)
     }
 }
 
@@ -294,6 +366,8 @@ pub struct ListItem {
     pub subtitle: Text,
     /// Icon at the start.
     pub icon: &'static str,
+    /// Highlights the line.
+    pub active: bool,
     /// Sent when the line is clicked.
     pub onclick: OnClick,
 }
@@ -302,10 +376,10 @@ impl<R> Component<R> for ListItem {
         let clickable = self.onclick.is_set();
         let action = self.onclick.action();
         kit_ui!(cx, slots;
-            <button class="k-list-item" class:k-list-click={clickable} onclick={action}>
+            <button class="k-list-item" class:k-list-click={clickable} class:k-list-active={self.active} onclick={action}>
                 <slot name="leading" />
                 {#if !self.icon.is_empty()}<div class="k-muted"><Icon name={self.icon} size={18} /></div>{/if}
-                <div class="k-flex k-grow">
+                <div class="k-flex k-fill">
                     <div class="k-bold">{self.title.0}</div>
                     {#if !self.subtitle.0.is_empty()}<div class="k-muted k-sm">{self.subtitle.0}</div>{/if}
                 </div>
@@ -359,7 +433,7 @@ impl<R> Component<R> for Accordion {
         kit_ui!(cx, slots;
             <div class="k-accordion">
                 <button class="k-accordion-head" onclick={action} aria-expanded={self.open}>
-                    <div class="k-bold k-grow">{self.title.0}</div>
+                    <div class="k-bold k-fill">{self.title.0}</div>
                     <Icon name={icon} />
                 </button>
                 {#if self.open}<div class="k-accordion-body"><slot /></div>{/if}

@@ -39,3 +39,7 @@
         <Tooltip text="Copier le lien"><IconButton icon="copy" label="Copier" outline onclick={Msg::Save} /></Tooltip>
     </Row>
 </Card>
+<Stack gap="sm">
+    <Title h4>Code</Title>
+    <Snippet code={CODE_BUTTONS} />
+</Stack>

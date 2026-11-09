@@ -57,7 +57,8 @@ pub use animation::Animate;
 pub use buttons::{Button, IconButton};
 pub use carousel::Carousel;
 pub use display::{
-    Accordion, Avatar, Badge, Card, EmptyState, List, ListItem, Stat, Table, TableCell, TableRow,
+    Accordion, Avatar, AvatarGroup, Badge, Card, EmptyState, List, ListItem, Snippet, Stat, Table,
+    TableCell, TableRow, User,
 };
 pub use effects::{Aurora, Glass};
 pub(crate) use events::ValueAction;
@@ -66,12 +67,12 @@ pub use feedback::{Alert, Progress, Skeleton, Spinner, Toast, Toasts};
 pub use forms::{Checkbox, Field, Input, RadioGroup, Select, Slider, Switch, Textarea};
 pub use icons::{ICON_NAMES, Icon};
 pub use layout::{Container, Divider, Grid, Page, Row, Spacer, Stack};
-pub use navigation::{Breadcrumb, NavItem, Navbar, Sidebar, Steps, Tabs};
+pub use navigation::{Breadcrumb, NavItem, NavLabel, Navbar, Sidebar, Steps, Tabs};
 pub use overlays::{Dialog, Dropdown, MenuItem, Tooltip};
 pub use pagination::Pagination;
 pub use props::{Number, Options, Text as TextValue, Texts};
 pub use space::Space;
-pub use theme::{KitTheme, Palette, set_theme, theme};
+pub use theme::{KitTheme, Palette, set_theme, theme, variables};
 pub(crate) use theme::{engine_theme, revision, take_used};
 pub use tone::{CustomColor, Variant};
 pub use typography::{Code, Kbd, Link, Text, Title};
@@ -95,12 +96,13 @@ fn slot_text(slots: &mut Slots) -> String {
 /// components in place of the widgets of the same name.
 pub mod prelude {
     pub use super::{
-        Accordion, Alert, Animate, Aurora, Avatar, Badge, Breadcrumb, Button, Card, Carousel,
-        Checkbox, Code, Container, CustomColor, Dialog, Divider, Dropdown, EmptyState, Field,
-        Glass, Grid, Icon, IconButton, Input, Kbd, KitTheme, Link, List, ListItem, MenuItem,
-        NavItem, Navbar, Page, Pagination, Palette, Progress, RadioGroup, Row, Select, Sidebar,
-        Skeleton, Slider, Spacer, Spinner, Stack, Stat, Steps, Switch, Table, TableCell, TableRow,
-        Tabs, Text, Textarea, Title, Toast, Toasts, Tooltip, Variant, set_theme,
+        Accordion, Alert, Animate, Aurora, Avatar, AvatarGroup, Badge, Breadcrumb, Button, Card,
+        Carousel, Checkbox, Code, Container, CustomColor, Dialog, Divider, Dropdown, EmptyState,
+        Field, Glass, Grid, Icon, IconButton, Input, Kbd, KitTheme, Link, List, ListItem, MenuItem,
+        NavItem, NavLabel, Navbar, Page, Pagination, Palette, Progress, RadioGroup, Row, Select,
+        Sidebar, Skeleton, Slider, Snippet, Spacer, Spinner, Stack, Stat, Steps, Switch, Table,
+        TableCell, TableRow, Tabs, Text, Textarea, Title, Toast, Toasts, Tooltip, User, Variant,
+        set_theme,
     };
     pub use crate::ui::prelude::*;
 }

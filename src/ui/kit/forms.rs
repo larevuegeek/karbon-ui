@@ -43,7 +43,7 @@ impl<R> Component<R> for Field {
     }
 }
 
-/// One-line text field with its label, hint and error.
+/// One-line text field with its label, hint and error. Slot: `end`, inside on the right.
 #[derive(Default)]
 pub struct Input {
     /// Current value.
@@ -76,7 +76,7 @@ pub struct Input {
     pub readonly: bool,
 }
 impl<R> Component<R> for Input {
-    fn render(self, cx: &TemplateContext<'_, R>, _: Slots) -> Element {
+    fn render(self, cx: &TemplateContext<'_, R>, mut slots: Slots) -> Element {
         let name = if self.label.0.is_empty() {
             self.placeholder.0.as_str()
         } else {
@@ -85,7 +85,7 @@ impl<R> Component<R> for Input {
         let input = self.oninput.emitter();
         let enter = self.onenter.action();
         let failed = !self.error.0.is_empty();
-        kit_ui!(cx;
+        kit_ui!(cx, slots;
             <Field label={self.label.0.as_str()} hint={self.hint.0.as_str()}
                 error={self.error.0.as_str()} required={self.required}>
                 <div class="k-input" class:k-input-outline={self.outline} class:k-input-error={failed}>
@@ -105,6 +105,7 @@ impl<R> Component<R> for Input {
                             placeholder={self.placeholder.0.as_str()} aria-label={name}
                             oninput={input} onchange={enter} disabled={self.disabled} readonly={self.readonly}>
                     {/if}
+                    <slot name="end" />
                 </div>
             </Field>
         )

@@ -55,7 +55,7 @@ impl<R> Component<R> for Dialog {
             <dialog class="k-dialog" class:k-dialog-sm={self.sm} class:k-dialog-lg={self.lg} class:k-surface-glass={self.glass}
                 aria-label={self.title.0.as_str()} onclose={dismiss} backdrop="rgba(0,0,0,0.45)">
                 <div class="k-dialog-head">
-                    <h2 class="k-title k-title-3 k-grow">{self.title.0}</h2>
+                    <h2 class="k-title k-title-3 k-fill">{self.title.0}</h2>
                     <IconButton icon="x" label="Close" sm onclick={close} />
                 </div>
                 <div class="k-flex k-dialog-body" style:gap={gap}><slot /></div>

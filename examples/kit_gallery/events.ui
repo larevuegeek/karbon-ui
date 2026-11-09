@@ -38,3 +38,7 @@
         vec!["onclose, ontoggle".to_string(), "rien".to_string(), "Dialogues, menus, accordéons".to_string()],
     ]} />
 </Stack>
+<Stack gap="sm">
+    <Title h4>Code</Title>
+    <Snippet code={CODE_EVENTS} />
+</Stack>

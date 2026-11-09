@@ -1,0 +1,31 @@
+<Row between full>
+    <Tabs items={CATEGORIES} value={self.category} onchange={Msg::Category} />
+    <Row gap="sm">
+        {#if self.cart > 0}
+            <Button ghost sm onclick={Msg::EmptyCart}>Vider</Button>
+        {/if}
+        <Button faded pill icon="folder">Panier : {self.cart} article(s), {self.cart_total} €</Button>
+    </Row>
+</Row>
+<Grid cols={4} gap="lg">
+    {#each self.visible_products() as item (item.0)}
+        <Animate up delay={item.0 as u32 * 25} replay={self.category as u64}>
+            <Card padding="md" gap="sm" hover>
+                <div slot="cover" class="product" style:background={cover(item.0)}>
+                    <div class="product-fav">
+                        <IconButton icon="heart" label="Favori" sm pill solid danger={self.favorites[item.0]} onclick={Msg::Favorite(item.0)} />
+                    </div>
+                    <Icon name={if item.1.1 == 2 { "music" } else { "star" }} size={34} />
+                </div>
+                <Stack gap="none">
+                    <Text bold>{item.1.0}</Text>
+                    <Row gap="xs"><Text sm muted>Note {item.1.3}</Text></Row>
+                </Stack>
+                <Row between full>
+                    <Text lg bold>{item.1.2} €</Text>
+                    <Button primary soft sm icon="plus" onclick={Msg::AddToCart(item.0)}>Ajouter</Button>
+                </Row>
+            </Card>
+        </Animate>
+    {/each}
+</Grid>

@@ -210,6 +210,12 @@ fn built() -> CssVariables {
         v
     })
 }
+/// CSS variables of the current theme (`--k-primary`, `--k-surface`…), for an application's
+/// own stylesheets: `TemplateContext::default().with_variables(&kit::variables())`. Call it
+/// while building the view: the values follow the light or dark colour scheme.
+pub fn variables() -> CssVariables {
+    built()
+}
 /// Variables à donner à un composant : celles du thème, sous celles de l'application.
 pub(super) fn scope(application: Option<&CssVariables>) -> CssVariables {
     USED.with(|used| used.set(true));
