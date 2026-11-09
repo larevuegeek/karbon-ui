@@ -1,0 +1,50 @@
+<Grid cols={4} gap="md">
+            <Stat label="Morceaux" value="9 440" delta="+12 cette semaine" up icon="music" />
+            <Stat label="Albums" value="602" icon="folder" />
+            <Stat label="Artistes" value="995" delta="-3" down icon="users" />
+            <Stat label="Écoute" value="25 j" icon="clock" />
+        </Grid>
+<Stack gap="lg">
+            <Table columns={["Titre", "Artiste", "Durée"]} striped rows={vec![
+                vec!["So What".to_string(), "Miles Davis".to_string(), "9:22".to_string()],
+                vec!["Blue Train".to_string(), "John Coltrane".to_string(), "10:43".to_string()],
+                vec!["Take Five".to_string(), "Dave Brubeck".to_string(), "5:24".to_string()],
+            ]} />
+            <List>
+                <ListItem title="Ada Lovelace" subtitle="Administratrice">
+                    <Avatar slot="leading" name="Ada Lovelace" />
+                    <Badge slot="trailing" success dot>En ligne</Badge>
+                </ListItem>
+                <ListItem title="Alan Turing" subtitle="Éditeur" onclick={Msg::Save}>
+                    <Avatar slot="leading" name="Alan Turing" />
+                    <Badge slot="trailing">Absent</Badge>
+                </ListItem>
+            </List>
+            <Row wrap>
+                <Badge>Neutre</Badge>
+                <Badge primary>Primaire</Badge>
+                <Badge success solid>Actif</Badge>
+                <Badge warning outline>En attente</Badge>
+                <Badge danger onclose={Msg::Save}>Retirable</Badge>
+                <Avatar sm name="Grace Hopper" />
+                <Avatar name="Linus Torvalds" />
+                <Avatar lg name="Margaret Hamilton" />
+                <Kbd>Ctrl K</Kbd>
+                <Code>cargo run</Code>
+                <Link onclick={Msg::Save}>Lire la suite</Link>
+            </Row>
+        
+</Stack>
+<Stack>
+<Accordion title="Qu'est-ce que le kit ?" open={self.fold == 0} ontoggle={Msg::Fold(0)}>
+                    <Text>Des composants stylés bâtis sur les contrôles natifs du moteur.</Text>
+                </Accordion>
+                <Accordion title="Comment le personnaliser ?" open={self.fold == 1} ontoggle={Msg::Fold(1)}>
+                    <Text>Avec un thème, des attributs ou vos propres classes.</Text>
+                </Accordion>
+                <Card>
+                    <EmptyState icon="search" title="Aucun résultat" text="Essayez un autre terme.">
+                        <Button primary onclick={Msg::Dialog(true)}>Ouvrir un dialogue</Button>
+                    </EmptyState>
+                </Card>
+</Stack>

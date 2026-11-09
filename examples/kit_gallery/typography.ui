@@ -1,0 +1,24 @@
+    <Card title="Titres">
+        <Title display>Affichage</Title>
+        <Title>Titre de niveau 1</Title>
+        <Title h2>Titre de niveau 2</Title>
+        <Title h3>Titre de niveau 3</Title>
+        <Title h4>Titre de niveau 4</Title>
+        <Title gradient>Titre en dégradé</Title>
+    </Card>
+    <Card title="Texte">
+        <Text lg>Texte de grande taille.</Text>
+        <Text>Texte courant, pour les paragraphes et les descriptions.</Text>
+        <Text muted>Texte secondaire.</Text>
+        <Text sm muted>Petit texte.</Text>
+        <Text bold>Texte en gras.</Text>
+        <Text mono>Texte à chasse fixe.</Text>
+        <Row wrap><Kbd>Ctrl K</Kbd><Code>cargo run</Code><Link onclick={Msg::Save}>Lire la suite</Link></Row>
+    </Card>
+    <Card title="Icônes">
+        <Row wrap gap="md">
+            {#each ICON_NAMES.iter() as name (*name)}
+                <Icon name={*name} size={20} />
+            {/each}
+        </Row>
+    </Card>

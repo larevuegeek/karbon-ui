@@ -1,0 +1,40 @@
+<Grid cols={2} gap="lg">
+    <Card title="Essayez" subtitle="Chaque composant accepte ces événements" gap="md">
+        <Button id="demo-events" primary onclick={Msg::Log("onclick", true)}
+            onhover={|on: bool| Msg::Log("onhover", on)}
+            onpress={|on: bool| Msg::Log("onpress", on)}
+            onfocus={|on: bool| Msg::Log("onfocus", on)}
+            ondblclick={Msg::Log("ondblclick", true)}>Survolez, cliquez, double-cliquez</Button>
+        <Input label="Champ" placeholder="Prenez le focus et tapez" value={&self.name} oninput={Msg::Name}
+            onfocus={|on: bool| Msg::Log("Champ : onfocus", on)}
+            onhover={|on: bool| Msg::Log("Champ : onhover", on)} />
+        <Card padding="lg" hover onhover={|on: bool| Msg::Log("Carte : onhover", on)}
+            ondblclick={Msg::Log("Carte : ondblclick", true)}>
+            <Text>Une carte voit aussi ce qui arrive à ses enfants.</Text>
+        </Card>
+    </Card>
+    <Card title="Journal" subtitle="Les derniers événements reçus par update" gap="xs">
+        <Button slot="actions" ghost sm onclick={Msg::Clear}>Effacer</Button>
+        {#if self.log.is_empty()}
+            <EmptyState icon="bell" title="Aucun événement" text="Passez la souris sur le bouton." />
+        {/if}
+        {#each self.log.iter().rev().enumerate() as entry (entry.0)}
+            <Row between full>
+                <Code>{entry.1.0}</Code>
+                <Badge success={entry.1.1}>{if entry.1.1 { "true" } else { "false" }}</Badge>
+            </Row>
+        {/each}
+    </Card>
+</Grid>
+<Stack gap="sm">
+    <Title h3>Référence</Title>
+    <Table compact columns={["Événement", "Reçoit", "Où"]} rows={vec![
+        vec!["onclick".to_string(), "rien".to_string(), "Boutons, liens, lignes".to_string()],
+        vec!["ondblclick".to_string(), "rien".to_string(), "Tout élément et composant".to_string()],
+        vec!["onhover".to_string(), "bool : entrée ou sortie".to_string(), "Tout élément et composant".to_string()],
+        vec!["onpress".to_string(), "bool : début ou fin d'appui".to_string(), "Tout élément et composant".to_string()],
+        vec!["onfocus".to_string(), "bool : prise ou perte du focus".to_string(), "Tout élément et composant".to_string()],
+        vec!["oninput, onchange".to_string(), "la valeur".to_string(), "Champs, listes, cases, curseurs".to_string()],
+        vec!["onclose, ontoggle".to_string(), "rien".to_string(), "Dialogues, menus, accordéons".to_string()],
+    ]} />
+</Stack>

@@ -94,6 +94,7 @@ impl UiRuntime {
             Vec::new()
         };
         let rebuilt = self.rebuild_view(context, now)?;
+        let context = self.themed_context(context);
         let mut motion_tree_changed = rebuilt || self.invalidation.relayout;
         let signature = self
             .interaction

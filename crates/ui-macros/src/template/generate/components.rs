@@ -77,7 +77,15 @@ impl Generator {
         let reserved = |name: &str| {
             matches!(
                 name,
-                "id" | "class" | "slot" | "hidden" | "props" | "tabindex"
+                "id" | "class"
+                    | "slot"
+                    | "hidden"
+                    | "props"
+                    | "tabindex"
+                    | "onhover"
+                    | "onpress"
+                    | "onfocus"
+                    | "ondblclick"
             ) || name.starts_with("data-")
                 || name.starts_with("class:")
                 || name.starts_with("style:")
@@ -130,6 +138,23 @@ impl Generator {
         let kind = Kind::Component;
         self.finish_component(e, kind, &id, &constructor)
     }
+    /// Survol, appui, focus et double clic : posés sur l'élément, ou sur la racine d'un
+    /// composant, qui voit ainsi ce qui arrive à ses descendants.
+    pub(super) fn listeners(&mut self, e: &Element) -> Result<String> {
+        let mut code = String::new();
+        for (attr, method) in [
+            ("onhover", "on_hover"),
+            ("onpress", "on_press"),
+            ("onfocus", "on_focus"),
+            ("ondblclick", "on_double_click"),
+        ] {
+            if let Some(a) = e.attr(attr) {
+                let handler = self.message(a)?;
+                code += &format!("__ui_el=__ui_el.{method}({handler});");
+            }
+        }
+        Ok(code)
+    }
     fn finish_component(
         &mut self,
         e: &Element,
@@ -147,7 +172,7 @@ impl Generator {
         }
         props += &self.style_directives(e)?;
         let _ = kind;
-        let mut post = String::new();
+        let mut post = self.listeners(e)?;
         if let Some(a) = e.attr("data-exit") {
             post += &format!("__ui_el=__ui_el.exit_animation({});", self.exit(a)?);
         }

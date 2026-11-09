@@ -1,0 +1,3 @@
+/* Personnalisation par l'application : classe sur un composant, variable d'un ancêtre. */
+.mine { background: #123456; }
+.promo { --k-primary: #ff0000; }

@@ -1,0 +1,32 @@
+.k-btn { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px;
+    height: 40px; padding: 0 16px; border-radius: var(--k-radius); border: 2px solid transparent;
+    background: var(--k-c); color: var(--k-on); font-size: 14px; font-weight: 500; cursor: pointer;
+    flex-shrink: 0; white-space: nowrap; width: max-content;
+    transition: opacity 150ms ease, background-color 150ms ease, transform 150ms ease; }
+.k-btn:hover { opacity: 0.86; }
+.k-btn:active { transform: scale(0.97); }
+.k-btn:focus-visible { outline: 2px solid var(--k-primary); outline-offset: 2px; }
+.k-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.k-btn-sm { height: 32px; padding: 0 12px; font-size: 12.5px; border-radius: var(--k-radius-sm); gap: 6px; }
+.k-btn-lg { height: 48px; padding: 0 24px; font-size: 16px; border-radius: var(--k-radius-lg); gap: 10px; }
+.k-btn-pill { border-radius: 999px; }
+.k-btn-square { width: 40px; padding: 0; }
+.k-btn-square-sm { width: 32px; padding: 0; }
+.k-btn-square-lg { width: 48px; padding: 0; }
+.k-btn-full { width: 100%; }
+.k-btn-outline { background: transparent; color: var(--k-fg); border-color: var(--k-line); }
+.k-btn-faded { background: var(--k-subtle); color: var(--k-fg); border-color: var(--k-border); }
+.k-btn-soft { background: color-mix(in srgb, var(--k-fg) 16%, transparent); color: var(--k-fg); }
+.k-btn-ghost { background: transparent; color: var(--k-fg); }
+.k-btn-ghost:hover { background: color-mix(in srgb, var(--k-fg) 12%, transparent); opacity: 1; }
+.k-btn-link { background: transparent; color: var(--k-fg); padding: 0 2px; }
+.k-btn-link:hover { opacity: 0.7; }
+.k-shadow-primary { box-shadow: 0px 8px 16px -4px color-mix(in srgb, var(--k-primary) 45%, transparent); }
+.k-shadow-success { box-shadow: 0px 8px 16px -4px color-mix(in srgb, var(--k-success) 45%, transparent); }
+.k-shadow-warning { box-shadow: 0px 8px 16px -4px color-mix(in srgb, var(--k-warning) 45%, transparent); }
+.k-shadow-danger { box-shadow: 0px 8px 16px -4px color-mix(in srgb, var(--k-danger) 45%, transparent); }
+.k-shadow-info { box-shadow: 0px 8px 16px -4px color-mix(in srgb, var(--k-info) 45%, transparent); }
+.k-shadow-neutral { box-shadow: 0px 8px 16px -4px rgba(0, 0, 0, 0.18); }
+.k-spin { animation: k-spin 800ms linear infinite; }
+.k-spin-primary { color: var(--k-primary); }
+@keyframes k-spin { to { transform: rotate(360deg); } }

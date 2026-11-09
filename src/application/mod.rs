@@ -243,6 +243,9 @@ impl<A: Application> DynApplication for A {
         Application::view(self, context)
     }
     fn update(&mut self, message: Message) -> bool {
+        if message.ignored() {
+            return false;
+        }
         // Comportements Bootstrap (`data-bs-toggle`…) : appliqués par le runtime, la vue
         // est reconstruite avec le nouvel état.
         if std::any::TypeId::of::<A::Message>()

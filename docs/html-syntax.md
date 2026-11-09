@@ -141,6 +141,8 @@ d'ici là, les styles viennent de `css_file!` / `styles!`.
 | `oncontextmenu={Msg::X}` | Tout élément | `ContextMenuRequest` |
 | `ondrop={Msg::X}` | Cible de dépôt | `DropEvent` |
 | `onscroll={Msg::X}` | Conteneur `overflow: auto / scroll` | `ScrollMetrics` après chaque déplacement ([scroll.md](scroll.md)) |
+| `onhover={Msg::X}`, `onpress={Msg::X}`, `onfocus={Msg::X}` | Tout élément et composant | `bool` : entrée ou début (`true`), sortie ou fin (`false`), descendants compris |
+| `ondblclick={msg}` | Tout élément et composant | aucune (message cloné) |
 | `onwheel={…}` | Tout élément | `WheelEvent` (`delta_x`, `delta_y`, `x`, `y`) ; le gestionnaire rend `Option<Msg>`, voir ci-dessous |
 
 Un événement non applicable à la balise (`oninput` sur une case à cocher)

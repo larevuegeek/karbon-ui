@@ -1,0 +1,18 @@
+    <Card title="Entrées">
+        <Button slot="actions" primary icon="refresh" onclick={Msg::Replay}>Rejouer</Button>
+        <Grid cols={4} gap="md">
+            <Animate fade replay={self.replay}><Card padding="lg"><Text bold>Fondu</Text></Card></Animate>
+            <Animate up replay={self.replay} delay={80}><Card padding="lg"><Text bold>Montée</Text></Card></Animate>
+            <Animate left replay={self.replay} delay={160}><Card padding="lg"><Text bold>Glissement</Text></Card></Animate>
+            <Animate zoom replay={self.replay} delay={240}><Card padding="lg"><Text bold>Zoom</Text></Card></Animate>
+            <Animate bounce replay={self.replay} delay={320}><Card padding="lg"><Text bold>Rebond</Text></Card></Animate>
+            <Animate shake replay={self.replay} delay={400}><Card padding="lg"><Text bold>Secousse</Text></Card></Animate>
+        </Grid>
+    </Card>
+    <Card title="Boucles">
+        <Row gap="xl" main_center>
+            <Animate pulse><Avatar lg name="Pulse" /></Animate>
+            <Animate float><Avatar lg name="Float" /></Animate>
+            <Animate spin><Icon name="settings" size={36} /></Animate>
+        </Row>
+    </Card>

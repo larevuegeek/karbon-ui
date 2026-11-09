@@ -1,0 +1,53 @@
+<Page fixed>
+    <Aurora full flat>
+    <Navbar brand="Karbon UI">
+        <Row slot="actions" gap="sm">
+            <Select style="width: 110px" value={self.accent} options={["Bleu", "Violet", "Rose", "Vert"]} onchange={Msg::Accent} />
+            <IconButton icon={if self.dark { "sun" } else { "moon" }} label="Changer de thème" pill onclick={Msg::Dark(!self.dark)} />
+        </Row>
+    </Navbar>
+    <Row grow stretch gap="none" style="min-height: 0">
+        <Sidebar>
+            {#each SECTIONS.iter().enumerate() as item (item.0)}
+                <NavItem icon={item.1.1} active={self.section == item.0} onclick={Msg::Section(item.0)}>{item.1.0}</NavItem>
+            {/each}
+        </Sidebar>
+        <Stack grow style="overflow-y: auto; scrollbar-width: thin">
+            <Container padding="xl" gap="lg" max={1060.}>
+                {#if self.section != 0}
+                    <Stack gap="xs">
+                        <Title>{SECTIONS[self.section].0}</Title>
+                        <Text muted>{SECTIONS[self.section].2}</Text>
+                    </Stack>
+                {/if}
+                {#if self.section == 0}{@include "landing.ui"}
+                {:else if self.section == 1}{@include "typography.ui"}
+                {:else if self.section == 2}{@include "buttons.ui"}
+                {:else if self.section == 3}{@include "forms.ui"}
+                {:else if self.section == 4}{@include "data.ui"}
+                {:else if self.section == 5}{@include "feedback.ui"}
+                {:else if self.section == 6}{@include "navigation.ui"}
+                {:else if self.section == 7}{@include "pagination.ui"}
+                {:else if self.section == 8}{@include "carousel.ui"}
+                {:else if self.section == 9}{@include "animation.ui"}
+                {:else if self.section == 10}{@include "events.ui"}
+                {:else}{@include "overlays.ui"}
+                {/if}
+            </Container>
+        </Stack>
+    </Row>
+    </Aurora>
+    {#if self.dialog}
+        <Dialog title="Supprimer ce morceau ?" onclose={Msg::Dialog(false)}>
+            <Text muted>Cette action est irréversible.</Text>
+            <Input label="Tapez SUPPRIMER pour confirmer" />
+            <Button slot="footer" ghost onclick={Msg::Dialog(false)}>Annuler</Button>
+            <Button slot="footer" danger shadow onclick={Msg::Dialog(false)}>Supprimer</Button>
+        </Dialog>
+    {/if}
+    {#if self.toast}
+        <Toasts>
+            <Toast success title="Enregistré" onclose={Msg::Toast}>Vos modifications sont prises en compte.</Toast>
+        </Toasts>
+    {/if}
+</Page>

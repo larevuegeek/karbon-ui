@@ -27,6 +27,7 @@ impl Element {
             context_menu: None,
             on_scroll: None,
             on_wheel: None,
+            listeners: None,
             memo: None,
             layout_cache: None,
             layout_bits: 0,

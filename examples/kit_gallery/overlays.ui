@@ -1,0 +1,18 @@
+<Grid cols={2} gap="lg">
+    <Card title="Dialogue">
+        <Button primary onclick={Msg::Dialog(true)}>Ouvrir un dialogue</Button>
+    </Card>
+    <Card title="Menu">
+        <Dropdown label="Options" open={self.menu} ontoggle={Msg::Menu}>
+            <MenuItem icon="edit" onclick={Msg::Menu}>Renommer</MenuItem>
+            <MenuItem icon="copy" onclick={Msg::Menu}>Dupliquer</MenuItem>
+            <MenuItem icon="trash" danger onclick={Msg::Menu}>Supprimer</MenuItem>
+        </Dropdown>
+    </Card>
+    <Card title="Infobulle">
+        <Tooltip text="Copier le lien"><IconButton icon="copy" label="Copier" outline onclick={Msg::Save} /></Tooltip>
+    </Card>
+    <Card>
+        <EmptyState icon="search" title="Aucun résultat" text="Essayez un autre terme." />
+    </Card>
+</Grid>

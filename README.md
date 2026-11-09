@@ -79,6 +79,27 @@ receive a message cloned on every activation; value-carrying widgets receive a f
 a tuple variant is enough (`Msg::NameChanged`). Fallible APIs return `karbon_ui::Result<T>`
 with a typed `karbon_ui::Error` that converts to and from `std::io::Error`.
 
+## Ready-made components
+
+`ui::kit` provides styled components written like HTML, grouped by type: layout,
+typography, buttons, forms, data, feedback, navigation, pagination, carousel, animation
+and overlays. They follow the light or dark colour
+scheme and are customised with a theme, attributes or your own classes.
+
+```rust,ignore
+use karbon_ui::ui::kit::prelude::*;
+
+ui! {
+    <Stack gap="lg" padding="xl">
+        <Input label="Name" value={&self.name} oninput={Msg::Name} />
+        <Button primary icon="plus" onclick={Msg::Add}>Add</Button>
+    </Stack>
+}
+```
+
+`cargo run --release --example kit_gallery` shows them all; see
+[docs/kit.md](docs/kit.md) (in French).
+
 ## How it works
 
 1. `Application::view()` builds a tree of `Element`s (Rust constructors or templates).

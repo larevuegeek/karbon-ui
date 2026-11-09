@@ -227,7 +227,16 @@ pub fn events(kind: Kind, input: Option<&str>) -> Vec<&'static str> {
         (Kind::Container(Some("Group")), _) => vec!["onclick", "onsubmit"],
         _ => vec!["onclick"],
     };
-    list.extend(["oncontextmenu", "ondrop", "onscroll", "onwheel"]);
+    list.extend([
+        "oncontextmenu",
+        "ondrop",
+        "onscroll",
+        "onwheel",
+        "onhover",
+        "onpress",
+        "onfocus",
+        "ondblclick",
+    ]);
     list
 }
 pub const EVENTS: &[&str] = &[
@@ -241,6 +250,10 @@ pub const EVENTS: &[&str] = &[
     "onwheel",
     "onsubmit",
     "onkeydown",
+    "onhover",
+    "onpress",
+    "onfocus",
+    "ondblclick",
 ];
 /// Attributs communs acceptés sur tout élément bloc.
 pub const COMMON: &[&str] = &[

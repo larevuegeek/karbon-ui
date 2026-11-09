@@ -51,6 +51,8 @@ pub struct Element {
     pub(crate) on_scroll: Option<Box<Handler<crate::ui::scroll::ScrollMetrics>>>,
     /// `onwheel` : gestionnaire de la molette ([`Element::on_wheel`]).
     pub(crate) on_wheel: Option<Box<crate::ui::runtime::WheelHandler>>,
+    /// Survol, appui, focus et double clic ([`Element::on_hover`]…).
+    pub(crate) listeners: Option<Box<Listeners>>,
     /// Sous-arbre mémorisé ([`Element::memo`]).
     pub(crate) memo: Option<Box<memo::MemoState>>,
     /// Mesures et placement de l'image précédente (layout incrémental).
@@ -77,7 +79,52 @@ pub struct Element {
     /// `data-resize-region` : poignée qui redimensionne la fenêtre par ce bord ou ce coin.
     pub(crate) resize_region: Option<crate::window::ResizeEdge>,
 }
+/// Gestionnaires des événements d'élément (`runtime/listeners.rs`).
+#[derive(Default)]
+pub(crate) struct Listeners {
+    pub hover: Option<Handler<bool>>,
+    pub press: Option<Handler<bool>>,
+    pub focus: Option<Handler<bool>>,
+    pub double_click: Option<Action>,
+}
+thread_local! {
+    /// Un gestionnaire a été posé depuis la dernière lecture.
+    static LISTENERS_BUILT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+/// `true` si un gestionnaire a été posé depuis le dernier appel : une application qui n'en
+/// pose aucun ne paie aucun parcours de l'arbre.
+pub(crate) fn take_listeners_built() -> bool {
+    LISTENERS_BUILT.with(|built| built.replace(false))
+}
 impl Element {
+    fn listeners_mut(&mut self) -> &mut Listeners {
+        LISTENERS_BUILT.with(|built| built.set(true));
+        self.listeners.get_or_insert_with(Default::default)
+    }
+    /// Reports the pointer entering (`true`) and leaving (`false`) this element or its
+    /// descendants.
+    pub fn on_hover<M: 'static>(mut self, handler: impl Fn(bool) -> M + 'static) -> Self {
+        self.listeners_mut().hover = Some(Handler::new(handler));
+        self
+    }
+    /// Reports the press starting (`true`) and ending (`false`) on this element or its
+    /// descendants.
+    pub fn on_press<M: 'static>(mut self, handler: impl Fn(bool) -> M + 'static) -> Self {
+        self.listeners_mut().press = Some(Handler::new(handler));
+        self
+    }
+    /// Reports the focus entering (`true`) and leaving (`false`) this element or its
+    /// descendants.
+    pub fn on_focus<M: 'static>(mut self, handler: impl Fn(bool) -> M + 'static) -> Self {
+        self.listeners_mut().focus = Some(Handler::new(handler));
+        self
+    }
+    /// Sends `message` when this element or a descendant is double-clicked.
+    pub fn on_double_click<M: Clone + 'static>(mut self, message: M) -> Self {
+        self.listeners_mut().double_click = Some(Action::new(message));
+        self
+    }
+
     /// Rectangle assigned by the last layout pass, in window coordinates.
     pub fn bounds(&self) -> RectF {
         self.rect

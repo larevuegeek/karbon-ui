@@ -1,0 +1,18 @@
+<Grid cols={2} gap="lg">
+    <Card title="Connexion" subtitle="Champs remplis, sans bordure" gap="md">
+        <Input label="Nom" required placeholder="Ada Lovelace" icon="user" value={&self.name} oninput={Msg::Name} hint="Tel qu'affiché sur votre profil." />
+        <Input label="Courriel" value="ada@" icon="mail" error="Adresse incomplète." />
+        <Input password label="Mot de passe" value="secret" icon="lock" />
+        <Input outline label="Avec contour" placeholder="Variante à bordure" />
+        <Textarea label="Biographie" placeholder="Quelques mots…" value={&self.bio} oninput={Msg::Bio} />
+        <Button slot="footer" ghost>Annuler</Button>
+        <Button slot="footer" primary shadow onclick={Msg::Save}>Enregistrer</Button>
+    </Card>
+    <Card title="Choix" gap="md">
+        <Select label="Genre" value={self.genre} options={["Jazz", "Rock", "Classique"]} onchange={Msg::Genre} />
+        <Checkbox label="J'accepte les conditions" checked={self.terms} onchange={Msg::Terms} />
+        <Switch label="Notifications" checked={self.notify} onchange={Msg::Notify} />
+        <RadioGroup label="Qualité" row value={self.quality} options={["Basse", "Moyenne", "Haute"]} onchange={Msg::Quality} />
+        <Slider label="Volume" value={self.volume} oninput={Msg::Volume} />
+    </Card>
+</Grid>

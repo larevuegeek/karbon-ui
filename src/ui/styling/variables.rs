@@ -102,6 +102,10 @@ impl CssVariables {
     pub(crate) fn set_static(&mut self, name: &'static str, value: VariableValue) {
         Arc::make_mut(&mut self.values).insert(Cow::Borrowed(name), value);
     }
+    /// Pose une propriété déjà nommée (fusion de deux tables).
+    pub(crate) fn set_named(&mut self, name: Cow<'static, str>, value: VariableValue) {
+        Arc::make_mut(&mut self.values).insert(name, value);
+    }
     /// Portée enfant vide au-dessus de `parent` ; la chaîne est aplatie au-delà de
     /// 16 niveaux pour borner le coût des lectures.
     pub(crate) fn child(parent: Option<&Self>) -> Self {

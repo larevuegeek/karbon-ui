@@ -129,6 +129,20 @@ impl UiRuntime {
         Ok(true)
     }
 
+    /// Contexte de la suite de l'image : une vue bâtie avec le kit donne ses couleurs au
+    /// thème du moteur.
+    pub(super) fn themed_context(&mut self, context: ViewContext) -> ViewContext {
+        self.invalidation.kit_used |= crate::ui::kit::take_used();
+        if self.invalidation.kit_used {
+            ViewContext {
+                theme: crate::ui::kit::engine_theme(self.invalidation.colors.0),
+                ..context
+            }
+        } else {
+            context
+        }
+    }
+
     /// Relit les préférences de couleurs de l'application ; un changement refait tout.
     pub(super) fn sync_colors(&mut self) {
         use crate::application::ColorScheme;
@@ -139,8 +153,10 @@ impl UiRuntime {
             ColorScheme::Dark => true,
         };
         let colors = (dark, preferences.high_contrast);
-        if self.invalidation.colors != colors {
+        let kit = crate::ui::kit::revision();
+        if self.invalidation.colors != colors || self.invalidation.kit_revision != kit {
             self.invalidation.colors = colors;
+            self.invalidation.kit_revision = kit;
             self.invalidation.forget_memos = true;
             self.invalidate();
         }

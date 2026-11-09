@@ -1,0 +1,41 @@
+<Card title="Couleurs" gap="md">
+    <Row wrap>
+        <Button onclick={Msg::Save}>Défaut</Button>
+        <Button primary onclick={Msg::Save}>Primaire</Button>
+        <Button success onclick={Msg::Save}>Succès</Button>
+        <Button warning onclick={Msg::Save}>Attention</Button>
+        <Button danger onclick={Msg::Save}>Danger</Button>
+    </Row>
+</Card>
+<Card title="Apparences" gap="md">
+    <Row wrap>
+        <Button primary onclick={Msg::Save}>Plein</Button>
+        <Button primary soft onclick={Msg::Save}>Teinté</Button>
+        <Button primary outline onclick={Msg::Save}>Contour</Button>
+        <Button primary faded onclick={Msg::Save}>Atténué</Button>
+        <Button primary ghost onclick={Msg::Save}>Discret</Button>
+        <Button primary shadow onclick={Msg::Save}>Ombré</Button>
+        <Button primary link onclick={Msg::Save}>Lien</Button>
+    </Row>
+    <Row wrap>
+        <Button danger soft icon="trash" onclick={Msg::Save}>Supprimer</Button>
+        <Button success shadow icon="check" onclick={Msg::Save}>Valider</Button>
+        <Button faded icon="download" onclick={Msg::Save}>Télécharger</Button>
+    </Row>
+</Card>
+<Card title="Tailles et formes" gap="md">
+    <Row wrap>
+        <Button primary sm onclick={Msg::Save}>Petit</Button>
+        <Button primary onclick={Msg::Save}>Moyen</Button>
+        <Button primary lg onclick={Msg::Save}>Grand</Button>
+        <Button primary pill onclick={Msg::Save}>Arrondi</Button>
+        <Button primary loading>Chargement</Button>
+        <Button primary disabled>Inactif</Button>
+    </Row>
+    <Row wrap>
+        <IconButton icon="settings" label="Réglages" onclick={Msg::Save} />
+        <IconButton icon="heart" label="Aimer" danger soft pill onclick={Msg::Save} />
+        <IconButton icon="plus" label="Ajouter" primary solid pill onclick={Msg::Save} />
+        <Tooltip text="Copier le lien"><IconButton icon="copy" label="Copier" outline onclick={Msg::Save} /></Tooltip>
+    </Row>
+</Card>

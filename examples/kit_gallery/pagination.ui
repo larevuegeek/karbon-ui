@@ -1,0 +1,4 @@
+<Card title="Pagination">
+    <Text muted>Page {self.page} sur 12</Text>
+    <Pagination page={self.page} pages={12usize} onchange={Msg::Page} />
+</Card>

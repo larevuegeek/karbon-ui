@@ -179,6 +179,12 @@ non redimensionnable.
 4. Activer par défaut (retirer `platform/shared/pacing.rs`) si la médiane des à-coups
    baisse sans que le pire écart augmente ; sinon, laisser désactivé et noter la mesure.
 
+## Kit de composants (2026-11-09)
+
+`src/ui/kit/`, galerie `examples/kit_gallery`, guide [kit.md](kit.md). Vérifié par les tests
+`tests/kit/` et des exports clair et sombre sous Windows. Reste : `Drawer` (placement
+latéral des dialogues), rendu à regarder sur macOS et Linux.
+
 ## Publication (décidée le 2026-11-06)
 
 karbon-ui devient un **dépôt public séparé**, `github.com/larevuegeek/karbon-ui`,

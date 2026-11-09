@@ -1,0 +1,14 @@
+<Card title="Une diapositive à la fois">
+    <Carousel value={self.slide} onchange={Msg::Slide} loop_around>
+        <div class="tile tile-a">Première</div>
+        <div class="tile tile-b">Deuxième</div>
+        <div class="tile tile-c">Troisième</div>
+    </Carousel>
+</Card>
+<Card title="Plusieurs diapositives">
+    <Carousel value={self.slide} onchange={Msg::Slide} per_view={3}>
+        {#each ["Jazz", "Rock", "Classique", "Soul", "Électro", "Folk"].iter() as name (*name)}
+            <div class="tile tile-a">{*name}</div>
+        {/each}
+    </Carousel>
+</Card>

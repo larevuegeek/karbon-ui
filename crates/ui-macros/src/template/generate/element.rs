@@ -262,6 +262,7 @@ impl Generator {
             let handler = self.message(a)?;
             post += &format!("__ui_el=__ui_el.on_wheel({handler});");
         }
+        post += &self.listeners(e)?;
         if let Some(a) = e.attr("data-exit") {
             post += &format!("__ui_el=__ui_el.exit_animation({});", self.exit(a)?);
         }

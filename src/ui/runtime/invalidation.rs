@@ -66,6 +66,14 @@ pub(super) struct Invalidation {
     pub(super) system_dark: bool,
     /// Préférences de couleurs résolues : (sombre, contraste élevé).
     pub(super) colors: (bool, bool),
+    /// Une vue a posé des gestionnaires de survol, d'appui, de focus ou de double clic.
+    pub(super) has_listeners: bool,
+    /// Ce dont ces gestionnaires ont été prévenus.
+    pub(super) listeners: super::listeners::ListenerState,
+    /// La vue est bâtie avec les composants du kit.
+    pub(super) kit_used: bool,
+    /// Révision du thème du kit lue à la dernière vue.
+    pub(super) kit_revision: u64,
     /// Préférences changées : la prochaine vue ne reprend aucun sous-arbre mémorisé.
     pub(super) forget_memos: bool,
     /// Jusqu'à cet instant, une reconstruction demandée attend l'image suivante (voir
@@ -101,6 +109,10 @@ impl Default for Invalidation {
             probe: super::scroll_probe::ScrollProbe::from_env(),
             system_dark: false,
             colors: (false, false),
+            has_listeners: false,
+            listeners: Default::default(),
+            kit_used: false,
+            kit_revision: 0,
             forget_memos: false,
             rebuild_hold: None,
             frame_work_done: false,

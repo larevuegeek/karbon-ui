@@ -15,10 +15,30 @@ pub(crate) struct Message {
 }
 impl Message {
     pub(crate) fn new<M: 'static>(value: M) -> Self {
+        // Message déjà construit (composants du kit) : transmis tel quel.
+        let mut value = Some(value);
+        let any: &mut dyn Any = &mut value;
+        if let Some(slot) = any.downcast_mut::<Option<Message>>() {
+            return slot.take().expect("message present");
+        }
+        if let Some(slot) = any.downcast_mut::<Option<Action>>() {
+            return slot.take().expect("action present").emit();
+        }
+        if let Some(slot) = any.downcast_mut::<Option<crate::ui::kit::ValueAction>>() {
+            return (slot.take().expect("action present").0)();
+        }
         Self {
-            value: Box::new(value),
+            value: Box::new(value.expect("value present")),
             type_name: type_name::<M>(),
         }
+    }
+    /// Message sans effet : contrôle du kit sans gestionnaire.
+    pub(crate) fn none() -> Self {
+        Self::new(Ignored)
+    }
+    /// Message sans effet, à ne pas livrer à l'application.
+    pub(crate) fn ignored(&self) -> bool {
+        self.value.is::<Ignored>()
     }
     /// Retrouver le message concret ; l'erreur conserve le nom du type réellement émis.
     /// Le message est-il de type `M` ?
@@ -38,6 +58,10 @@ impl fmt::Debug for Message {
         write!(f, "Message<{}>", self.type_name)
     }
 }
+
+/// Contenu du message sans effet.
+#[derive(Clone)]
+struct Ignored;
 
 /// Fonction applicative qui transforme une valeur de widget en message.
 pub(crate) struct Handler<T>(Rc<dyn Fn(T) -> Message>);
@@ -88,6 +112,10 @@ impl Action {
         Self(Kind::Message(Rc::new(move || {
             Message::new(message.clone())
         })))
+    }
+    /// Action sans effet : contrôle du kit sans gestionnaire.
+    pub(crate) fn none() -> Self {
+        Self::new(Ignored)
     }
     pub(crate) fn toggle(handler: &Handler<bool>, value: bool) -> Self {
         Self(Kind::Toggle(handler.clone(), value))

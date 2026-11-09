@@ -1,0 +1,16 @@
+<Stack>
+            <Alert info title="Information">Une nouvelle version est disponible.</Alert>
+            <Alert success title="Terminé">Vos réglages sont enregistrés.</Alert>
+            <Alert warning title="Attention">Le disque est presque plein.</Alert>
+            <Alert danger title="Erreur" onclose={Msg::Save}>La connexion a échoué.</Alert>
+        </Stack>
+<Card title="Chargement">
+                <Progress value={self.volume} />
+                <Progress value={72} success />
+                <Progress value={30} danger />
+                <Row><Spinner /><Spinner lg /></Row>
+                <Row>
+                    <Skeleton circle width={36.} height={36.} />
+                    <Stack gap="xs" grow><Skeleton /><Skeleton width={120.} /></Stack>
+                </Row>
+            </Card>

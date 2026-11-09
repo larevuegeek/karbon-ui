@@ -1,0 +1,11 @@
+/* Feuille du kit. Les valeurs de `:root` ne servent qu'à la compilation : les vraies
+   couleurs viennent de `theme.rs`, selon le thème clair ou sombre. */
+@import "base.css";
+@import "button.css";
+@import "typography.css";
+@import "forms.css";
+@import "display.css";
+@import "feedback.css";
+@import "navigation.css";
+@import "overlays.css";
+@import "effects.css";

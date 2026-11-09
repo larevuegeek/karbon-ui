@@ -14,6 +14,7 @@ pub mod animation;
 pub mod bootstrap;
 pub mod components;
 pub mod core;
+pub mod kit;
 pub mod layout;
 pub mod overlays;
 pub mod prelude;

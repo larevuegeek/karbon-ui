@@ -16,7 +16,12 @@ impl UiRuntime {
         if matches!(event, UiEvent::PointerUp(_) | UiEvent::FocusChanged(false)) {
             self.interaction.replay = None;
         }
+        let down = matches!(
+            event,
+            UiEvent::PointerDown(_) | UiEvent::PointerDownExtended(_)
+        );
         let mut result = self.dispatch(event);
+        result.repaint |= self.notify_listeners(down);
         if ends && std::mem::take(&mut self.interaction.replay_release) {
             result.release = true;
         }

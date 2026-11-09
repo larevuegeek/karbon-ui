@@ -1,0 +1,7 @@
+.cover { display: flex; align-items: center; justify-content: center; width: 112px; height: 112px; flex-shrink: 0;
+    border-radius: 14px; color: #ffffff; background: linear-gradient(135deg, #006fee, #7828c8); }
+.tile { display: flex; align-items: center; justify-content: center; height: 150px; border-radius: 14px; color: #ffffff;
+    font-size: 22px; font-weight: 650; }
+.tile-a { background: linear-gradient(135deg, #006fee, #17a8ee); }
+.tile-b { background: linear-gradient(135deg, #7828c8, #c026d3); }
+.tile-c { background: linear-gradient(135deg, #f31260, #f5a524); }

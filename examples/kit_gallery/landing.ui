@@ -1,0 +1,65 @@
+<Grid cols={2} gap="2xl" style="padding: 40px 8px 24px">
+    <Stack gap="lg" main_center>
+        <Badge primary dot>Natif, sans navigateur</Badge>
+        <Stack gap="none">
+            <Title display>Des interfaces</Title>
+            <Title display gradient>magnifiques,</Title>
+            <Title display>sans effort.</Title>
+        </Stack>
+        <Text lg muted>Des composants soignés, un thème clair et sombre, et une syntaxe que vous lisez comme du HTML.</Text>
+        <Row gap="md">
+            <Button primary shadow pill lg icon_right="arrow-right" onclick={Msg::Section(3)}>Commencer</Button>
+            <Button faded pill lg onclick={Msg::Section(10)}>Voir les événements</Button>
+        </Row>
+    </Stack>
+    <Stack gap="lg">
+        <Card padding="lg" gap="md">
+            <Row gap="md">
+                <Avatar name="Ada Lovelace" />
+                <Stack gap="none" grow>
+                    <Text bold>Ada Lovelace</Text>
+                    <Text sm muted>@ada</Text>
+                </Stack>
+                <Button primary sm pill onclick={Msg::Follow}>{if self.follow { "Suivi" } else { "Suivre" }}</Button>
+            </Row>
+            <Text muted>Première programmeuse, mélomane à ses heures.</Text>
+            <Row gap="lg">
+                <Text sm><b>4</b> abonnements</Text>
+                <Text sm><b>97,1 k</b> abonnés</Text>
+            </Row>
+        </Card>
+        <Card padding="lg" gap="md">
+            <Row gap="lg">
+                <div class="cover"><Icon name="music" size={30} /></div>
+                <Stack gap="xs" grow>
+                    <Row between full>
+                        <Stack gap="none">
+                            <Text bold>Blue Train</Text>
+                            <Text sm muted>John Coltrane</Text>
+                        </Stack>
+                        <IconButton icon="heart" label="Aimer" sm pill />
+                    </Row>
+                    <Progress value={42} />
+                    <Row between full>
+                        <Text sm muted>4:32</Text>
+                        <Text sm muted>10:43</Text>
+                    </Row>
+                    <Row main_center gap="sm" full>
+                        <IconButton icon="chevron-left" label="Précédent" pill />
+                        <IconButton icon="play" label="Lecture" lg pill solid primary />
+                        <IconButton icon="chevron-right" label="Suivant" pill />
+                    </Row>
+                </Stack>
+            </Row>
+        </Card>
+        <Row gap="md" wrap>
+            <Tabs items={["Photos", "Musique", "Vidéos"]} value={self.tab} onchange={Msg::Tab} />
+            <Switch label="Notifications" checked={self.notify} onchange={Msg::Notify} />
+        </Row>
+    </Stack>
+</Grid>
+<Grid cols={3} gap="lg">
+    <Stat label="Composants" value="55" delta="Prêts à l'emploi" up icon="star" />
+    <Stat label="Lignes de CSS à écrire" value="0" delta="Tout est déjà stylé" up icon="edit" />
+    <Stat label="Thèmes" value="2" delta="Clair et sombre" up icon="sun" />
+</Grid>

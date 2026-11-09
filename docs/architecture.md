@@ -33,6 +33,7 @@ src/
 │   ├── overlays/           Modales, popovers et menus, tooltips, couches
 │   ├── runtime/            UiRuntime : événements, focus, accessibilité, glisser-déposer, painting/ (dont cull.rs : sous-arbres hors de leur découpe), text_cache/
 │   ├── rendering/          Scene (scene/), pinceaux, filtres, ombres, SVG, transformations
+│   ├── kit/                Composants stylés prêts à l'emploi, thème et feuille du kit (voir kit.md)
 │   ├── bootstrap.rs        Actions des composants Bootstrap (code généré par ui-macros)
 │   └── tests/              Tests de contrat du moteur, par thème (voir tests.md)
 └── platform/

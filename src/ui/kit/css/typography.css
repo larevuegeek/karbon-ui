@@ -1,0 +1,23 @@
+.k-title { margin: 0; color: var(--k-text); }
+.k-title-display { font-size: 52px; line-height: 60px; font-weight: 700; letter-spacing: -1.4px; }
+.k-title-1 { font-size: 34px; line-height: 42px; font-weight: 700; letter-spacing: -0.6px; }
+.k-title-2 { font-size: 24px; line-height: 32px; font-weight: 650; letter-spacing: -0.3px; }
+.k-title-3 { font-size: 18px; line-height: 26px; font-weight: 600; }
+.k-title-4 { font-size: 15px; line-height: 22px; font-weight: 600; }
+.k-text { display: flex; flex-direction: column; min-width: 0; color: var(--k-text); font-size: 14px; line-height: 22px; }
+.k-muted { color: var(--k-muted); }
+.k-sm { font-size: 12.5px; line-height: 18px; }
+.k-lg { font-size: 18px; line-height: 28px; }
+.k-bold { font-weight: 600; }
+.k-text-center { text-align: center; }
+.k-row > .k-text { width: max-content; flex-direction: row; }
+.k-mono { font-family: "Cascadia Mono", "SF Mono", "DejaVu Sans Mono", monospace; }
+.k-code { font-family: "Cascadia Mono", "SF Mono", "DejaVu Sans Mono", monospace; font-size: 12.5px;
+    background: var(--k-subtle); border-radius: var(--k-radius-sm); padding: 3px 8px; color: var(--k-text); width: max-content; }
+.k-kbd { font-family: "Cascadia Mono", "SF Mono", "DejaVu Sans Mono", monospace; font-size: 12px;
+    background: var(--k-surface); border-radius: var(--k-radius-sm); padding: 2px 8px; color: var(--k-muted); width: max-content;
+    box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.12), 0px 0px 1px rgba(0, 0, 0, 0.3); }
+.k-link { background: transparent; border: none; padding: 0; color: var(--k-primary); cursor: pointer; font-size: 14px; width: max-content;
+    transition: opacity 150ms ease; }
+.k-link:hover { opacity: 0.7; }
+.k-link:focus-visible { outline: 2px solid var(--k-primary); outline-offset: 2px; }
