@@ -11,6 +11,7 @@ impl UiRuntime {
             self.invalidation.graveyard_wake,
             self.frame_work_wake(),
             self.held_rebuild_wake(),
+            self.probe_wake(),
         ]
         .into_iter()
         .flatten()

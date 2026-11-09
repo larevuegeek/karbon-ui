@@ -271,6 +271,7 @@ impl Window {
         // SAFETY : rappel terminé, sans requête destructrice dans le protocole.
         unsafe { crate::platform::linux::ffi::wayland::wl_proxy_destroy(callback) };
         self.frame = std::ptr::null_mut();
+        self.session.frame_wait_over(std::time::Instant::now());
         true
     }
     pub fn set_maximized(&self, maximized: bool) {

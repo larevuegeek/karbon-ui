@@ -207,6 +207,19 @@ impl Session {
         let pixels = |v: f32| ((v * scale).round() as usize).clamp(1, 16384);
         (context, pixels(width), pixels(height), scale)
     }
+    /// Apparence sombre de la fenêtre (réglage du système, sauf apparence imposée).
+    fn system_dark(&self) -> bool {
+        use objc2_app_kit::{
+            NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
+        };
+        // SAFETY : constantes d'AppKit, valides pendant toute la vie du processus.
+        let (light, dark) = unsafe { (NSAppearanceNameAqua, NSAppearanceNameDarkAqua) };
+        let names = objc2_foundation::NSArray::from_slice(&[light, dark]);
+        self.window
+            .effectiveAppearance()
+            .bestMatchFromAppearancesWithNames(&names)
+            .is_some_and(|best| &*best == dark)
+    }
     pub fn prepare(&mut self) -> crate::Result<()> {
         let (context, ..) = self.context();
         // Option de l'application ou réglage « Réduire les animations » du système.
@@ -214,6 +227,7 @@ impl Session {
             || objc2_app_kit::NSWorkspace::sharedWorkspace()
                 .accessibilityDisplayShouldReduceMotion();
         self.runtime.set_reduced_motion(reduce);
+        self.runtime.set_system_dark(self.system_dark());
         // macOS arrondit lui-même les coins de la fenêtre : fond carré, sans barre du moteur.
         let chrome = ChromeState {
             visible: false,
@@ -306,6 +320,26 @@ impl Session {
             .flatten()
             .min()
     }
+    /// Une image vient d'être présentée : avant l'attente de l'écran, une tranche du
+    /// travail étalé et la reconstruction demandée (voir `platform/backend.rs`).
+    pub fn frame_presented(&mut self) -> crate::Result<()> {
+        let now = Instant::now();
+        self.runtime.frame_presented(now);
+        if crate::platform::shared::pacing::enabled() {
+            self.runtime.begin_frame_work(now);
+            if self.runtime.rebuild_pending() {
+                self.prepare()?;
+                self.dirty = true;
+            }
+        }
+        Ok(())
+    }
+    /// L'attente de l'écran est finie : ce qui est demandé maintenant attend l'image suivante.
+    pub fn frame_wait_over(&mut self, now: Instant) {
+        if crate::platform::shared::pacing::enabled() {
+            self.runtime.hold_rebuild(now);
+        }
+    }
     /// Échéances atteintes : réveil du runtime (animations, infobulles) et redessin
     /// exact après une animation.
     pub fn tick(&mut self, now: Instant) -> crate::Result<()> {
@@ -323,6 +357,7 @@ impl Session {
             }
         }
         if self.runtime.next_wake().is_some_and(|wake| wake <= now) {
+            self.frame_wait_over(now);
             self.input(UiEvent::Timer(now))?;
         }
         Ok(())

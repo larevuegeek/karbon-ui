@@ -24,7 +24,6 @@ const FRAME_WORK_INTERVAL: std::time::Duration = std::time::Duration::from_milli
 const FRAME_WORK_WAKE: std::time::Duration = std::time::Duration::from_millis(12);
 
 /// Durée maximale d'une reconstruction retenue : une image, si la suivante ne vient pas.
-#[cfg(target_os = "windows")]
 const REBUILD_HOLD: std::time::Duration = std::time::Duration::from_millis(20);
 
 /// Vue construite et clés des sous-arbres mémorisés de la vue précédente.
@@ -169,7 +168,6 @@ impl UiRuntime {
     /// se ferait dans ce qui reste de l'image et lui ferait manquer son affichage. Elle
     /// attend l'image suivante, qui la fera avant son attente ; celle-ci montre quand même
     /// la nouvelle position du défilement.
-    #[cfg(target_os = "windows")]
     pub(crate) fn hold_rebuild(&mut self, now: Instant) {
         self.invalidation.rebuild_hold = self.is_scrolling().then_some(now + REBUILD_HOLD);
     }
@@ -201,10 +199,9 @@ impl UiRuntime {
         self.invalidation.relayout = true;
     }
 
-    /// Début d'une image d'animation, avant l'attente de l'écran (`FRAME_WAKE` de
-    /// Windows, posté une fois par image présentée) : la tranche de cette image se fait
-    /// ici, et non au réveil qui suit l'attente, où elle s'ajouterait au temps de l'image.
-    #[cfg(target_os = "windows")]
+    /// Début d'une image d'animation, avant l'attente de l'écran (voir « Cadence d'une
+    /// image » dans `platform/backend.rs`) : la tranche de cette image se fait ici, et non
+    /// au réveil qui suit l'attente, où elle s'ajouterait au temps de l'image.
     pub(crate) fn begin_frame_work(&mut self, now: Instant) {
         self.invalidation.rebuild_hold = None;
         if self.app.has_frame_work() {
@@ -215,6 +212,7 @@ impl UiRuntime {
 
     /// Réveil demandé par `next_wake` : horloges, défilement, travail étalé.
     pub(super) fn timer_event(&mut self, now: Instant) -> EventResult {
+        self.probe_tick(now);
         if self
             .invalidation
             .graveyard_wake

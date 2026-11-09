@@ -15,6 +15,21 @@
 //! - [`Backend::process_sample`] : compteurs mémoire/CPU du processus pour les mesures.
 //! - [`Backend::write_png`] : encodage PNG d'une image.
 //!
+//! # Cadence d'une image
+//!
+//! Le gros travail d'une image doit passer pendant l'attente de l'écran, pas après elle.
+//! Un backend qui sait où est cette attente appelle, pour chaque image présentée :
+//!
+//! 1. `UiRuntime::begin_frame_work`, puis `UiRuntime::prepare` si
+//!    `UiRuntime::rebuild_pending` : juste après la présentation, avant d'attendre ;
+//! 2. `UiRuntime::hold_rebuild`, quand l'attente est finie : une reconstruction demandée
+//!    ensuite passe à l'image suivante ;
+//! 3. `UiEvent::Timer`, puis la préparation et la présentation de l'image.
+//!
+//! Windows le fait toujours (`events/dispatch.rs`, `FRAME_WAKE`). macOS et Linux le font
+//! avec `KARBON_FRAME_PACING=1`, tant que le gain n'est pas mesuré sur ces systèmes. Chaque
+//! présentation appelle aussi `UiRuntime::frame_presented` (sonde de défilement).
+//!
 //! # Obligations de la boucle d'événements
 //!
 //! Presse-papiers, minuteries, réveil et accessibilité ne sont pas des traits : ce sont des

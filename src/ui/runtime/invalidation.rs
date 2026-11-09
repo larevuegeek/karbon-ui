@@ -60,6 +60,8 @@ pub(super) struct Invalidation {
     pub(super) graveyard_wake: Option<Instant>,
     /// Dernière tranche du travail étalé de l'application.
     pub(super) frame_work_at: Option<Instant>,
+    /// Sonde de défilement (`KARBON_SCROLL_PROBE`).
+    pub(super) probe: Option<super::scroll_probe::ScrollProbe>,
     /// Thème du système (`ColorScheme::System`).
     pub(super) system_dark: bool,
     /// Préférences de couleurs résolues : (sombre, contraste élevé).
@@ -96,6 +98,7 @@ impl Default for Invalidation {
             graveyard: Vec::new(),
             graveyard_wake: None,
             frame_work_at: None,
+            probe: super::scroll_probe::ScrollProbe::from_env(),
             system_dark: false,
             colors: (false, false),
             forget_memos: false,

@@ -37,7 +37,11 @@ impl UiRuntime {
 
     /// Drain the application's window requests for the window-management loop.
     pub fn take_window_commands(&mut self) -> Vec<crate::window::WindowCommand> {
-        self.app.take_window_commands()
+        let mut commands = self.app.take_window_commands();
+        if self.probe_take_exit() {
+            commands.push(crate::window::WindowCommand::Exit);
+        }
+        commands
     }
 
     /// Deliver the window's new geometry and state to the application; returns `true`

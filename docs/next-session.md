@@ -134,12 +134,50 @@ non redimensionnable.
   (`hold_rebuild`, Windows) : 0 à 4 à-coups, pire écart 20 à 33 ms au calme (Tauri 2 et
   35 ms). Reste : le coût par élément (`Styles`, `Node` par valeur). Thème : préférences
   de couleurs à l'exécution (`Application::color_preferences`, `prefers-color-scheme`,
-  `prefers-contrast`, `:root` sous ces requêtes, voir [le CSS](css.md)) ; le système
-  n'est lu que sous Windows, ailleurs `ColorScheme::System` donne le clair. Un champ sous
+  `prefers-contrast`, `:root` sous ces requêtes, voir [le CSS](css.md)) ; thème du système
+  sous Windows, macOS et Linux (ces deux derniers restent à essayer, section suivante). Un champ sous
   une entrée animée qui s'arrête d'elle-même n'est plus refusé (avant : un dialogue de
   formulaire avec `scale` fermait la fenêtre). Mémoire : ~280 Mo du
   clone viennent du cache SQLite réglé par le backend commun avec Tauri (64 Mo par
   connexion).
+
+## Cadence et thème sur macOS et Linux (à finir sur chaque système)
+
+Écrit sous Windows le 2026-11-09, vérifié seulement à la compilation
+(`cargo clippy --target …`) : rien n'a tourné sur ces systèmes.
+
+- **Thème système** : macOS, apparence effective de la fenêtre (changement suivi par
+  `viewDidChangeEffectiveAppearance`) ; Linux, `color-scheme` du portail
+  `org.freedesktop.portal.Settings` (`portal/appearance.rs`), relu à la reprise du focus.
+  Sans portail, `ColorScheme::System` donne le clair.
+- **Cadence** : contrat dans [`platform/backend.rs`](../src/platform/backend.rs)
+  (« Cadence d'une image »). Toujours actif sous Windows ; sur macOS et Linux seulement
+  avec `KARBON_FRAME_PACING=1`.
+
+| Système | Fin de l'attente de l'écran | À vérifier |
+| --- | --- | --- |
+| Wayland | `frame_done` (`wl_surface.frame`), exact | Point le plus sûr |
+| X11 | échéance de `next_wake`, faute de rappel du serveur | Approximatif |
+| macOS | échéance de `next_wake` ; `nextDrawable` attend, lui, après la préparation | Peut demander un lien d'affichage (`CADisplayLink`) |
+
+**Sur chaque système** :
+
+1. Lancer toutes les vérifications de « Vérifications » ci-dessous.
+2. Thème : `ColorScheme::System`, changer le réglage du système fenêtre ouverte.
+3. Mesurer sur une longue liste, machine au calme, sans compilation juste avant, au moins
+   5 essais de chaque en alternance :
+
+   ```sh
+   KARBON_SCROLL_PROBE=30:8 <application> 2>&1 | grep sonde
+   KARBON_FRAME_PACING=1 KARBON_SCROLL_PROBE=30:8 <application> 2>&1 | grep sonde
+   ```
+
+   30 s de mesure après 8 s d'attente ; la sonde envoie elle-même la molette au moteur et
+   ferme l'application. Le résumé donne les images par seconde, les écarts (médian, p95,
+   max) et les à-coups (écart de plus de 25 ms). La page doit rester longue pendant toute
+   la mesure : les « arrêts » signalent qu'elle a touché le bout.
+4. Activer par défaut (retirer `platform/shared/pacing.rs`) si la médiane des à-coups
+   baisse sans que le pire écart augmente ; sinon, laisser désactivé et noter la mesure.
 
 ## Publication (décidée le 2026-11-06)
 

@@ -8,6 +8,7 @@ mod filters;
 mod geometry;
 pub(in crate::platform) mod gpu;
 mod keys;
+pub(in crate::platform) mod pacing;
 mod scopes;
 mod text_cache;
 

@@ -1,5 +1,6 @@
 //! Parties du dialogue de fichiers qui ne demandent pas de portail : URI, chemin de la
 //! requête, options et leur encodage D-Bus, lecture de la réponse.
+use super::appearance::parse;
 use super::file_chooser::{Value, options, path_from_uri, request_path, response, write_options};
 use crate::{platform::linux::ffi::dbus::Message, window::FileDialog};
 use std::path::PathBuf;
@@ -169,4 +170,30 @@ fn responses_give_the_chosen_paths_or_nothing_when_cancelled() {
     );
     assert_eq!(response(&signal(1, &[])), Ok(Vec::new()));
     assert!(response(&signal(2, &[])).is_err());
+}
+
+#[test]
+fn colour_scheme_is_read_from_one_or_two_nested_variants() {
+    let reply = |nested: bool, code: u32| {
+        let mut message = Message::signal(
+            "/org/freedesktop/portal/desktop",
+            "org.freedesktop.portal.Settings",
+            "Read",
+        )
+        .expect("message");
+        {
+            let mut writer = message.writer();
+            if nested {
+                writer.open(b'v', Some("v")).open(b'v', Some("u"));
+                writer.u32(code).close().close();
+            } else {
+                writer.open(b'v', Some("u")).u32(code).close();
+            }
+        }
+        message
+    };
+    assert_eq!(parse(&reply(true, 1)), Some(true));
+    assert_eq!(parse(&reply(false, 1)), Some(true));
+    assert_eq!(parse(&reply(true, 2)), Some(false));
+    assert_eq!(parse(&reply(false, 0)), Some(false));
 }

@@ -8,8 +8,30 @@
 //! animations sont permises : le schéma de GNOME, souvent installé, n'y décrit pas le
 //! bureau. Les polices sont lues une fois par processus (un changement suit au lancement
 //! suivant) ; le mouvement réduit est relu quand une fenêtre reprend le focus.
-use super::ffi::{gio::Settings, pango::family_of};
-use std::{cell::Cell, ffi::CStr, sync::OnceLock};
+//!
+//! Le thème vient du portail (`portal/appearance.rs`), relu au même moment, sur un thread
+//! à part car l'appel peut attendre le démarrage du portail.
+use super::{
+    ffi::{gio::Settings, pango::family_of},
+    portal::{Waker, prefers_dark},
+};
+use std::{
+    cell::Cell,
+    ffi::CStr,
+    sync::{
+        Mutex, Once, OnceLock, PoisonError,
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    },
+    time::Duration,
+};
+
+/// Attente de la première réponse du portail, pour que la première image ait le bon thème.
+const FIRST_READ_WAIT: Duration = Duration::from_millis(100);
+/// Thème sombre du bureau, dernière valeur reçue du portail (clair sans portail).
+static DARK: AtomicBool = AtomicBool::new(false);
+/// Réveil de la boucle de fenêtres, quand le thème reçu a changé.
+static WAKE: Mutex<Option<Waker>> = Mutex::new(None);
 
 /// Polices du bureau (familles, sans taille ni style).
 #[derive(Default, Debug)]
@@ -65,7 +87,37 @@ pub(super) fn reduced_motion() -> bool {
         })
     })
 }
+/// Le bureau est en thème sombre.
+pub(super) fn dark() -> bool {
+    DARK.load(Ordering::Relaxed)
+}
+/// Relit le thème sur un thread à part, et l'attend au plus `wait`.
+fn read_dark(wait: Duration) {
+    let (done, finished) = mpsc::channel();
+    let spawned = std::thread::Builder::new()
+        .name("karbon-ui-color-scheme".into())
+        .spawn(move || {
+            if let Some(dark) = prefers_dark()
+                && DARK.swap(dark, Ordering::Relaxed) != dark
+                && let Some(wake) = WAKE.lock().unwrap_or_else(PoisonError::into_inner).as_ref()
+            {
+                wake();
+            }
+            let _ = done.send(());
+        });
+    if spawned.is_ok() && !wait.is_zero() {
+        let _ = finished.recv_timeout(wait);
+    }
+}
+/// Une fenêtre s'ouvre : `wake` réveillera la boucle quand le thème change. La première
+/// lecture du processus est attendue un court instant.
+pub(super) fn follow_color_scheme(wake: Waker) {
+    *WAKE.lock().unwrap_or_else(PoisonError::into_inner) = Some(wake);
+    static FIRST: Once = Once::new();
+    FIRST.call_once(|| read_dark(FIRST_READ_WAIT));
+}
 /// Une fenêtre reprend le focus : les réglages ont pu changer entre-temps.
 pub(super) fn refresh() {
     REDUCED_MOTION.with(|cached| cached.set(None));
+    read_dark(Duration::ZERO);
 }

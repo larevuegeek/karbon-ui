@@ -86,7 +86,7 @@ impl Window {
                 start.elapsed().as_secs_f64() * 1e3,
             );
         }
-        Ok(())
+        self.session.frame_presented()
     }
     /// Envoie la zone `[left, top, right, bottom]` de `pixels` (BGRA, format Z du serveur),
     /// en bandes de lignes sous la taille maximale d'une requête.
@@ -187,6 +187,7 @@ impl Window {
                 start.elapsed().as_secs_f64() * 1e3,
             );
         }
+        self.session.frame_presented()?;
         Ok(true)
     }
     /// Fenêtre réduite (`_NET_WM_STATE_HIDDEN`) ou retirée de l'écran : ressources GPU et

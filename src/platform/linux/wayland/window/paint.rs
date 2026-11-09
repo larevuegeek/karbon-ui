@@ -174,7 +174,7 @@ impl Window {
                 start.elapsed().as_secs_f64() * 1e3,
             );
         }
-        Ok(())
+        self.session.frame_presented()
     }
     /// Présente l'image par Vulkan ; `false` : elle passe par Cairo (pas de chemin GPU, ou
     /// erreur du GPU, qui le désactive pour la fenêtre).
@@ -262,6 +262,7 @@ impl Window {
                 start.elapsed().as_secs_f64() * 1e3,
             );
         }
+        self.session.frame_presented()?;
         Ok(true)
     }
     /// Fenêtre réduite ou masquée (`suspended`) : ressources GPU, surface et tampons Cairo

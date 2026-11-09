@@ -1,12 +1,13 @@
 //! Portails XDG du bureau (`org.freedesktop.portal.Desktop`) : dialogues de fichiers
-//! (`file_chooser.rs`), communs à Wayland et X11 et indépendants du toolkit du bureau
-//! (GNOME, KDE, wlroots…).
+//! (`file_chooser.rs`) et thème (`appearance.rs`), communs à Wayland et X11 et indépendants
+//! du toolkit du bureau (GNOME, KDE, wlroots…).
 //!
 //! Un dialogue reste ouvert le temps que l'utilisateur choisisse : il est demandé et
 //! attendu sur un thread à lui, avec sa propre connexion au bus de session, pour que la
 //! boucle de fenêtres continue de peindre. Le choix revient par un canal propre à la
 //! fenêtre (`Dialogs`), que la boucle vide avec les résultats des tâches de fond après
 //! avoir été réveillée (`eventfd` de `shell::Wake`).
+mod appearance;
 mod file_chooser;
 #[cfg(test)]
 mod tests;
@@ -16,6 +17,8 @@ use crate::{
     window::{FileDialog, FileDialogResult},
 };
 use std::sync::{Arc, mpsc};
+
+pub(in crate::platform::linux) use appearance::prefers_dark;
 
 /// Réveil de la boucle de fenêtres, appelable depuis un autre thread.
 pub(in crate::platform::linux) type Waker = Arc<dyn Fn() + Send + Sync>;

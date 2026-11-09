@@ -133,7 +133,7 @@ impl Session {
                 start.elapsed().as_secs_f64() * 1e3,
             );
         }
-        Ok(())
+        self.frame_presented()
     }
     /// Présente l'image par Metal si la scène le permet ; `false` : elle passe par Core
     /// Graphics (scène non prise en charge, pas de drawable, ou erreur du GPU, qui
@@ -220,6 +220,7 @@ impl Session {
                 scale,
             );
         }
+        self.frame_presented()?;
         Ok(true)
     }
 }

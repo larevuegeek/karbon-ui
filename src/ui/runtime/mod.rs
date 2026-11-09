@@ -46,6 +46,7 @@ mod prepare;
 mod rebuild;
 mod responses;
 mod restyle;
+mod scroll_probe;
 mod scrolling;
 mod smooth_scroll;
 mod split;

@@ -200,6 +200,7 @@ impl DrawingState {
                 let started = clock();
                 surface.present(window).map_err(Failure::Submit)?;
                 startup::presented();
+                self.runtime.frame_presented(Instant::now());
                 Ok([surface_time, render_time, elapsed(started), Duration::ZERO])
             }
             Presenter::Composition(visual) => {
@@ -238,6 +239,7 @@ impl DrawingState {
                     .expect("swap chain just presented");
                 visual.bind(chain).map_err(Failure::Submit)?;
                 startup::presented();
+                self.runtime.frame_presented(Instant::now());
                 Ok([surface_time, render_time, elapsed(started), wait_time])
             }
         }

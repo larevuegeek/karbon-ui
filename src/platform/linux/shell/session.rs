@@ -58,6 +58,8 @@ pub(in crate::platform::linux) struct Session {
     pub last_press: Option<(Instant, crate::ui::scene::PointF)>,
     /// Redessin exact attendu après des images approchées (animation).
     pub refine_at: Option<Instant>,
+    /// Dernier thème du bureau transmis : un changement demande une image.
+    system_dark: bool,
     /// Allègement des ressources GPU attendu (une seconde après la dernière image).
     pub trim_at: Option<Instant>,
     /// La fenêtre a le clavier.
@@ -76,6 +78,7 @@ impl Session {
         wake: impl Fn() + Send + Sync + 'static,
     ) -> Self {
         let wake: Waker = Arc::new(wake);
+        crate::platform::linux::desktop::follow_color_scheme(Arc::clone(&wake));
         let scope = {
             let wake = Arc::clone(&wake);
             TaskScope::new(move || wake())
@@ -102,6 +105,7 @@ impl Session {
             pressed: None,
             last_press: None,
             refine_at: None,
+            system_dark: false,
             trim_at: None,
             focused: false,
             failure: None,
@@ -147,6 +151,8 @@ impl Session {
         let reduce =
             self.options.reduced_motion || crate::platform::linux::desktop::reduced_motion();
         self.runtime.set_reduced_motion(reduce);
+        self.runtime
+            .set_system_dark(crate::platform::linux::desktop::dark());
         let chrome = ChromeState {
             visible: self.chrome_visible(),
             hovered: self.hovered,
@@ -155,6 +161,26 @@ impl Session {
         };
         self.runtime
             .prepare_at(context, chrome, &mut self.renderer, Instant::now())
+    }
+    /// Une image vient d'être présentée : avant l'attente de l'écran, une tranche du
+    /// travail étalé et la reconstruction demandée (voir `platform/backend.rs`).
+    pub fn frame_presented(&mut self) -> crate::Result<()> {
+        let now = Instant::now();
+        self.runtime.frame_presented(now);
+        if crate::platform::shared::pacing::enabled() {
+            self.runtime.begin_frame_work(now);
+            if self.runtime.rebuild_pending() {
+                self.prepare()?;
+                self.dirty = true;
+            }
+        }
+        Ok(())
+    }
+    /// L'attente de l'écran est finie : ce qui est demandé maintenant attend l'image suivante.
+    pub fn frame_wait_over(&mut self, now: Instant) {
+        if crate::platform::shared::pacing::enabled() {
+            self.runtime.hold_rebuild(now);
+        }
     }
     /// Envoie `event` au runtime ; la boucle applique les demandes de presse-papiers.
     pub fn input(&mut self, event: UiEvent) -> crate::Result<EventResult> {
@@ -178,6 +204,11 @@ impl Session {
     /// Échéances atteintes : réveil du runtime (animations, infobulles), redessin exact
     /// après une animation, allègement du GPU une seconde après la dernière image.
     pub fn tick(&mut self, now: Instant) -> crate::Result<()> {
+        let dark = crate::platform::linux::desktop::dark();
+        if dark != self.system_dark {
+            self.system_dark = dark;
+            self.dirty = true;
+        }
         if self.refine_at.is_some_and(|at| at <= now) {
             self.refine_at = None;
             self.presented = None;

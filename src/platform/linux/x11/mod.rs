@@ -272,6 +272,10 @@ impl X11 {
                 .and_then(|window| {
                     let outcome = catch_unwind(AssertUnwindSafe(|| {
                         window.session.tasks(executor);
+                        // Pas de rappel du serveur : l'échéance de l'image tient lieu d'attente.
+                        if window.session.runtime.next_wake().is_some_and(|w| w <= now) {
+                            window.session.frame_wait_over(now);
+                        }
                         window.session.tick(now)?;
                         window.session.report();
                         Ok(window.session.take_window_commands())

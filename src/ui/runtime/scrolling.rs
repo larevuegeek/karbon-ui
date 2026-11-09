@@ -32,12 +32,10 @@ impl UiRuntime {
     /// Un défilement est en cours : glissement de la molette, contenu qui vient de défiler
     /// sous le pointeur, pouce tiré (l'accessibilité Windows attend qu'il s'arrête).
     /// Une reconstruction de la vue attend la prochaine préparation.
-    #[cfg(target_os = "windows")]
     pub(crate) fn rebuild_pending(&self) -> bool {
         self.invalidation.rebuild
     }
 
-    #[cfg(target_os = "windows")]
     pub(crate) fn is_scrolling(&self) -> bool {
         self.components.scrolls.smooth.is_some()
             || self.components.scrolls.drag.is_some()

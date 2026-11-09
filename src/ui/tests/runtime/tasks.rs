@@ -217,7 +217,6 @@ fn work_spread_over_frames_advances_one_slice_per_frame_and_then_stops_waking() 
     assert!(ui.next_wake().is_none(), "plus de réveil");
 }
 
-#[cfg(target_os = "windows")]
 #[test]
 fn a_slice_done_before_waiting_for_the_screen_is_the_only_one_of_its_frame() {
     let (waiting, shown) = (Rc::new(Cell::new(3)), Rc::new(Cell::new(0)));
@@ -241,7 +240,6 @@ fn a_slice_done_before_waiting_for_the_screen_is_the_only_one_of_its_frame() {
     assert_eq!(shown.get(), 2);
 }
 
-#[cfg(target_os = "windows")]
 #[test]
 fn a_rebuild_asked_after_the_wait_for_the_screen_goes_to_the_next_frame() {
     let views = Rc::new(Cell::new(0));
@@ -280,7 +278,6 @@ fn a_rebuild_asked_after_the_wait_for_the_screen_goes_to_the_next_frame() {
     assert!(!ui.rebuild_pending());
 }
 
-#[cfg(target_os = "windows")]
 #[test]
 fn a_held_rebuild_is_not_kept_past_one_frame_when_no_frame_comes() {
     let views = Rc::new(Cell::new(0));
