@@ -58,6 +58,19 @@ pub(super) struct Invalidation {
     pub(super) graveyard: Vec<Element>,
     /// Prochaine tranche de libération au repos.
     pub(super) graveyard_wake: Option<Instant>,
+    /// Dernière tranche du travail étalé de l'application.
+    pub(super) frame_work_at: Option<Instant>,
+    /// Thème du système (`ColorScheme::System`).
+    pub(super) system_dark: bool,
+    /// Préférences de couleurs résolues : (sombre, contraste élevé).
+    pub(super) colors: (bool, bool),
+    /// Préférences changées : la prochaine vue ne reprend aucun sous-arbre mémorisé.
+    pub(super) forget_memos: bool,
+    /// Jusqu'à cet instant, une reconstruction demandée attend l'image suivante (voir
+    /// `hold_rebuild`).
+    pub(super) rebuild_hold: Option<Instant>,
+    /// La tranche de cette image est déjà faite : le réveil qui suit n'en fait pas d'autre.
+    pub(super) frame_work_done: bool,
 }
 impl Default for Invalidation {
     /// Tout est à construire au premier `prepare`.
@@ -82,6 +95,12 @@ impl Default for Invalidation {
             stats: RuntimeStats::default(),
             graveyard: Vec::new(),
             graveyard_wake: None,
+            frame_work_at: None,
+            system_dark: false,
+            colors: (false, false),
+            forget_memos: false,
+            rebuild_hold: None,
+            frame_work_done: false,
         }
     }
 }

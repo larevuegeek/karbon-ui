@@ -14,6 +14,8 @@ struct Bounds {
     max_h: f32,
     landscape: &'static str,
     reduced_motion: &'static str,
+    dark: &'static str,
+    high_contrast: &'static str,
 }
 impl Default for Bounds {
     fn default() -> Self {
@@ -24,6 +26,8 @@ impl Default for Bounds {
             max_h: f32::INFINITY,
             landscape: "None",
             reduced_motion: "None",
+            dark: "None",
+            high_contrast: "None",
         }
     }
 }
@@ -93,6 +97,25 @@ impl Bounds {
                     "no-preference" => "Some(false)",
                     _ => return Err("Use prefers-reduced-motion: reduce or no-preference".into()),
                 };
+                return Ok(());
+            }
+            if feature == "prefers-color-scheme" || feature == "prefers-contrast" {
+                if !media {
+                    return Err(format!("{feature} is not supported in container queries"));
+                }
+                if feature == "prefers-color-scheme" {
+                    self.dark = match value {
+                        "dark" => "Some(true)",
+                        "light" => "Some(false)",
+                        _ => return Err("Use prefers-color-scheme: dark or light".into()),
+                    };
+                } else {
+                    self.high_contrast = match value {
+                        "more" => "Some(true)",
+                        "no-preference" => "Some(false)",
+                        _ => return Err("Use prefers-contrast: more or no-preference".into()),
+                    };
+                }
                 return Ok(());
             }
             let n = length(value)?;
@@ -178,6 +201,98 @@ fn num(n: f32) -> String {
         format!("{n:?}")
     }
 }
+/// Exigences d'une requête `@media` portant uniquement sur le thème et le contraste
+/// (`prefers-color-scheme`, `prefers-contrast`) : `(sombre, contraste élevé)`, `None`
+/// pour une préférence non contrainte ; `Err` pour toute autre requête.
+pub(super) fn color_preferences(query: &str) -> Result<(Option<bool>, Option<bool>)> {
+    let refuse = || {
+        "Conditional :root variables only support prefers-color-scheme and prefers-contrast"
+            .to_string()
+    };
+    let parts = parser::split(query, ',')?;
+    let [part] = parts.as_slice() else {
+        return Err(refuse());
+    };
+    let mut words = values::words(part)?;
+    if words.first().is_some_and(|s| s == "only") {
+        words.remove(0);
+    }
+    if words.first().is_some_and(|s| s == "screen" || s == "all") {
+        words.remove(0);
+        if words.first().is_some_and(|s| s == "and") {
+            words.remove(0);
+        }
+    }
+    let mut b = Bounds::default();
+    b.conditions(&words, true)?;
+    let unbounded =
+        b.min_w == 0. && b.min_h == 0. && b.max_w.is_infinite() && b.max_h.is_infinite();
+    if !unbounded || b.landscape != "None" || b.reduced_motion != "None" {
+        return Err(refuse());
+    }
+    let require = |v: &str| match v {
+        "Some(true)" => Some(true),
+        "Some(false)" => Some(false),
+        _ => None,
+    };
+    Ok((require(b.dark), require(b.high_contrast)))
+}
+/// Code booléen d'une exigence de préférences, évalué à la construction de la vue.
+pub(super) fn color_test(dark: Option<bool>, high_contrast: Option<bool>) -> String {
+    let (d, h) = ("__ui_scheme.0", "__ui_scheme.1");
+    let mut tests = Vec::new();
+    match dark {
+        Some(true) => tests.push(d.to_string()),
+        Some(false) => tests.push(format!("!{d}")),
+        None => {}
+    }
+    match high_contrast {
+        Some(true) => tests.push(h.to_string()),
+        Some(false) => tests.push(format!("!{h}")),
+        None => {}
+    }
+    if tests.is_empty() {
+        "true".into()
+    } else {
+        tests.join("&&")
+    }
+}
+/// Si `predicate` (code d'une condition de règle) n'exige que le thème et le contraste :
+/// le test correspondant, évaluable à la construction de la vue.
+pub(in crate::css) fn scheme_only(predicate: &str) -> Option<String> {
+    const OPEN: &str =
+        "__ui_root::ui::styling::StyleState::Media(__ui_root::ui::styling::MediaQuery{";
+    let media = predicate
+        .strip_prefix("__ui_root::ui::styling::StyleState::All(&[")
+        .and_then(|s| s.strip_suffix("])"))
+        .unwrap_or(predicate);
+    let fields = media.strip_prefix(OPEN)?.strip_suffix("})")?;
+    if fields.contains(OPEN) {
+        return None;
+    }
+    let field = |name: &str| {
+        fields
+            .split(',')
+            .find_map(|f| f.trim().strip_prefix(&format!("{name}:")).map(str::trim))
+    };
+    let unbounded = field("min_width") == Some("0.0")
+        && field("max_width") == Some("::core::primitive::f32::INFINITY")
+        && field("min_height") == Some("0.0")
+        && field("max_height") == Some("::core::primitive::f32::INFINITY")
+        && field("landscape") == Some("None")
+        && field("reduced_motion") == Some("None");
+    if !unbounded {
+        return None;
+    }
+    let require = |name: &str| match field(name)? {
+        "Some(true)" => Some(Some(true)),
+        "Some(false)" => Some(Some(false)),
+        "None" => Some(None),
+        _ => None,
+    };
+    let (dark, high_contrast) = (require("dark")?, require("high_contrast")?);
+    (dark.is_some() || high_contrast.is_some()).then(|| color_test(dark, high_contrast))
+}
 /// Condition d'une règle : media query, ou requête de conteneur préfixée par
 /// [`CONTAINER`].
 pub(super) fn condition(query: &str) -> Result<String> {
@@ -215,13 +330,15 @@ pub(super) fn condition(query: &str) -> Result<String> {
             b.conditions(&words, true)?;
         }
         let c = format!(
-            "{STATE}::Media(__ui_root::ui::styling::MediaQuery{{min_width: {},max_width: {},min_height: {},max_height: {},landscape:{},reduced_motion:{}}})",
+            "{STATE}::Media(__ui_root::ui::styling::MediaQuery{{min_width: {},max_width: {},min_height: {},max_height: {},landscape:{},reduced_motion:{},dark:{},high_contrast:{}}})",
             num(b.min_w),
             num(b.max_w),
             num(b.min_h),
             num(b.max_h),
             b.landscape,
-            b.reduced_motion
+            b.reduced_motion,
+            b.dark,
+            b.high_contrast
         );
         alternatives.push(if invert {
             format!("{STATE}::Not(&{c})")

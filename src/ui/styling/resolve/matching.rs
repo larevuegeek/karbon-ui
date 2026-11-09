@@ -294,6 +294,8 @@ pub(super) fn matches(state: StyleState, c: &Frame, env: &StyleEnvironment) -> b
         StyleState::Media(query) => {
             query.matches(env.viewport)
                 && query.reduced_motion.is_none_or(|r| r == env.reduced_motion)
+                && query.dark.is_none_or(|d| d == env.dark)
+                && query.high_contrast.is_none_or(|h| h == env.high_contrast)
         }
         StyleState::Container(query) => {
             // Le conteneur interrogé est le plus proche ancêtre accepté (jamais l'élément).

@@ -118,9 +118,26 @@ non redimensionnable.
   [la suite](performance.md#liste-des-morceaux-2026-11-08-fin). Ensuite : styles du
   contenu sauté résolus seulement quand il approche (`UiRuntime::resolve_revealed`),
   ancien arbre d'une reconstruction libéré par tranches (`UiRuntime::bury`, à partir de
-  4 096 éléments) : pire écart en défilant 133 → 67 ms. Reste : ~25 + ~15 ms aux deux
-  reconstructions d'un chargement de page (création des lignes, surtout les allocations
-  de `Styles`, 3 824 octets par élément ; layout ~8 ms). Mémoire : ~280 Mo du
+  4 096 éléments) : pire écart en défilant 133 → 67 ms ; accessibilité qui attend la fin
+  du défilement pour republier l'arbre, et pochettes du clone redemandées après une vue
+  seulement : 67 → 50 ms (Tauri 35 ms), 11-12 à-coups (Tauri 2). Puis (2026-11-09)
+  construction de la vue −33 % au banc (`mimalloc` dans le clone, listes d'enfants
+  réservées d'avance, un seul ancien arbre en attente) mais rien de visible en fenêtre ;
+  contenu différé des éléments `content-visibility: auto` essayé et retiré (27 à 55
+  à-coups), voir [les performances](performance.md#liste-des-morceaux-2026-11-08-fin).
+  Puis coût fixe d'une reconstruction de 10,3 à 3,9 ms (sous-arbres repris non
+  reparcourus, zones stables du clone mémorisées) et reconstruction faite avant l'attente
+  de l'écran : 5 à 8 à-coups, pire écart 34 ms. Enfin lots de lignes étalés sur plusieurs
+  images (`Application::frame_work`, tranches de 10 lignes sur Morceaux, de 12 cartes sur
+  Albums et Artistes dans le clone) et
+  reconstructions demandées pendant l'attente de l'écran reportées à l'image suivante
+  (`hold_rebuild`, Windows) : 0 à 4 à-coups, pire écart 20 à 33 ms au calme (Tauri 2 et
+  35 ms). Reste : le coût par élément (`Styles`, `Node` par valeur). Thème : préférences
+  de couleurs à l'exécution (`Application::color_preferences`, `prefers-color-scheme`,
+  `prefers-contrast`, `:root` sous ces requêtes, voir [le CSS](css.md)) ; le système
+  n'est lu que sous Windows, ailleurs `ColorScheme::System` donne le clair. Un champ sous
+  une entrée animée qui s'arrête d'elle-même n'est plus refusé (avant : un dialogue de
+  formulaire avec `scale` fermait la fenêtre). Mémoire : ~280 Mo du
   clone viennent du cache SQLite réglé par le backend commun avec Tauri (64 Mo par
   connexion).
 

@@ -59,6 +59,10 @@ pub(crate) struct Class {
     pub(in crate::css) hover: BTreeMap<String, String>,
     pub(in crate::css) active: BTreeMap<String, String>,
     pub(in crate::css) state_props: Vec<ConditionalProperties>,
+    /// Déclarations sous `@media` de thème ou de contraste que le moteur ne sait pas
+    /// résoudre par règle d'état (dégradés) : appliquées à la construction de la vue si
+    /// le test (code booléen) réussit, la vue étant refaite quand ces préférences changent.
+    pub(in crate::css) view_rules: Vec<(String, values::Properties)>,
     /// Règles posées sur les enfants (prédicat évalué sur chaque enfant).
     pub(in crate::css) child_props: Vec<ConditionalProperties>,
     pub(in crate::css) display: Option<String>,

@@ -84,6 +84,8 @@ pub(crate) fn resolve_inherited(
             (
                 env.focus_visible,
                 env.reduced_motion,
+                env.dark,
+                env.high_contrast,
                 env.pixel_scale.to_bits(),
             )
                 .hash(&mut h);

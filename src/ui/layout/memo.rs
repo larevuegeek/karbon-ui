@@ -91,16 +91,23 @@ fn flags(node: &mut Element) -> (bool, bool) {
         return (false, true);
     }
     let (mut sensitive_below, mut history_below) = (false, false);
-    for child in &mut node.children {
-        let (s, h) = flags(child);
-        sensitive_below |= s;
-        history_below |= h;
+    // Sous-arbre mémorisé repris et inchangé (tout changement de métrique retire `settled`) :
+    // ses indicateurs de la passe précédente sont encore justes.
+    if node.memo.is_some() && node.layout_cache.as_deref().is_some_and(|c| c.settled) {
+        sensitive_below = node.layout_bits & MEASURE_MEMO == 0;
+        history_below = node.layout_bits & UNCACHED != 0;
+    } else {
+        for child in &mut node.children {
+            let (s, h) = flags(child);
+            sensitive_below |= s;
+            history_below |= h;
+        }
+        let baseline = baseline_reads(node);
+        sensitive_below |= baseline;
+        history_below |= baseline;
+        node.layout_bits = if sensitive_below { 0 } else { MEASURE_MEMO }
+            | if history_below { UNCACHED } else { 0 };
     }
-    let baseline = baseline_reads(node);
-    sensitive_below |= baseline;
-    history_below |= baseline;
-    node.layout_bits =
-        if sensitive_below { 0 } else { MEASURE_MEMO } | if history_below { UNCACHED } else { 0 };
     let relative = node.rules.as_ref().is_some_and(|r| r.reveal.is_some());
     (
         sensitive_below

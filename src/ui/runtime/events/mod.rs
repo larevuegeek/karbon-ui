@@ -27,23 +27,7 @@ impl UiRuntime {
             return reply;
         }
         if let UiEvent::Timer(now) = event {
-            if self
-                .invalidation
-                .graveyard_wake
-                .is_some_and(|wake| wake <= now)
-            {
-                self.bury(std::time::Duration::from_millis(4));
-            }
-            self.invalidation.repaint |= self.motions.tick(now);
-            self.invalidation.repaint |= self.smooth_scroll_tick(now);
-            self.invalidation.repaint |= self.thaw_hover(now);
-            if self.components.tooltips.tick(now) {
-                self.invalidation.repaint_semantics();
-            }
-            return EventResult {
-                repaint: self.invalidation.repaint,
-                ..EventResult::default()
-            };
+            return self.timer_event(now);
         }
         match event {
             UiEvent::KeyDown {

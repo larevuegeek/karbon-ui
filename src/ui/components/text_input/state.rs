@@ -79,6 +79,9 @@ impl TextInputs {
             text: &mut dyn TextMeasurer,
             rebuilt: bool,
         ) -> crate::Result<()> {
+            if node.checked_subtree().is_some_and(|c| !c.text_input) {
+                return Ok(());
+            }
             if let Some(input) = node.widget.as_ref().and_then(|w| w.text_input()) {
                 live.insert(node.id);
                 let editor = states

@@ -67,6 +67,10 @@ pub struct StyleEnvironment<'a> {
     pub pixel_scale: f32,
     /// The user asked to reduce animations (`prefers-reduced-motion: reduce`).
     pub reduced_motion: bool,
+    /// Active colour scheme is dark (`prefers-color-scheme: dark`).
+    pub dark: bool,
+    /// High contrast is requested (`prefers-contrast: more`).
+    pub high_contrast: bool,
     /// Resolve only these elements and what depends on them, keeping the computed styles
     /// of the rest (`None`: the whole tree).
     pub partial: Option<&'a super::Partial>,

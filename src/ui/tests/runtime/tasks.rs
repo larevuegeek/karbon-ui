@@ -1,6 +1,7 @@
 //! Tâches asynchrones : commandes différées et reconstruction sur demande.
 use crate::task::{Task, TaskCommand, TaskId, TaskResult};
 use crate::ui::tests::support::*;
+use std::time::Duration;
 
 struct AsyncApp {
     value: String,
@@ -152,4 +153,159 @@ fn images_arriving_in_slots_repaint_without_rebuilding_and_lay_out_only_unsized_
     assert_eq!(images(&ui), 3);
     // Plus rien n'arrive : la tâche suivante ne demande pas d'image.
     assert!(!ui.task_completed(TaskResult::success(TaskId(9), ())));
+}
+
+struct SlicedApp {
+    waiting: Rc<Cell<usize>>,
+    shown: Rc<Cell<usize>>,
+    views: Rc<Cell<usize>>,
+}
+impl Application for SlicedApp {
+    type Message = ();
+    fn update(&mut self, _: ()) -> bool {
+        false
+    }
+    fn view(&self, _: &ViewContext) -> Element {
+        self.views.set(self.views.get() + 1);
+        widgets::text(1, self.shown.get().to_string())
+    }
+    fn has_frame_work(&self) -> bool {
+        self.waiting.get() > 0
+    }
+    fn frame_work(&mut self) -> bool {
+        self.waiting.set(self.waiting.get() - 1);
+        self.shown.set(self.shown.get() + 1);
+        true
+    }
+}
+
+#[test]
+fn work_spread_over_frames_advances_one_slice_per_frame_and_then_stops_waking() {
+    let (waiting, shown, views) = (
+        Rc::new(Cell::new(3)),
+        Rc::new(Cell::new(0)),
+        Rc::new(Cell::new(0)),
+    );
+    let mut ui = UiRuntime::new(
+        SlicedApp {
+            waiting: waiting.clone(),
+            shown: shown.clone(),
+            views: views.clone(),
+        },
+        &NoResources,
+    )
+    .unwrap();
+    let mut measure = Measure::default();
+    prepare(&mut ui, &mut measure);
+    let built = views.get();
+    let start = std::time::Instant::now();
+    assert!(ui.next_wake().is_some(), "une tranche attend");
+    ui.event(UiEvent::Timer(start));
+    assert_eq!(shown.get(), 1);
+    // Même image : la tranche suivante attend son tour.
+    ui.event(UiEvent::Timer(start + Duration::from_millis(2)));
+    assert_eq!(shown.get(), 1);
+    prepare(&mut ui, &mut measure);
+    assert_eq!(views.get(), built + 1, "la tranche reconstruit la vue");
+    ui.event(UiEvent::Timer(start + Duration::from_millis(17)));
+    ui.event(UiEvent::Timer(start + Duration::from_millis(34)));
+    assert_eq!(shown.get(), 3);
+    assert_eq!(waiting.get(), 0);
+    prepare(&mut ui, &mut measure);
+    ui.event(UiEvent::Timer(start + Duration::from_millis(51)));
+    assert_eq!(shown.get(), 3, "plus rien à faire");
+    assert!(ui.next_wake().is_none(), "plus de réveil");
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn a_slice_done_before_waiting_for_the_screen_is_the_only_one_of_its_frame() {
+    let (waiting, shown) = (Rc::new(Cell::new(3)), Rc::new(Cell::new(0)));
+    let mut ui = UiRuntime::new(
+        SlicedApp {
+            waiting,
+            shown: shown.clone(),
+            views: Rc::new(Cell::new(0)),
+        },
+        &NoResources,
+    )
+    .unwrap();
+    prepare(&mut ui, &mut Measure::default());
+    let start = std::time::Instant::now();
+    ui.begin_frame_work(start);
+    assert_eq!(shown.get(), 1);
+    // Le réveil qui suit l'attente de l'écran, bien après : même image.
+    ui.event(UiEvent::Timer(start + Duration::from_millis(15)));
+    assert_eq!(shown.get(), 1);
+    ui.begin_frame_work(start + Duration::from_millis(17));
+    assert_eq!(shown.get(), 2);
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn a_rebuild_asked_after_the_wait_for_the_screen_goes_to_the_next_frame() {
+    let views = Rc::new(Cell::new(0));
+    let counter = views.clone();
+    let mut ui = view_runtime(move || {
+        counter.set(counter.get() + 1);
+        let rows = (0..40u64)
+            .map(|n| box_node(10 + n, Length::Fill(1.), Length::Px(50.)))
+            .collect();
+        Element::scroll(1, Axis::Vertical, Element::column(2, rows))
+    });
+    let mut measure = Measure::default();
+    prepare(&mut ui, &mut measure);
+    wheel(&mut ui, PointF { x: 30., y: 70. }, 0., 40.);
+    prepare(&mut ui, &mut measure);
+    assert!(ui.is_scrolling());
+    let built = views.get();
+    let start = std::time::Instant::now();
+    ui.hold_rebuild(start);
+    ui.invalidate();
+    ui.prepare_at(context(), ChromeState::default(), &mut measure, start)
+        .unwrap();
+    assert_eq!(views.get(), built, "retenue pendant cette image");
+    assert!(ui.rebuild_pending(), "toujours demandée");
+    assert!(ui.next_wake().is_some());
+    // Image suivante : la reconstruction passe avant l'attente de l'écran.
+    ui.begin_frame_work(start + Duration::from_millis(16));
+    ui.prepare_at(
+        context(),
+        ChromeState::default(),
+        &mut measure,
+        start + Duration::from_millis(16),
+    )
+    .unwrap();
+    assert_eq!(views.get(), built + 1);
+    assert!(!ui.rebuild_pending());
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn a_held_rebuild_is_not_kept_past_one_frame_when_no_frame_comes() {
+    let views = Rc::new(Cell::new(0));
+    let counter = views.clone();
+    let mut ui = view_runtime(move || {
+        counter.set(counter.get() + 1);
+        let rows = (0..40u64)
+            .map(|n| box_node(10 + n, Length::Fill(1.), Length::Px(50.)))
+            .collect();
+        Element::scroll(1, Axis::Vertical, Element::column(2, rows))
+    });
+    let mut measure = Measure::default();
+    prepare(&mut ui, &mut measure);
+    wheel(&mut ui, PointF { x: 30., y: 70. }, 0., 40.);
+    prepare(&mut ui, &mut measure);
+    let built = views.get();
+    let start = std::time::Instant::now();
+    ui.hold_rebuild(start);
+    ui.invalidate();
+    ui.prepare_at(
+        context(),
+        ChromeState::default(),
+        &mut measure,
+        start + Duration::from_millis(25),
+    )
+    .unwrap();
+    assert_eq!(views.get(), built + 1, "la retenue a expiré");
 }

@@ -92,6 +92,7 @@ impl Generator {
         self.forms.push(submit);
         let flex = self.flex_condition(e)?;
         self.flex.push(flex);
+        let capacity = self.capacity(&e.children);
         let children = self.children(
             &e.children,
             Dest {
@@ -105,7 +106,7 @@ impl Generator {
         let children = children?;
         let stagger = self.stagger(e)?;
         let before = format!(
-            "#[allow(unused_mut)] let mut __ui_children=::std::vec::Vec::<{R}::ui::element::Element>::new();{children}{stagger}"
+            "#[allow(unused_mut)] let mut __ui_children=::std::vec::Vec::<{R}::ui::element::Element>::with_capacity({capacity});{children}{stagger}"
         );
         let name = match e.attr("aria-label") {
             Some(a) => self.text_attr(a)?,

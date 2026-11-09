@@ -1,12 +1,15 @@
 use super::*;
 pub(super) fn visit_tree(
     node: &mut Element,
-    live: &mut HashSet<ElementId>,
+    live: &mut FastSet<ElementId>,
+    duplicate: &mut Option<ElementId>,
     order: &mut Vec<ElementId>,
     states: &ComponentStates,
     focused: Option<ElementId>,
 ) {
-    live.insert(node.id);
+    if !live.insert(node.id) {
+        *duplicate = Some(node.id);
+    }
     let scroll = matches!(node.layout, Layout::Scroll(_));
     if scroll || matches!(node.layout, Layout::VirtualList) {
         node.scroll_offset = states.scrolls.offsets.get(&node.id).copied().unwrap_or(0.);
@@ -47,7 +50,7 @@ pub(super) fn visit_tree(
     }
     let start = order.len();
     for child in &mut node.children {
-        visit_tree(child, live, order, states, focused);
+        visit_tree(child, live, duplicate, order, states, focused);
     }
     if scroll && order.len() == start {
         order.push(node.id);

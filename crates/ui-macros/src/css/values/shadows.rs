@@ -1,6 +1,25 @@
 //! `box-shadow` : couches d'ombres (décalages, flou, étalement, couleur, `inset`).
 use super::*;
 pub(super) fn parse(value: &str) -> Result<String> {
+    if view::reads_variables(value) {
+        // Ombres à couleurs variables : la liste constante sert sans variables, sinon
+        // la liste est construite (internée) à la construction de la vue.
+        let vars = view::variables();
+        let fixed = view::without_vars(|| parse(&resolve(value, &vars)?))?;
+        let list = layers(value, view::paint_color)?;
+        return Ok(format!(
+            "if cx.variables.is_some(){{cx.variable_shadows(::std::vec![{}])}}else{{{fixed}}}",
+            list.join(",")
+        ));
+    }
+    let shadows = layers(value, color)?;
+    Ok(format!(
+        "{ROOT}::rendering::component_shadow::Shadows::new(const{{&[{}]}})",
+        shadows.join(",")
+    ))
+}
+/// Couches de `value`, chacune en code `BoxShadow` ; `paint` donne le code d'une couleur.
+fn layers(value: &str, paint: impl Fn(&str) -> Result<String>) -> Result<Vec<String>> {
     let mut shadows = Vec::new();
     if value != "none" {
         for layer in split(value, ',')? {
@@ -13,7 +32,7 @@ pub(super) fn parse(value: &str) -> Result<String> {
                         return Err("Duplicate inset in box-shadow".into());
                     }
                     inset = true;
-                } else if let Ok(color) = color(&word) {
+                } else if let Ok(color) = paint(&word) {
                     if tint.replace(color).is_some() {
                         return Err("Multiple colors in box-shadow".into());
                     }
@@ -38,8 +57,5 @@ pub(super) fn parse(value: &str) -> Result<String> {
             }
         }
     }
-    Ok(format!(
-        "{ROOT}::rendering::component_shadow::Shadows::new(const{{&[{}]}})",
-        shadows.join(",")
-    ))
+    Ok(shadows)
 }

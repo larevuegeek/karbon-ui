@@ -41,6 +41,36 @@ pub(crate) struct LayoutCache {
     pub arranged: Option<MemoArranged>,
 }
 
+/// Ce que la vérification d'un sous-arbre mémorisé (`layout::validate`) retient de lui :
+/// tout ce que ses ancêtres, qui peuvent changer d'une vue à l'autre, peuvent rendre
+/// invalide. Le reste ne dépend que du sous-arbre, déjà vérifié.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct CheckedSubtree {
+    /// Nombre d'éléments, racine comprise.
+    pub elements: u32,
+    /// Profondeur du plus long chemin sous la racine.
+    pub height: u32,
+    /// Contient un élément `position: fixed`.
+    pub fixed: bool,
+    /// Contient un élément refusé sous une transformation animée.
+    pub motion_limited: bool,
+    /// Contient un champ de saisie.
+    pub text_input: bool,
+    /// Contient un groupe ou un bouton radio.
+    pub radio: bool,
+    /// Contient un dialogue, un popover ou une pile de couches.
+    pub overlay: bool,
+}
+
+impl Element {
+    /// Résumé de la dernière vérification, si cet élément est un sous-arbre mémorisé
+    /// vérifié : les parcours qui ne cherchent qu'une sorte d'élément s'en servent pour
+    /// ne pas y descendre.
+    pub(crate) fn checked_subtree(&self) -> Option<CheckedSubtree> {
+        self.memo.as_deref().and_then(|m| m.checked.get())
+    }
+}
+
 pub(crate) struct MemoState {
     /// Empreinte de la clé donnée par la vue.
     pub key: u64,
@@ -55,6 +85,13 @@ pub(crate) struct MemoState {
     /// faits des ancêtres) lors de sa dernière résolution, et portée des variables.
     pub style_inputs: Option<u64>,
     pub style_scope: Option<crate::ui::styling::CssVariables>,
+    /// Résumé de la dernière vérification du sous-arbre.
+    pub checked: std::cell::Cell<Option<CheckedSubtree>>,
+    /// Le sous-arbre contient d'autres éléments mémorisés.
+    pub nested: bool,
+    /// Un dialogue ou un popover a quitté ce sous-arbre pour la racine de la vue
+    /// (`layers::hoist`) : repris, le sous-arbre le perdrait. Il n'est jamais repris.
+    pub hoisted: bool,
 }
 impl MemoState {
     fn new(key: u64, placeholder: bool) -> Self {
@@ -65,6 +102,9 @@ impl MemoState {
             style_dirty: false,
             style_inputs: None,
             style_scope: None,
+            checked: std::cell::Cell::new(None),
+            nested: false,
+            hoisted: false,
         }
     }
 }
@@ -75,7 +115,12 @@ impl Element {
     /// identifier, [`crate::ui::view::lazy`] skips building the subtree and the runtime
     /// reuses the previous one with its styles, measures and placement.
     pub fn memo(mut self, key: u64) -> Self {
-        self.memo = Some(Box::new(MemoState::new(key, false)));
+        fn contains_memo(node: &Element) -> bool {
+            node.memo.is_some() || node.children.iter().any(contains_memo)
+        }
+        let mut state = Box::new(MemoState::new(key, false));
+        state.nested = self.children.iter().any(contains_memo);
+        self.memo = Some(state);
         self
     }
     /// Élément vide qui reprend le sous-arbre `id` de la vue précédente (clé `key`).

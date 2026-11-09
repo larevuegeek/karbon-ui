@@ -11,6 +11,8 @@ pub(super) struct Interaction {
     /// Capture perdue hors d'un événement : signalée au prochain `EventResult`.
     pub(super) release_pending: bool,
     pub(super) focus_order: Vec<ElementId>,
+    /// Nombre d'éléments de la dernière indexation (capacité de la suivante).
+    live_hint: usize,
     /// Tabulation différée jusqu'à la reconstruction qui ferme un popover.
     pub(super) pending_tab: Option<bool>,
     /// Échap déjà traité : ses répétitions et son relâchement ne remontent pas à l'hôte.
@@ -43,6 +45,7 @@ impl Default for Interaction {
             focus_visible: false,
             release_pending: false,
             focus_order: Vec::new(),
+            live_hint: 0,
             pending_tab: None,
             escape_consumed: false,
             backdrop_capture: None,
@@ -135,14 +138,28 @@ impl Interaction {
         &mut self,
         root: &mut Element,
         states: &ComponentStates,
-    ) -> HashSet<ElementId> {
-        let mut live = HashSet::new();
+    ) -> crate::Result<FastSet<ElementId>> {
+        let mut live = FastSet::with_capacity_and_hasher(self.live_hint, Default::default());
+        let mut duplicate = None;
         self.focus_order.clear();
-        visit_tree(root, &mut live, &mut self.focus_order, states, self.focused);
+        visit_tree(
+            root,
+            &mut live,
+            &mut duplicate,
+            &mut self.focus_order,
+            states,
+            self.focused,
+        );
+        // Vérifié ici et non par `layout::validate`, qui ne descend pas dans les sous-arbres
+        // repris : ce parcours-ci voit de toute façon tout l'arbre.
+        if let Some(id) = duplicate {
+            return Err(layout::duplicate_id(id));
+        }
+        self.live_hint = live.len();
         self.focused = self
             .layer_focus
             .sync(root, &mut self.focus_order, self.focused);
-        live
+        Ok(live)
     }
 
     /// Après reconstruction : oublier le focus et l'appui d'éléments devenus inaccessibles.

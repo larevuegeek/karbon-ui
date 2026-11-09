@@ -55,7 +55,27 @@ pub fn declaration(name: &str, raw: &str, vars: &BTreeMap<String, String>) -> Re
         }
     }
     let resolved = resolve(raw, vars)?;
-    let mut props = property(name, &resolved)?;
+    // Dégradés et ombres : couleurs lues à la construction de la vue.
+    let read_at_view = [
+        "background",
+        "background-image",
+        "box-shadow",
+        "border-top",
+        "border-right",
+        "border-bottom",
+        "border-left",
+        "border-top-color",
+        "border-right-color",
+        "border-bottom-color",
+        "border-left-color",
+    ]
+    .contains(&name)
+        && raw.contains("var(");
+    let mut props = if read_at_view {
+        view::with_vars(vars, || property(name, raw)).or_else(|_| property(name, &resolved))?
+    } else {
+        property(name, &resolved)?
+    };
     if !raw.contains("var(") {
         return Ok(props);
     }

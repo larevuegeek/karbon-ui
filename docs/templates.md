@@ -343,6 +343,10 @@ a seulement bougé, par exemple au défilement). C'est `Html.Lazy` d'Elm ou `Rea
 {/each}
 ```
 
+Un sous-arbre qui déclare un dialogue ou un popover (remontés à la racine de la vue)
+n'est jamais repris tant qu'ils sont ouverts : il perdrait sa couche. La zone est
+reconstruite pendant ce temps, et reprise dès qu'ils se ferment.
+
 La clé doit couvrir **tout** ce que le sous-arbre lit : données, état de l'application
 (`self.…`) et ressources qui arrivent plus tard (une image chargée de façon
 asynchrone : son identité, par exemple `Arc::as_ptr`). Ce que la clé oublie reste figé

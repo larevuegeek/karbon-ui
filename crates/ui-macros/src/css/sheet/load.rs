@@ -148,9 +148,6 @@ pub(super) fn append_media(
                 declarations,
                 at,
             } => {
-                if selectors.iter().any(|s| s == ":root") {
-                    return Err("Conditional root variables are not implemented".into());
-                }
                 rules.push(Rule {
                     media: queries.clone(),
                     keyframes: None,

@@ -32,7 +32,7 @@ pub(super) fn background(value: &str) -> Result<String> {
             ));
         }
     }
-    let (angle, start) = if color(parts[0]).is_ok() {
+    let (angle, start) = if view::is_paint_color(parts[0]) {
         (90., 0)
     } else {
         let direction = match parts[0] {
@@ -60,7 +60,7 @@ fn stops(parts: &[&str], start: usize) -> Result<String> {
         if !(1..=2).contains(&tokens.len()) {
             return Err("Use one color and optional percentage per gradient stop".into());
         }
-        colors.push(color(&tokens[0])?);
+        colors.push(view::paint_color(&tokens[0])?);
         let position = if tokens.len() == 2 {
             let n = number(
                 tokens[1]
@@ -119,7 +119,7 @@ fn radial(value: &str) -> Result<String> {
     let mut radius = "[0.5,0.5]".to_string();
     // Rayons explicites : longueurs (px) ou pourcentages de la boîte, 1 ou 2 valeurs.
     let mut sizes: Vec<String> = Vec::new();
-    let start = if color(parts[0]).is_ok() {
+    let start = if view::is_paint_color(parts[0]) {
         0
     } else {
         let args = words(parts[0])?;

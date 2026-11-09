@@ -126,8 +126,9 @@ pub(super) fn raise_events(bridge: &Arc<Bridge>, old: &Snapshot, new: &Snapshot)
             );
         }
         // Position : seulement pour l'élément focalisé (loupe, suivi du focus). Comme dans
-        // Chromium, un défilement ne signale pas le déplacement de chaque élément : des
-        // milliers d'événements par image occupaient le thread de l'interface.
+        // Chromium, un défilement ne signale ni le déplacement de chaque élément ni son
+        // passage hors de la vue (`IsOffscreen`, lu à la demande) : des milliers
+        // d'événements par image occupaient le thread de l'interface.
         if node.focused && before.bounds != node.bounds {
             raise_property(
                 &provider,
@@ -140,7 +141,6 @@ pub(super) fn raise_events(bridge: &Arc<Bridge>, old: &Snapshot, new: &Snapshot)
             (30174, before.is_dialog, node.is_dialog),
             (30010, before.enabled, node.enabled),
             (30009, before.focusable, node.focusable),
-            (30022, before.offscreen, node.offscreen),
             (30008, before.focused, node.focused),
             (30046, before.read_only, node.read_only),
             (30031, before.invokable, node.invokable),
@@ -188,7 +188,6 @@ fn changed(before: &Node, node: &Node) -> bool {
         || before.is_dialog != node.is_dialog
         || before.enabled != node.enabled
         || before.focusable != node.focusable
-        || before.offscreen != node.offscreen
         || before.focused != node.focused
         || before.read_only != node.read_only
         || before.invokable != node.invokable

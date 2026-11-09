@@ -1,4 +1,13 @@
 use super::*;
+use crate::ui::core::element::memo::CheckedSubtree;
+
+const TOO_BIG: &str = "element tree too deep (over 64 levels) or too large (over 50,000 elements)";
+
+/// Deux éléments de l'arbre portent le même identifiant.
+pub(crate) fn duplicate_id(id: ElementId) -> crate::Error {
+    crate::Error::invalid_input(format!("duplicate element id {:#018x}", id.0))
+}
+
 /// Most elements in a tree. Large lists stay cheap between frames (memoized subtrees,
 /// incremental styles and layout); beyond this, use a virtual list.
 pub const MAX_ELEMENTS: usize = 50_000;
@@ -6,47 +15,70 @@ pub const MAX_ELEMENTS: usize = 50_000;
 /// effect/animation values, lengths, grid tracks and unsupported combinations. Returns an
 /// [`Error::InvalidInput`](crate::Error::InvalidInput) error describing the first problem found.
 pub fn validate(root: &Element) -> crate::Result<()> {
+    const FIXED: &str = "position: fixed under an animated, transformed or translucent ancestor is not supported yet";
+    const SPATIAL: &str = "lasting or repeating translate/rotate/scale effects are supported on text, buttons and visual containers; use a fade or a one-shot entrance on inputs, sliders, selects, layers and scroll areas";
+    /// Sous-arbre repris tel quel de la vue précédente, déjà vérifié : seul ce qui dépend
+    /// de ses ancêtres reste à regarder. Ses identifiants sont vérifiés par l'indexation
+    /// de l'arbre (`Interaction::index_tree`).
+    fn reused(node: &Element) -> Option<CheckedSubtree> {
+        node.memo
+            .as_deref()
+            .filter(|m| m.transplanted)
+            .and_then(|m| m.checked.get())
+    }
+    /// Élément refusé sous une transformation animée : son placement ou ses zones de
+    /// saisie ne suivraient pas.
+    fn motion_limited(node: &Element) -> bool {
+        matches!(
+            node.layout,
+            Layout::Layers | Layout::Split(_) | Layout::Scroll(_) | Layout::VirtualList
+        ) || node.drag_source.is_some()
+            || node.drop_target.is_some()
+            || node.widget.as_ref().is_some_and(|w| {
+                w.text_input().is_some()
+                    || w.slider().is_some()
+                    || w.select().is_some()
+                    || w.modal().is_some()
+                    || w.popover().is_some()
+            })
+    }
     fn motion(
         node: &Element,
         inherited: bool,
         grouped: bool,
         depth: usize,
         count: &mut usize,
-    ) -> crate::Result<()> {
-        if super::position::fixed(node) && grouped {
-            return Err(invalid(
-                "position: fixed under an animated, transformed or translucent ancestor is not supported yet",
-            ));
+    ) -> crate::Result<CheckedSubtree> {
+        if let Some(known) = reused(node) {
+            *count += known.elements as usize;
+            if depth + known.height as usize > 64 || *count > MAX_ELEMENTS {
+                return Err(invalid(TOO_BIG));
+            }
+            if known.fixed && grouped {
+                return Err(invalid(FIXED));
+            }
+            if known.motion_limited && inherited {
+                return Err(invalid(SPATIAL));
+            }
+            return Ok(known);
+        }
+        let fixed = super::position::fixed(node);
+        if fixed && grouped {
+            return Err(invalid(FIXED));
         }
         *count += 1;
         if depth > 64 || *count > MAX_ELEMENTS {
-            return Err(invalid(
-                "element tree too deep (over 64 levels) or too large (over 50,000 elements)",
-            ));
+            return Err(invalid(TOO_BIG));
         }
-        let spatial = inherited || node.motion.as_deref().is_some_and(|m| m.spatial());
+        let spatial = inherited || node.motion.as_deref().is_some_and(|m| m.displaced());
         if node.motion.as_deref().is_some_and(|m| !m.valid()) {
             return Err(invalid("invalid animation or effect"));
         }
         // Une infobulle sous une transformation (survol `scale-105`…) se place sur la
         // géométrie non transformée : écart de quelques pixels au plus.
-        if spatial
-            && (matches!(
-                node.layout,
-                Layout::Layers | Layout::Split(_) | Layout::Scroll(_) | Layout::VirtualList
-            ) || node.drag_source.is_some()
-                || node.drop_target.is_some()
-                || node.widget.as_ref().is_some_and(|w| {
-                    w.text_input().is_some()
-                        || w.slider().is_some()
-                        || w.select().is_some()
-                        || w.modal().is_some()
-                        || w.popover().is_some()
-                }))
-        {
-            return Err(invalid(
-                "translate/rotate/scale animations are supported on text, buttons and visual containers; use a fade on inputs, sliders, selects, layers and scroll areas",
-            ));
+        let limited = motion_limited(node);
+        if spatial && limited {
+            return Err(invalid(SPATIAL));
         }
         let filtered = !node.children.is_empty()
             && node.styles.as_ref().is_some_and(|s| {
@@ -55,31 +87,57 @@ pub fn validate(root: &Element) -> crate::Result<()> {
                         .iter()
                         .any(|(_, p, _)| p.filters.is_some_and(|f| !f.values.is_empty()))
             });
+        let choice = node.widget.as_ref().is_some_and(|w| {
+            w.semantics().role == crate::ui::element::Role::RadioGroup
+                || matches!(w.choice(), Some(crate::ui::element::ChoiceState::Radio(_)))
+        });
+        let mut summary = CheckedSubtree {
+            elements: 1,
+            height: 0,
+            fixed,
+            motion_limited: limited,
+            text_input: node
+                .widget
+                .as_ref()
+                .is_some_and(|w| w.text_input().is_some()),
+            radio: choice,
+            overlay: matches!(node.layout, Layout::Layers)
+                || crate::ui::modal::config(node).is_some()
+                || crate::ui::popover::config(node).is_some(),
+        };
         for child in &node.children {
-            motion(
+            let inner = motion(
                 child,
                 spatial,
                 grouped || node.motion.is_some() || filtered,
                 depth + 1,
                 count,
             )?;
+            summary.elements += inner.elements;
+            summary.height = summary.height.max(inner.height + 1);
+            summary.fixed |= inner.fixed;
+            summary.motion_limited |= inner.motion_limited;
+            summary.text_input |= inner.text_input;
+            summary.radio |= inner.radio;
+            summary.overlay |= inner.overlay;
         }
-        Ok(())
+        if let Some(memo) = node.memo.as_deref() {
+            memo.checked.set(Some(summary));
+        }
+        Ok(summary)
     }
     motion(root, false, false, 0, &mut 0)?;
     crate::ui::layers::validate(root)?;
     type Ids = crate::ui::core::hash::FastMap<ElementId, ()>;
     fn walk(node: &Element, ids: &mut Ids, depth: usize) -> crate::Result<()> {
         if depth > 64 || ids.len() >= MAX_ELEMENTS {
-            return Err(invalid(
-                "element tree too deep (over 64 levels) or too large (over 50,000 elements)",
-            ));
+            return Err(invalid(TOO_BIG));
         }
         if ids.insert(node.id, ()).is_some() {
-            return Err(crate::Error::invalid_input(format!(
-                "duplicate element id {:#018x}",
-                node.id.0
-            )));
+            return Err(duplicate_id(node.id));
+        }
+        if reused(node).is_some() {
+            return Ok(());
         }
         let s = node.style;
         if let Some(r) = &node.rules {

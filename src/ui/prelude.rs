@@ -31,12 +31,12 @@ pub use super::{
     rendering::font::{Font, FontAsset},
     styling::{
         CssVariables, LineHeight, Properties as StyleProperties, StyleState, TextAlign,
-        TextDecoration, VariableValue,
+        TextDecoration, VariableValue, color_scheme,
     },
     view::*,
 };
 pub use crate::{
     Error, Result,
-    application::{Action, Application, ViewContext},
+    application::{Action, Application, ColorPreferences, ColorScheme, ViewContext},
     css_file, styles, ui, ui_file,
 };

@@ -74,6 +74,7 @@ pub(crate) fn load(
     let height = (options.height as f32 * scale).round().max(0.);
     let context = view_context(width, height, scale, renderer.label());
     runtime.set_reduced_motion(options.reduced_motion || system_reduced_motion());
+    runtime.set_system_dark(system_dark());
     let at = Instant::now();
     runtime.prepare_at(context, chrome(false), renderer, at)?;
     startup::mark("first view built, styled and laid out (predicted size)");
@@ -179,6 +180,7 @@ impl DrawingState {
         );
         self.runtime
             .set_reduced_motion(state::options().reduced_motion || system_reduced_motion());
+        self.runtime.set_system_dark(system_dark());
         // SAFETY : simple lecture de l'état de la fenêtre.
         let chrome = chrome(unsafe { IsZoomed(window) } != 0);
         self.runtime.prepare(context, chrome, &mut self.renderer)?;
@@ -191,6 +193,39 @@ thread_local! {
     /// milliseconde quand d'autres threads créent des fenêtres : il n'est pas appelé à
     /// chaque image.
     pub(super) static SYSTEM_REDUCED_MOTION: Cell<Option<bool>> = const { Cell::new(None) };
+    /// Dernière lecture du thème du système ; `None` : à relire.
+    static SYSTEM_DARK: Cell<Option<bool>> = const { Cell::new(None) };
+}
+/// Thème sombre des applications dans les réglages de Windows (lu une fois, puis après
+/// chaque `WM_SETTINGCHANGE`).
+pub(super) fn system_dark() -> bool {
+    SYSTEM_DARK.with(|cached| {
+        cached.get().unwrap_or_else(|| {
+            let value = read_system_dark();
+            cached.set(Some(value));
+            value
+        })
+    })
+}
+fn read_system_dark() -> bool {
+    use windows_sys::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
+    let wide = |text: &str| text.encode_utf16().chain([0]).collect::<Vec<u16>>();
+    let key = wide(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+    let value = wide("AppsUseLightTheme");
+    let (mut light, mut size) = (1u32, 4u32);
+    // SAFETY : chaînes terminées par un nul, `light` et `size` valides pendant l'appel.
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            key.as_ptr(),
+            value.as_ptr(),
+            RRF_RT_REG_DWORD,
+            std::ptr::null_mut(),
+            (&raw mut light).cast(),
+            &raw mut size,
+        )
+    };
+    status == 0 && light == 0
 }
 /// Réglage système « Afficher les animations dans Windows » désactivé (lu une fois, puis
 /// après chaque `WM_SETTINGCHANGE`).
@@ -207,6 +242,7 @@ pub(super) fn system_reduced_motion() -> bool {
 /// animation en cours se termine si le mouvement réduit vient d'être activé).
 pub(crate) fn settings_changed(window: Hwnd) {
     SYSTEM_REDUCED_MOTION.with(|cached| cached.set(None));
+    SYSTEM_DARK.with(|cached| cached.set(None));
     super::ffi::invalidate(window);
 }
 fn read_system_reduced_motion() -> bool {

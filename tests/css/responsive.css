@@ -35,3 +35,6 @@
 @container panel (max-width: 299px) { .cq-hidden { display: none; } }
 @media (width >= 700px) { .cq-wide { height: 30px; } }
 .cq-wide { height: 10px; }
+.themed { color: #111111; }
+@media (prefers-color-scheme: dark) { .themed { color: #0000ff; } }
+@media (prefers-contrast: more) { .themed { color: #00ff00; } }

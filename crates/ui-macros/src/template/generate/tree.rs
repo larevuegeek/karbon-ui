@@ -370,7 +370,8 @@ impl Generator {
             }
         }
     }
-    pub(super) fn each_header(&mut self, each: &Each) -> String {
+    /// Itérable d'un `{#each}` (énumérée s'il a un indice) et motif de sa boucle.
+    fn each_parts(&mut self, each: &Each) -> (String, String) {
         // Un chemin (`self.tracks`, `items`, `data::LISTE`, `crate::X.0`) est parcouru
         // par référence, comme en Svelte ; une expression (`0..n`, `xs.iter().rev()`)
         // est consommée.
@@ -385,13 +386,75 @@ impl Generator {
         match &each.index {
             Some(index) => {
                 let index = self.out.value(index);
-                format!("for ({index},{pattern}) in ::core::iter::Iterator::enumerate({iterable})")
+                (
+                    format!("::core::iter::Iterator::enumerate({iterable})"),
+                    format!("({index},{pattern})"),
+                )
             }
-            None => format!("for {pattern} in {iterable}"),
+            None => (iterable, pattern),
         }
     }
+    /// Borne haute du nombre d'éléments que [`children`](Self::children) ajoute à sa
+    /// destination pour `nodes`, hors des boucles `{#each}` (qui réservent leur part) et
+    /// des slots : capacité initiale d'une liste d'enfants.
+    pub(super) fn capacity(&self, nodes: &[Node]) -> usize {
+        let mut flat = Vec::new();
+        flatten(nodes, None, &mut flat);
+        let Ok(items) = self.group(&flat) else {
+            return 0;
+        };
+        items
+            .iter()
+            .map(|item| match item {
+                // Un paragraphe, ou un élément par portion dans un parent flex.
+                Item::Inline(group, _) => group.iter().filter(|n| !is_whitespace(n)).count().max(1),
+                Item::Block(Node::Element(e), _) if e.name == "slot" => 0,
+                Item::Block(Node::Element(_) | Node::Embed(..), _) => 1,
+                Item::Block(
+                    Node::If {
+                        branches,
+                        otherwise,
+                        ..
+                    },
+                    _,
+                ) => branches
+                    .iter()
+                    .map(|(_, body)| body)
+                    .chain(otherwise)
+                    .map(|body| self.capacity(body))
+                    .max()
+                    .unwrap_or(0),
+                Item::Block(..) => 0,
+            })
+            .sum()
+    }
+    pub(super) fn each_header(&mut self, each: &Each) -> String {
+        let (iterable, pattern) = self.each_parts(each);
+        format!("for {pattern} in {iterable}")
+    }
     fn each(&mut self, each: &Each, dest: Dest, forced: Option<&str>) -> Result<String> {
-        let header = self.each_header(each);
+        // Liste d'enfants : chaque tour ajoute au plus `per_item` éléments, réservés d'un
+        // coup d'après la taille connue de l'itérable (un élément fait ~500 octets : la
+        // liste ne grandit pas par recopies successives).
+        let per_item = if dest.slots {
+            0
+        } else {
+            self.capacity(&each.body)
+        };
+        // L'itérable est l'objet d'un `match` : ses temporaires restent en vie pendant
+        // toute la boucle, comme dans l'expression d'un `for`.
+        let (header, close) = if per_item > 0 {
+            let (iterable, pattern) = self.each_parts(each);
+            (
+                format!(
+                    "match {iterable}{{__ui_iter=>{{{}.reserve(::core::iter::Iterator::size_hint(&__ui_iter).0*{per_item});for {pattern} in __ui_iter",
+                    dest.var
+                ),
+                "}}",
+            )
+        } else {
+            (self.each_header(each), "")
+        };
         let key = self.out.value(&each.key);
         let site = self.next();
         let body = self.children(&each.body, dest, forced)?;
@@ -401,7 +464,7 @@ impl Generator {
             code += "#[allow(unused_assignments)] let mut __ui_any=false;";
         }
         code += &format!(
-            "{header}{{{}let __ui_scope={R}::ui::template::keyed(__ui_scope.item({site}),{key});{body}}}",
+            "{header}{{{}let __ui_scope={R}::ui::template::keyed(__ui_scope.item({site}),{key});{body}}}{close}",
             if any { "__ui_any=true;" } else { "" }
         );
         if let Some(otherwise) = &each.otherwise {

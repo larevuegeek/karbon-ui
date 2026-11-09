@@ -144,6 +144,14 @@ impl Animation {
         };
         (self.effect_at(1.) == start && self.frames.iter().all(same)).then_some(start)
     }
+    /// L'animation s'arrête d'elle-même sans laisser l'élément déplacé : entrée `scale`
+    /// d'un dialogue, par exemple. Sa géométrie ne s'écarte de la mise en page que le temps
+    /// de l'animation.
+    pub(crate) fn settles(self) -> bool {
+        self.members().iter().all(|m| {
+            m.iterations.is_some() && m.end_progress().is_none_or(|t| !m.effect_at(t).spatial())
+        })
+    }
     /// Une étape ou un état déplace, tourne ou met à l'échelle l'élément.
     pub(crate) fn spatial(self) -> bool {
         self.members().iter().any(|m| {

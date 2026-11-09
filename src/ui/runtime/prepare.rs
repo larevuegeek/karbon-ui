@@ -1,4 +1,4 @@
-use super::restyle::{carry_caches, containers_changed, has_dynamic_styles};
+use super::restyle::{containers_changed, has_dynamic_styles};
 use super::*;
 impl UiRuntime {
     /// Bring the view up to date for `context`: rebuild, lay out and paint whatever was
@@ -38,7 +38,12 @@ impl UiRuntime {
             inner: text,
             cache: &mut cache,
         };
+        self.sync_colors();
+        let held = self.take_held_rebuild(context, now);
         let result = self.prepare_frame(context, chrome, &mut text, now);
+        if held {
+            self.release_rebuild();
+        }
         self.text_cache = cache;
         result
     }
@@ -67,7 +72,7 @@ impl UiRuntime {
         }
         // Anciens arbres : une tranche par image qui ne reconstruit pas la vue.
         if !self.invalidation.rebuild && !self.invalidation.graveyard.is_empty() {
-            self.bury(GRAVEYARD_SLICE);
+            self.bury(super::rebuild::GRAVEYARD_SLICE);
         }
         // Images livrées hors d'une tâche (message, réveil) : repeintes elles aussi.
         self.images_arrived();
@@ -76,10 +81,11 @@ impl UiRuntime {
         // cesse d'être peint.
         let revealed = std::mem::take(&mut self.invalidation.containment_check)
             && self.reveal_contained(context, chrome, text, now)?;
-        let rebuilt = self.invalidation.rebuild;
+        // Vue reconstruite (`rebuild.rs`).
+        let rebuilding = self.invalidation.rebuild;
         let layouts = self.invalidation.stats.layouts;
         // Ancres de défilement prises sur l'arbre disposé, avant qu'il ne change.
-        let anchors = if rebuilt || self.invalidation.relayout || self.invalidation.reflow {
+        let anchors = if rebuilding || self.invalidation.relayout || self.invalidation.reflow {
             self.root
                 .as_ref()
                 .map(anchoring::capture)
@@ -87,82 +93,8 @@ impl UiRuntime {
         } else {
             Vec::new()
         };
+        let rebuilt = self.rebuild_view(context, now)?;
         let mut motion_tree_changed = rebuilt || self.invalidation.relayout;
-        let stage = Instant::now();
-        if self.invalidation.rebuild {
-            if self.components.item_drag.take().is_some() {
-                self.interaction.pressed = None;
-                self.interaction.release_pending = true;
-            }
-            // Sous-arbres mémorisés (`view::lazy`) : clés de la vue précédente.
-            let keys = self
-                .invalidation
-                .incremental
-                .then(|| crate::ui::view::previous_keys(self.root.as_ref()));
-            let mut root = layers::hoist(crate::ui::view::with_previous(keys.clone(), || {
-                self.app.view(&context)
-            }));
-            let layer_changed = self.interaction.layer_focus.changed(&root);
-            // Une couche qui s'ouvre ou se ferme garde la modalité de la dernière
-            // interaction. Après la souris (clic sur un bouton de menu, choix d'un élément,
-            // clic ailleurs), le focus déplacé n'est pas montré et son aide ne s'affiche
-            // pas ; au clavier (Entrée, Échap…), il l'est, avec l'aide du contrôle.
-            let pointer_close = layer_changed
-                && !self.interaction.tooltip_keyboard
-                && !self.interaction.escape_consumed;
-            if pointer_close {
-                if self.components.tooltips.reset() {
-                    self.invalidation.repaint_semantics();
-                }
-            } else if layer_changed {
-                self.tooltip_input_mode(true);
-            }
-            if layer_changed {
-                // Terminer les interactions de l'ancienne couche avant de déplacer le focus.
-                // La vue n'est reconstruite de nouveau que si un message livré pendant
-                // l'annulation (fin d'un glisser…) l'a demandé : sinon elle serait la même.
-                self.invalidation.rebuild = false;
-                let backdrop = self.interaction.backdrop_capture;
-                let reply = self.event(UiEvent::Cancel);
-                self.interaction.backdrop_capture = backdrop;
-                self.interaction.release_pending |= reply.release && backdrop.is_none();
-                if self.invalidation.rebuild || !self.invalidation.incremental {
-                    root = layers::hoist(crate::ui::view::with_previous(keys, || {
-                        self.app.view(&context)
-                    }));
-                }
-            }
-            crate::ui::view::transplant(&mut root, self.root.as_mut());
-            // Arbre vérifié une fois par reconstruction, sous-arbres repris compris : sa
-            // structure ne change plus jusqu'à la suivante (sauf les lignes qu'une liste
-            // virtuelle fabrique pendant le layout, vérifiées après lui). Trois parcours
-            // par reconstruction coûtaient ~3 ms chacun sur une liste de morceaux.
-            layout::validate(&root)?;
-            let live = self.interaction.index_tree(&mut root, &self.components);
-            if layer_changed {
-                self.interaction.focus_visible = !pointer_close;
-                self.interaction.keyboard_pressed = None;
-                self.invalidation.semantics();
-            }
-            if self.components.retain_rebuilt(&root, &live) {
-                self.interaction.release_pending = true;
-            }
-            self.interaction.retain_focusable();
-            if let Some(mut old) = self.root.take() {
-                carry_caches(&mut old, &mut root, &live);
-                // Grand arbre (liste de morceaux : ~10 000 éléments, 4 à 8 ms) : libéré plus
-                // tard, par tranches ; un petit l'est tout de suite.
-                if self.motions.collect_ghosts(&mut old, &live, now) >= GRAVEYARD_MIN {
-                    self.invalidation.graveyard.push(old);
-                    self.invalidation.graveyard_wake = Some(now + GRAVEYARD_DELAY);
-                }
-            }
-            self.root = Some(root);
-            self.invalidation.rebuild = false;
-            self.invalidation.relayout = true;
-            self.invalidation.stats.views += 1;
-            self.invalidation.stats.view_time += stage.elapsed();
-        }
         let signature = self
             .interaction
             .style_signature(self.components.inputs.revision());
@@ -301,7 +233,7 @@ impl UiRuntime {
                 // Une ancre retirée, désactivée ou cachée ne laisse pas une couche sans accès.
                 root.children.pop();
                 layout::update_paint_order(root);
-                let live = self.interaction.index_tree(root, &self.components);
+                let live = self.interaction.index_tree(root, &self.components)?;
                 self.components.retain_live(&live);
                 if self
                     .interaction
@@ -497,31 +429,4 @@ pub(super) fn window_area(context: ViewContext, chrome: ChromeState) -> RectF {
         context.width,
         context.height,
     )
-}
-
-/// Taille à partir de laquelle un ancien arbre est libéré par tranches.
-const GRAVEYARD_MIN: usize = 4096;
-/// Durée d'une tranche de libération des anciens arbres pendant une image.
-const GRAVEYARD_SLICE: std::time::Duration = std::time::Duration::from_millis(2);
-/// Délai avant de libérer au repos ce que les images n'ont pas libéré.
-const GRAVEYARD_DELAY: std::time::Duration = std::time::Duration::from_millis(60);
-
-impl UiRuntime {
-    /// Libère des éléments des anciens arbres pendant au plus `budget`, un élément à la
-    /// fois (ses enfants restent à libérer), et planifie la tranche suivante.
-    pub(super) fn bury(&mut self, budget: std::time::Duration) {
-        let start = Instant::now();
-        let graveyard = &mut self.invalidation.graveyard;
-        let mut count = 0usize;
-        while let Some(mut element) = graveyard.pop() {
-            graveyard.append(&mut element.children);
-            drop(element);
-            count += 1;
-            if count.is_multiple_of(64) && start.elapsed() >= budget {
-                break;
-            }
-        }
-        self.invalidation.graveyard_wake =
-            (!graveyard.is_empty()).then(|| Instant::now() + GRAVEYARD_DELAY / 2);
-    }
 }

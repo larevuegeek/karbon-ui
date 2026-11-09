@@ -1,5 +1,6 @@
 //! Sous-arbres mémorisés (`view::lazy`, attribut `memo` des gabarits) : vue sautée,
 //! sous-arbre repris, et même placement qu'une vue reconstruite en entier.
+use crate::ui::prelude::{Animation, Modal};
 use crate::ui::tests::support::*;
 use crate::ui::view::lazy;
 
@@ -121,4 +122,111 @@ fn without_incremental_memories_every_subtree_is_built() {
     ui.invalidate();
     prepare(&mut ui, &mut measure);
     assert_eq!(built.get(), 80);
+}
+
+#[test]
+fn a_reused_subtree_clashing_with_a_new_element_is_rejected() {
+    let clash = Rc::new(Cell::new(false));
+    let toggle = clash.clone();
+    let mut ui = view_runtime(move || {
+        let reused = lazy(10, &0u8, || Element::row(10, vec![widgets::text(11, "A")]));
+        let other = widgets::text(if toggle.get() { 11 } else { 12 }, "B");
+        Element::column(1, vec![reused, other])
+    });
+    let mut measure = Measure::default();
+    prepare(&mut ui, &mut measure);
+    clash.set(true);
+    ui.invalidate();
+    let error = ui
+        .prepare(context(), ChromeState::default(), &mut measure)
+        .expect_err("identifiant en double");
+    assert!(
+        error.to_string().contains("duplicate element id"),
+        "{error}"
+    );
+}
+
+#[test]
+fn a_reused_subtree_is_checked_against_its_new_ancestors() {
+    let animated = Rc::new(Cell::new(false));
+    let toggle = animated.clone();
+    let mut ui = view_runtime(move || {
+        let reused = lazy(10, &0u8, || {
+            let mut fixed = widgets::text(11, "A");
+            fixed.rules.get_or_insert_with(Default::default).position = Position::Fixed;
+            Element::row(10, vec![fixed])
+        });
+        let wrapper = Element::column(2, vec![reused]);
+        let wrapper = if toggle.get() {
+            wrapper.animate(Animation::fade_in())
+        } else {
+            wrapper
+        };
+        Element::column(1, vec![wrapper])
+    });
+    let mut measure = Measure::default();
+    prepare(&mut ui, &mut measure);
+    animated.set(true);
+    ui.invalidate();
+    let error = ui
+        .prepare(context(), ChromeState::default(), &mut measure)
+        .expect_err("fixed sous un ancêtre animé");
+    assert!(error.to_string().contains("position: fixed"), "{error}");
+}
+
+#[test]
+fn a_memo_nested_in_a_rebuilt_memo_is_still_reused() {
+    let version = Rc::new(Cell::new(0u64));
+    let built = Rc::new(Cell::new(0));
+    let (v, b) = (version.clone(), built.clone());
+    let mut ui = view_runtime(move || {
+        let inner = b.clone();
+        lazy(10, &v.get(), move || {
+            Element::column(
+                10,
+                vec![lazy(20, &0u8, || {
+                    inner.set(inner.get() + 1);
+                    Element::row(20, vec![widgets::text(21, "A")])
+                })],
+            )
+        })
+    });
+    let mut measure = Measure::default();
+    prepare(&mut ui, &mut measure);
+    assert_eq!(built.get(), 1);
+    version.set(1);
+    ui.invalidate();
+    prepare(&mut ui, &mut measure);
+    assert_eq!(built.get(), 1, "le sous-arbre interne reste repris");
+    assert!(ui.root().unwrap().find(ElementId(21)).is_some());
+}
+
+#[test]
+fn a_subtree_declaring_a_dialog_is_rebuilt_so_the_dialog_stays_open() {
+    let built = Rc::new(Cell::new(0));
+    let counter = built.clone();
+    let mut ui = view_runtime(move || {
+        counter.set(counter.get() + 1);
+        let region = lazy(10, &0u8, || {
+            Element::column(
+                10,
+                vec![
+                    widgets::text(11, "A"),
+                    Element::modal(12, Modal::new("Dialogue"), widgets::text(13, "B")),
+                ],
+            )
+        });
+        Element::column(1, vec![region])
+    });
+    let mut measure = Measure::default();
+    prepare(&mut ui, &mut measure);
+    for _ in 0..3 {
+        ui.invalidate();
+        prepare(&mut ui, &mut measure);
+        assert!(
+            ui.root().unwrap().find(ElementId(13)).is_some(),
+            "dialogue perdu"
+        );
+        assert!(ui.root().unwrap().find(ElementId(11)).is_some());
+    }
 }

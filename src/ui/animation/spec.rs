@@ -149,12 +149,14 @@ impl Motion {
             hover.map_or(base, |h| apply(base, h, self.hover_replace))
         }
     }
-    pub fn spatial(self) -> bool {
+    /// L'élément reste, ou revient régulièrement, hors de sa place de mise en page : une
+    /// animation qui s'arrête d'elle-même sur la place normale ne compte pas.
+    pub fn displaced(self) -> bool {
         self.state.is_some_and(|(e, _)| e.spatial())
             || self.base.spatial()
             || self.hover.is_some_and(Effect::spatial)
             || self.pressed.is_some_and(Effect::spatial)
-            || self.animation.is_some_and(Animation::spatial)
+            || self.animation.is_some_and(|a| a.spatial() && !a.settles())
     }
     /// `true` quand seules une animation de sortie et/ou une révélation de hauteur sont
     /// déclarées : aucune piste d'effet à suivre.

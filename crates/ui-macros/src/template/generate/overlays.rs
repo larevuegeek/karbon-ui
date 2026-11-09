@@ -69,6 +69,7 @@ impl Generator {
             dismiss += ".initial_focus(__ui_id)";
         }
         self.flex.push(None);
+        let capacity = self.capacity(&e.children);
         let children = self.children(
             &e.children,
             Dest {
@@ -80,7 +81,7 @@ impl Generator {
         self.flex.pop();
         let stagger = self.stagger(e)?;
         let before = format!(
-            "#[allow(unused_mut)] let mut __ui_children=::std::vec::Vec::<{R}::ui::element::Element>::new();{children}{stagger}"
+            "#[allow(unused_mut)] let mut __ui_children=::std::vec::Vec::<{R}::ui::element::Element>::with_capacity({capacity});{children}{stagger}"
         );
         self.finish(
             e,
@@ -246,6 +247,7 @@ impl Generator {
             );
         }
         self.flex.push(None);
+        let capacity = self.capacity(&e.children);
         let children = self.children(
             &e.children,
             Dest {
@@ -256,7 +258,7 @@ impl Generator {
         )?;
         self.flex.pop();
         let before = format!(
-            "#[allow(unused_mut)] let mut __ui_children=::std::vec::Vec::<{R}::ui::element::Element>::new();{children}"
+            "#[allow(unused_mut)] let mut __ui_children=::std::vec::Vec::<{R}::ui::element::Element>::with_capacity({capacity});{children}"
         );
         self.finish(
             e,

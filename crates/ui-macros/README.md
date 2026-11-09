@@ -30,6 +30,9 @@ sous le nom `__ui_root`.
 situées et construit les nœuds (`Element`, `{#if}`, `{#each}`, `{@include}`).
 `bootstrap::rewrite` réécrit les comportements `data-bs-*`, puis `generate` produit le
 texte Rust de chaque nœud (constructeur, classes, styles, attributs, événements).
+La liste des enfants d'un conteneur est réservée d'avance (`Generator::capacity` : borne
+haute par branche, et pour une boucle `{#each}` la taille de l'itérable) : un élément
+fait ~500 octets, une liste qui grandissait par doublements recopiait chaque enfant.
 `codegen::Output::finish` relit ce texte en jetons, réinsère les expressions de
 l'appelant avec leurs spans et remplace `__ui_root` par le chemin de la crate. Les
 classes littérales passent par la macro `__karbon_classes!` du module de styles, que

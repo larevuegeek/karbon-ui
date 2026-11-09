@@ -205,6 +205,18 @@ pub(in crate::css) fn add_rule(
         if let Some(predicate) = &selected.predicate {
             if !["opacity", "transform"].contains(&d.name.as_str()) {
                 let props = values::declaration(&d.name, &d.value, vars).map_err(error)?;
+                // Thème ou contraste : constants pendant la vue, refaite à leur
+                // changement ; un dégradé (absent des règles d'état) s'y applique directement.
+                if let Some(test) = crate::css::media::scheme_only(predicate)
+                    && props.iter().any(|(name, value)| {
+                        matches!(name.as_str(), "image_layers" | "background_layers")
+                            || (matches!(name.as_str(), "background" | "background_color")
+                                && value.contains("Gradient::"))
+                    })
+                {
+                    class.view_rules.push((test, props));
+                    continue;
+                }
                 state_properties(&props).map_err(error)?;
                 class
                     .state_props

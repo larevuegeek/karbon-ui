@@ -46,11 +46,11 @@ pub(super) trait ComponentState {
     }
     /// Après reconstruction de la vue : écarter les éléments disparus ou devenus
     /// incompatibles. `true` si une capture pointeur a été perdue.
-    fn retain_rebuilt(&mut self, _root: &Element, _live: &HashSet<ElementId>) -> bool {
+    fn retain_rebuilt(&mut self, _root: &Element, _live: &FastSet<ElementId>) -> bool {
         false
     }
     /// Après retrait d'une couche orpheline : ne garder que les éléments visités.
-    fn retain_live(&mut self, _live: &HashSet<ElementId>) {}
+    fn retain_live(&mut self, _live: &FastSet<ElementId>) {}
     /// Après layout : mémoriser l'état porté par l'arbre pour la prochaine reconstruction.
     fn save(&mut self, _root: &Element) {}
     /// Après matérialisation des lignes virtuelles : écarter les nœuds incompatibles.
@@ -127,7 +127,7 @@ impl ComponentStates {
         self.item_drag.is_some() || self.each().iter().any(|state| state.captured())
     }
 
-    pub(super) fn retain_rebuilt(&mut self, root: &Element, live: &HashSet<ElementId>) -> bool {
+    pub(super) fn retain_rebuilt(&mut self, root: &Element, live: &FastSet<ElementId>) -> bool {
         let mut release = false;
         for state in self.each_mut() {
             release |= state.retain_rebuilt(root, live);
@@ -135,7 +135,7 @@ impl ComponentStates {
         release
     }
 
-    pub(super) fn retain_live(&mut self, live: &HashSet<ElementId>) {
+    pub(super) fn retain_live(&mut self, live: &FastSet<ElementId>) {
         for state in self.each_mut() {
             state.retain_live(live);
         }
@@ -225,7 +225,7 @@ impl ComponentState for SplitState {
     fn captured(&self) -> bool {
         self.drag.is_some()
     }
-    fn retain_rebuilt(&mut self, root: &Element, live: &HashSet<ElementId>) -> bool {
+    fn retain_rebuilt(&mut self, root: &Element, live: &FastSet<ElementId>) -> bool {
         self.fractions.retain(|id, _| live.contains(id));
         let lost = self.drag.is_some_and(|d| {
             !root
@@ -237,7 +237,7 @@ impl ComponentState for SplitState {
         }
         lost
     }
-    fn retain_live(&mut self, live: &HashSet<ElementId>) {
+    fn retain_live(&mut self, live: &FastSet<ElementId>) {
         self.fractions.retain(|id, _| live.contains(id));
     }
     fn retain_refreshed(&mut self, root: &Element) {
@@ -252,7 +252,7 @@ impl ComponentState for ScrollState {
     fn captured(&self) -> bool {
         self.drag.is_some()
     }
-    fn retain_rebuilt(&mut self, root: &Element, _live: &HashSet<ElementId>) -> bool {
+    fn retain_rebuilt(&mut self, root: &Element, _live: &FastSet<ElementId>) -> bool {
         self.offsets
             .retain(|id, _| root.find(*id).is_some_and(is_scroll));
         if self
@@ -269,7 +269,7 @@ impl ComponentState for ScrollState {
         }
         lost
     }
-    fn retain_live(&mut self, live: &HashSet<ElementId>) {
+    fn retain_live(&mut self, live: &FastSet<ElementId>) {
         self.offsets.retain(|id, _| live.contains(id));
     }
     fn save(&mut self, root: &Element) {
@@ -290,12 +290,12 @@ impl ComponentState for ScrollState {
 }
 
 impl ComponentState for ListState {
-    fn retain_rebuilt(&mut self, root: &Element, _live: &HashSet<ElementId>) -> bool {
+    fn retain_rebuilt(&mut self, root: &Element, _live: &FastSet<ElementId>) -> bool {
         self.positions
             .retain(|id, _| root.find(*id).is_some_and(|n| n.virtual_list.is_some()));
         false
     }
-    fn retain_live(&mut self, live: &HashSet<ElementId>) {
+    fn retain_live(&mut self, live: &FastSet<ElementId>) {
         self.positions.retain(|id, _| live.contains(id));
     }
     fn save(&mut self, root: &Element) {

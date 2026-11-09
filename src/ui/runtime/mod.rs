@@ -3,6 +3,7 @@
 use crate::application::{
     Action, Application, DynApplication, Handler, Message, Resources, ViewContext,
 };
+use crate::ui::core::hash::FastSet;
 use crate::ui::{
     element::*,
     layers::{self, LayerFocus},
@@ -42,6 +43,7 @@ mod invalidation;
 mod overlays;
 mod painting;
 mod prepare;
+mod rebuild;
 mod responses;
 mod restyle;
 mod scrolling;
@@ -256,6 +258,12 @@ impl UiRuntime {
     pub(crate) fn animating_styles(&self) -> bool {
         self.motions.animating_styles()
     }
+    /// Tells the runtime whether the system uses a dark colour scheme, for
+    /// [`ColorScheme::System`](crate::application::ColorScheme::System).
+    pub fn set_system_dark(&mut self, dark: bool) {
+        self.invalidation.system_dark = dark;
+    }
+
     /// When `reduced` is `true`, disable animation durations and apply final states immediately.
     pub fn set_reduced_motion(&mut self, reduced: bool) {
         if self.motions.reduced != reduced {

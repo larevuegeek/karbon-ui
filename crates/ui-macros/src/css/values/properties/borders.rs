@@ -39,7 +39,7 @@ pub(super) fn property(name: &str, value: &str, next: Next) -> Result<Properties
             if let Some(c) = paint
                 && !c.eq_ignore_ascii_case("currentcolor")
             {
-                out.push((format!("border_color_{side}"), color(c)?));
+                out.push((format!("border_color_{side}"), view::paint_color(c)?));
             }
             Ok(out)
         }
@@ -55,7 +55,7 @@ pub(super) fn property(name: &str, value: &str, next: Next) -> Result<Properties
             }
             one(
                 &format!("border_color_{}", name[7..].trim_end_matches("-color")),
-                color(value)?,
+                view::paint_color(value)?,
             )
         }
         "border-top-style" | "border-right-style" | "border-bottom-style" | "border-left-style" => {

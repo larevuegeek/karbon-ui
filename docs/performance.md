@@ -303,11 +303,110 @@ images qui reconstruisent (`UiRuntime::bury`). Défilement long de 30 s face à 
 12 à-coups (Tauri 2), processeur 43 % (Tauri 64 %), RAM privée 661 Mo (Tauri 949 Mo,
 sept processus).
 
+Puis, échantillonnage du thread de l'interface hors préparation (trous de 40 à 88 ms
+entre deux images bon marché) : l'accessibilité republiait l'arbre (~6 ms) dix fois par
+seconde pendant le défilement et signalait `IsOffscreen` de chaque élément entré ou
+sorti de la vue ; elle attend désormais l'arrêt du défilement. Côté clone,
+`take_task_commands` (appelé après chaque message Windows) reconstruisait tout le
+`ViewModel` pour redemander les pochettes ; il ne le fait plus qu'après une vue.
+Défilement long de 30 s : pire écart 67 → 50 ms, 11 à 12 à-coups, processeur 35 %,
+écart p95 entre images 21,6 → 17,8 ms. Construire la vue à une image et la brancher à la
+suivante pendant un défilement a été essayé et retiré : à l'écran, l'image qui reporte
+ne montre rien de neuf (21 à 24 à-coups au lieu de 12).
+
 Reste au chargement d'une page de la liste : ~25 ms pour la reconstruction qui apporte
 les 100 nouvelles lignes (création ~13-18 ms, essentiellement des allocations ; layout
 ~8 ms) et ~15 ms pour celle du chargeur. Piste suivante : `Styles` pèse 3 824 octets
 par élément stylé (`ComputedStyle` 1 480, `Properties` 1 384), alloués et mis à zéro
 pour chaque élément de chaque nouvelle ligne.
+
+Construction de la vue (2026-11-09). Banc hors écran du clone, page Morceaux (200
+lignes) reconstruite en entier à chaque image, et compteur d'allocations par taille :
+
+| | Construction de la vue |
+| --- | --- |
+| Départ (tas de Windows) | 36,5 ms |
+| `mimalloc` dans l'exécutable du clone | 32,0 ms |
+| Listes d'enfants réservées d'avance (`Generator::capacity`) | 29,3 ms |
+| Un seul ancien arbre en attente (`rebuild_view`) | 24,4 ms |
+
+- **Allocateur** : `mimalloc` (v2 ou v3, même résultat) gagne ~12 % ; le coût venait
+  moins de l'allocateur que du volume de mémoire neuve touchée.
+- **Listes d'enfants** : elles partaient de `Vec::new()` et doublaient (4, 8, 16
+  éléments de 504 octets recopiés) : 14 Go alloués sur le banc, le premier poste. Le
+  compilateur de gabarits réserve la borne haute du nombre d'enfants, et chaque
+  `{#each}` la taille de son itérable.
+- **Cimetière borné** : quand chaque image reconstruit (saisie, banc), aucune image ne
+  libérait les anciens arbres ; la mémoire grossissait sans fin et l'allocateur
+  demandait sans cesse des pages neuves au système (42 % de la construction dans sa
+  recherche de pages). Un arbre en attente au plus : le précédent est libéré quand un
+  autre arrive.
+- Essayé et retiré : fonctions de classes `#[inline(always)]` (−4 %, mais exécutable de
+  81 à 123 Mo et LTO de 11 à 17 min) ; **contenu différé** des éléments
+  `content-visibility: auto` éloignés (la vue ne construit que les lignes proches et les
+  autres à leur approche, sans jamais montrer de ligne vide) : le grand pic disparaît
+  (pire préparation 23 → 14 ms), mais chaque construction à l'approche coûte une
+  reconstruction complète (~8 ms de frais fixes, surtout les parties de la vue non
+  mémorisées et les parcours de tout l'arbre : `validate`, `collect_ghosts`) ; défilement
+  long de 30 s : 27 à 55 à-coups selon la largeur des zones, contre 10-11 sans.
+
+En fenêtre (défilement long de 30 s, copie de la bibliothèque, build LTO), cette première
+série ne se voyait pas encore : 12 à 17 à-coups, pire écart ~50 ms. Une image de
+chargement de page restait au-dessus du budget de 16,7 ms.
+
+Coût fixe d'une reconstruction (2026-11-09, suite). Phase `rebuild` du banc, où rien ne
+change d'une image à l'autre, et journal des images lentes (`--profile`) en fenêtre :
+
+| | Préparation de la phase `rebuild` (vue + styles + layout) |
+| --- | --- |
+| Avant | 10,3 ms (5,7 + 1,8 + 2,8) |
+| Après | 3,9 ms (1,2 + 1,2 + 1,5) |
+
+- **Sous-arbres repris non reparcourus.** La vérification de l'arbre (`layout::validate`)
+  était le premier poste (28 % de la préparation). Un sous-arbre mémorisé retient le
+  résumé de sa dernière vérification (`CheckedSubtree` : nombre d'éléments, hauteur,
+  présence d'un `fixed`, d'un élément refusé sous une transformation) : seul ce qui
+  dépend de ses nouveaux ancêtres est encore regardé. Les identifiants en double sont
+  vérifiés par `Interaction::index_tree`, qui voit de toute façon tout l'arbre. Le même
+  résumé dispense de descendre les parcours qui cherchent une seule sorte d'élément
+  (champs de saisie, radios, couches). `previous_keys` s'arrête aux sous-arbres sans
+  mémoire imbriquée, `memo::flags` à ceux dont le layout est repris.
+- **Zones stables du clone mémorisées** (`region_keys.rs` du clone : barre latérale,
+  lecteur, recherche, actions de la barre de titre) : −1,1 ms.
+- **Le travail lourd avant l'attente de l'écran.** Une image d'animation attend sa place
+  dans la file de présentation avant de lire l'horloge (`FrameSlot`). Quand un lot de
+  données arrivait pendant un défilement, la reconstruction venait après cette attente :
+  12 ms inactives, puis 11 ms de travail et 5 ms de dessin, affichage manqué.
+  `runtime::prepare_pending_rebuild` la fait avant, à la place de l'attente.
+
+Fenêtre, build LTO, 5 essais de 30 s : 5 à 8 à-coups, pire écart 34 ms (avant : 12 à 17
+et ~50 ms ; Tauri : 2 et 35 ms). Restait l'image qui reçoit les 100 lignes d'un lot
+(~25 ms, ~130 µs par ligne), au-delà du budget d'une image.
+
+Étalement (2026-11-09, fin). `Application::has_frame_work` et `frame_work` : l'application
+annonce un travail découpé, le runtime lui donne une tranche par image (réveil par
+`next_wake`, donc sur tous les systèmes). Le clone fait entrer un lot de 100 lignes par
+tranches de 10 (`TRANCHE`, `pages/tracks/mod.rs`).
+
+- **Étaler ne suffit pas.** Matrice en alternance sur le même binaire (4 essais de 30 s
+  chacun, médiane des à-coups) : lot entier 5,5, tranches de 10 : 3,5, de 20 : 5,5, de
+  40 : 5. Le gain de la seule découpe est dans le bruit de la mesure.
+- **Une tranche par image.** Le premier essai en faisait deux : une avant l'attente de
+  l'écran, une après (l'attente dépassait l'écart minimal entre deux tranches). Sous
+  Windows, `FRAME_WAKE` fait la tranche (`begin_frame_work`) et le réveil qui suit ne
+  compte pas.
+- **Ce qui a débloqué la mesure : les reconstructions demandées pendant l'attente de
+  l'écran** (message « charge la suite », arrivée du lot). Elles se faisaient après
+  l'attente, dans le reste de l'image, et lui faisaient manquer son affichage.
+  `hold_rebuild` les reporte à l'image suivante pendant un défilement (20 ms au plus) ;
+  elles passent alors avant l'attente, et l'image courante montre la nouvelle position.
+
+Fenêtre, build LTO, 8 essais au calme : **0 à 4 à-coups (4, 0, 2, 0, 0, 2, 1, 1), pire
+écart 20 à 33 ms** (Tauri : 2 et 35 ms), 60 images par seconde. Un essai lancé juste après
+une compilation (processeur déjà occupé) donne 12 à-coups et 50 ms : la marge reste
+faible sur une machine chargée. Le clone étale aussi les grilles Albums et Artistes (12
+cartes par image). Le coût par élément (`Styles` de 3,8 Ko, `Node` de 536 octets passé
+par valeur) reste l'amélioration de fond.
 
 - **Images qui arrivent plus tard** (`ImageSlot`, `runtime/images.rs`) : une pochette
   décodée en tâche de fond remplit sa source ; le runtime la repeint sans reconstruire la

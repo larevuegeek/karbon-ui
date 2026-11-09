@@ -300,6 +300,7 @@ pub use arrange::arrange;
 use grid::placements;
 pub use measure::measure;
 pub use split::split_extent;
+pub(crate) use validation::duplicate_id;
 pub use validation::{MAX_ELEMENTS, validate};
 
 pub mod expression;

@@ -19,6 +19,13 @@ pub struct MediaQuery {
     /// `no-preference`, `None` either; checked by style resolution against
     /// [`StyleEnvironment::reduced_motion`](super::StyleEnvironment::reduced_motion).
     pub reduced_motion: Option<bool>,
+    /// `Some(true)` requires `prefers-color-scheme: dark`, `Some(false)` `light`, `None`
+    /// either; checked against [`StyleEnvironment::dark`](super::StyleEnvironment::dark).
+    pub dark: Option<bool>,
+    /// `Some(true)` requires `prefers-contrast: more`, `Some(false)` `no-preference`,
+    /// `None` either; checked against
+    /// [`StyleEnvironment::high_contrast`](super::StyleEnvironment::high_contrast).
+    pub high_contrast: Option<bool>,
 }
 impl MediaQuery {
     /// Returns `true` when `viewport` satisfies every bound of the query.

@@ -2,7 +2,9 @@
 //! services and context it receives from the runtime.
 use crate::ui::{element::Element, scene::Image, theme::Theme};
 use std::sync::Arc;
+mod colors;
 mod message;
+pub use colors::{ColorPreferences, ColorScheme};
 pub use message::Action;
 pub(crate) use message::{Handler, Message};
 
@@ -141,6 +143,49 @@ pub trait Application: 'static {
     fn take_window_commands(&mut self) -> Vec<crate::window::WindowCommand> {
         Vec::new()
     }
+    /// Colour preferences matched by the `prefers-color-scheme` and `prefers-contrast`
+    /// media features, read before each frame. When they change, the whole view is built
+    /// again, memoized subtrees included. Defaults to the system scheme and normal
+    /// contrast.
+    fn color_preferences(&self) -> ColorPreferences {
+        ColorPreferences::default()
+    }
+    /// `true` while the application has work spread over several frames, such as a batch
+    /// of rows to add a few at a time: [`frame_work`](Self::frame_work) is then called
+    /// about once per frame. Defaults to none.
+    fn has_frame_work(&self) -> bool {
+        false
+    }
+    /// Do one slice of the work announced by [`has_frame_work`](Self::has_frame_work);
+    /// return `true` to rebuild the view. A view that is too long to build in one frame
+    /// makes the screen miss a refresh: built in slices, it does not.
+    ///
+    /// ```
+    /// use karbon_ui::ui::prelude::*;
+    ///
+    /// #[derive(Default)]
+    /// struct Rows {
+    ///     shown: usize,
+    ///     waiting: usize,
+    /// }
+    /// impl Application for Rows {
+    ///     type Message = ();
+    ///     fn has_frame_work(&self) -> bool {
+    ///         self.waiting > 0
+    ///     }
+    ///     fn frame_work(&mut self) -> bool {
+    ///         let slice = self.waiting.min(20);
+    ///         self.waiting -= slice;
+    ///         self.shown += slice;
+    ///         true
+    ///     }
+    ///     # fn view(&self, _: &ViewContext) -> Element { text("t", "") }
+    ///     # fn update(&mut self, _: ()) -> bool { false }
+    /// }
+    /// ```
+    fn frame_work(&mut self) -> bool {
+        false
+    }
     /// Receive the window's geometry and state: once when it is shown, then after each
     /// change of position, size, scale, maximized, minimized or full-screen state, and
     /// at the start and end of a move or resize with the pointer. Return `true` to
@@ -179,6 +224,9 @@ pub(crate) trait DynApplication {
     fn take_task_commands(&mut self) -> Vec<crate::task::TaskCommand>;
     fn task_completed(&mut self, result: crate::task::TaskResult) -> bool;
     fn take_window_commands(&mut self) -> Vec<crate::window::WindowCommand>;
+    fn color_preferences(&self) -> ColorPreferences;
+    fn has_frame_work(&self) -> bool;
+    fn frame_work(&mut self) -> bool;
     fn window_changed(&mut self, state: crate::window::WindowState) -> bool;
     /// Accès typé pour le harnais headless, qui connaît le type concret.
     fn as_any(&self) -> &dyn std::any::Any;
@@ -226,6 +274,15 @@ impl<A: Application> DynApplication for A {
     }
     fn take_window_commands(&mut self) -> Vec<crate::window::WindowCommand> {
         Application::take_window_commands(self)
+    }
+    fn color_preferences(&self) -> ColorPreferences {
+        Application::color_preferences(self)
+    }
+    fn has_frame_work(&self) -> bool {
+        Application::has_frame_work(self)
+    }
+    fn frame_work(&mut self) -> bool {
+        Application::frame_work(self)
     }
     fn window_changed(&mut self, state: crate::window::WindowState) -> bool {
         Application::window_changed(self, state)

@@ -1,5 +1,6 @@
 //! Anciens arbres d'une reconstruction : un grand arbre est libéré par tranches, hors de
-//! l'image qui reconstruit la vue ; un petit l'est tout de suite.
+//! l'image qui reconstruit la vue ; un petit l'est tout de suite. Un seul arbre attend à la
+//! fois.
 use crate::ui::tests::support::*;
 use std::time::Duration;
 
@@ -67,4 +68,18 @@ fn small_replaced_trees_are_released_by_the_rebuild() {
     prepare(&mut ui, &mut m);
     assert_eq!(live.get(), 100);
     assert!(ui.next_wake().is_none());
+}
+
+#[test]
+fn rebuilding_at_every_frame_keeps_at_most_one_tree_waiting() {
+    let live = Rc::new(Cell::new(0));
+    let mut ui = runtime(5000, &live);
+    let mut m = Measure::default();
+    prepare(&mut ui, &mut m);
+    for _ in 0..4 {
+        ui.invalidate();
+        prepare(&mut ui, &mut m);
+        // L'arbre affiché et, au plus, le précédent en attente.
+        assert!(live.get() <= 10_000, "{}", live.get());
+    }
 }

@@ -90,6 +90,9 @@ pub(crate) fn radio_groups(root: &Element) -> crate::Result<Vec<RadioMembers>> {
         current: Option<usize>,
         groups: &mut Vec<RadioMembers>,
     ) -> crate::Result<()> {
+        if node.checked_subtree().is_some_and(|c| !c.radio) {
+            return Ok(());
+        }
         let current = if node
             .widget
             .as_ref()

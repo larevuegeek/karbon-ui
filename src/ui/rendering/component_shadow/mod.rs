@@ -58,6 +58,35 @@ impl Shadows {
             })
     }
 }
+/// Interns a shadow list built while a view is constructed (colours read from variables):
+/// a distinct list is leaked once, and their number is bounded by the application's themes.
+pub(crate) fn intern(values: Vec<BoxShadow>) -> &'static [BoxShadow] {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+    type Key = Vec<(u32, u32, u32, u32, u32, bool)>;
+    static LISTS: OnceLock<Mutex<HashMap<Key, &'static [BoxShadow]>>> = OnceLock::new();
+    let key: Key = values
+        .iter()
+        .map(|s| {
+            let c = s.color;
+            (
+                s.x.to_bits(),
+                s.y.to_bits(),
+                s.blur.to_bits(),
+                s.spread.to_bits(),
+                u32::from_le_bytes([c.red, c.green, c.blue, c.alpha]),
+                s.inset,
+            )
+        })
+        .collect();
+    let mut lists = LISTS
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    lists
+        .entry(key)
+        .or_insert_with(|| Box::leak(values.into_boxed_slice()))
+}
 /// What a shadow layer paints, relative to the element's top-left corner.
 #[derive(Clone)]
 enum Paint {

@@ -187,6 +187,9 @@ pub(crate) fn validate(root: &Element) -> crate::Result<()> {
         crate::Error::invalid_input("invalid layers or modal")
     }
     fn walk(node: &Element, root: &Element, modal_slot: bool) -> crate::Result<()> {
+        if !modal_slot && node.checked_subtree().is_some_and(|c| !c.overlay) {
+            return Ok(());
+        }
         if let Some(m) = modal::config(node) {
             if !modal_slot
                 || !matches!(node.layout, Layout::Column)
@@ -256,10 +259,12 @@ pub(crate) fn hoist(mut root: Element) -> Element {
     fn overlay(node: &Element) -> bool {
         modal::config(node).is_some() || popover::config(node).is_some()
     }
-    fn extract(node: &mut Element, found: &mut Vec<Element>) {
+    /// Renvoie `true` si une couche a quitté le sous-arbre de `node`.
+    fn extract(node: &mut Element, found: &mut Vec<Element>) -> bool {
         if matches!(node.layout, Layout::VirtualList) {
-            return;
+            return false;
         }
+        let mut moved = false;
         let mut index = 0;
         while index < node.children.len() {
             if overlay(&node.children[index]) {
@@ -268,12 +273,20 @@ pub(crate) fn hoist(mut root: Element) -> Element {
                 for child in &mut layer.children {
                     extract(child, found);
                 }
+                if let Some(memo) = layer.memo.as_deref_mut() {
+                    memo.hoisted = true;
+                }
                 found.push(layer);
+                moved = true;
             } else {
-                extract(&mut node.children[index], found);
+                moved |= extract(&mut node.children[index], found);
                 index += 1;
             }
         }
+        if moved && let Some(memo) = node.memo.as_deref_mut() {
+            memo.hoisted = true;
+        }
+        moved
     }
     let mut found = Vec::new();
     let layered = matches!(root.layout, Layout::Layers);

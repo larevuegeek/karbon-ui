@@ -280,8 +280,11 @@ appliquée à l’alpha, mélange prémultiplié, teinte OKLCH par l’arc le pl
 et `accent-color`, y compris dans les états (`:hover`). `currentColor` vaut la
 couleur de texte calculée de l’élément (noir si aucune `color` n’est déclarée sur
 l’élément ou un ancêtre : le thème n’est pas connu des styles). Dans les dégradés,
-ombres et filtres, les couleurs restent constantes : `currentColor` et `var()` y
-sont résolus à la compilation ou refusés. `lab()`, `lch()`, `hwb()` et
+les ombres et les bordures d’un seul côté, une couleur qui lit `var()` vaut la valeur
+de `:root` compilée, ou celle des variables du `TemplateContext` à la construction de
+la vue (`css::root_variables`, voir [§ 4](#4-unités-expressions-et-variables)). Une
+propriété déclarée par un élément (`style:--h={…}`) n’y est pas vue ; `currentColor` et
+les filtres restent résolus à la compilation. `lab()`, `lch()`, `hwb()` et
 `color()` ne sont pas fournis.
 
 Le premier fond de la liste est au-dessus des suivants. `background-image`
@@ -397,6 +400,10 @@ non finis et divisions invalides produisent une erreur.
 
 Les media queries acceptent screen/all, only/not, des alternatives séparées par
 virgule, `and`, min/max-width/height, width/height, orientation et
+`prefers-color-scheme: dark | light` et `prefers-contrast: more | no-preference`
+(`Application::color_preferences`, thème système par défaut, lu sous Windows seulement ;
+un changement refait toute la vue ; pendant `view`, `color_scheme()` donne les valeurs
+effectives `(sombre, contraste élevé)`, `System` résolu),
 `prefers-reduced-motion: reduce | no-preference` (réglage du runtime,
 `UiRuntime::set_reduced_motion`) ; leur imbrication
 fonctionne. Les seuils sont en px. Elles peuvent changer la typographie,
@@ -407,10 +414,26 @@ grid), pistes `grid-template-columns` / `grid-template-rows` et `order`. Un
 base (motif Tailwind `hidden md:flex`). Les mêmes changements sont possibles dans
 les états (`:hover`, combinateurs).
 
+Un bloc `:root` peut être conditionné par `prefers-color-scheme` et `prefers-contrast`
+(pas par les dimensions du viewport) : la feuille exporte alors
+`root_variables(dark, high_contrast) -> &'static CssVariables`, à passer au contexte
+(`cx.with_variables(css::root_variables(dark, contraste))`). Les blocs s’appliquent dans
+l’ordre de la feuille ; un bloc qui correspond à l’état de base est vide.
+
+```css
+:root { --fond: #0b0d0c; }
+@media (prefers-color-scheme: light) { :root { --fond: #f6f4ef; } }
+```
+
+Sous ces mêmes requêtes de thème ou de contraste, un fond en dégradé est accepté : il
+s’applique à la construction de la vue, refaite quand ces préférences changent. Les
+variantes Tailwind sous `@media` (`dark:ring-white/6`, `dark:from-…`) refont les
+déclarations de la base qui lisent leurs variables `--tw-*`.
+
 Les min/max de dimensions, rayons, ombres et longueurs des filtres
 restent en px ; line-height accepte px ou facteur. Les media queries de préférences
-et les changements conditionnels de position/overflow, fonds dégradés ou animations
-ne sont pas fournis. La syntaxe de plages CSS4 est acceptée (`(width >= 700px)`,
+restent hors de portée des changements conditionnels de position/overflow, des fonds
+dégradés au survol et des animations. La syntaxe de plages CSS4 est acceptée (`(width >= 700px)`,
 `(400px < width <= 800px)`, `<`/`>` stricts à 0,01 px près) ; les seuils acceptent
 px, `rem` et `em` (16 px).
 
@@ -670,6 +693,11 @@ en plus le layout de tout l'arbre à chaque image (une boucle infinie, comme les
 d'un égaliseur, le fait tant qu'elle est visible : préférer `transform: scaleY()`
 quand la mise en page des voisins n'a pas à suivre). Mouvements réduits : état final
 immédiat de chaque animation (celui de son remplissage avant).
+
+Un champ de saisie, un curseur, une liste déroulante ou une zone de défilement accepte
+une entrée `transform` d'un ancêtre si elle s'arrête d'elle-même sur la place normale
+(dialogue qui entre par `scale(0.96)`) : sa géométrie n'est décalée que pendant
+l'animation. Une transformation durable ou répétée sur l'ancêtre reste refusée.
 
 Limites : pas de nombre d'itérations fractionnaire ou nul, pas de `steps()`, pas
 d'`animation-composition`, `animation-timeline`, `animation-range` ; pas d'animation

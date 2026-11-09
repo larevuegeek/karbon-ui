@@ -1,0 +1,17 @@
+@import "tailwindcss";
+@custom-variant dark (@media (prefers-color-scheme: dark));
+/* Variables `:root` conditionnelles, lues par les couleurs, dégradés et ombres. */
+:root { --line: #111111; --card: #222222; --stop: #333333; }
+@media (prefers-color-scheme: light) {
+    :root { --line: #aaaaaa; --card: #bbbbbb; --stop: #cccccc; }
+}
+@media (prefers-color-scheme: light) and (prefers-contrast: more) {
+    :root { --card: #dddddd; }
+}
+.card { color: var(--card); width: 100px; height: 10px; }
+.band { background: linear-gradient(90deg, var(--stop), #000000); width: 100px; height: 10px; }
+.halo { box-shadow: 0px 0px 0px 2px var(--stop); width: 100px; height: 10px; }
+.theme-band { width: 100px; height: 10px; background: #123456; }
+@media (prefers-color-scheme: dark) {
+    .theme-band { background: linear-gradient(90deg, #abcdef, #fedcba); }
+}

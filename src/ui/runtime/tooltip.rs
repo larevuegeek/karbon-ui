@@ -9,6 +9,8 @@ impl UiRuntime {
             self.interaction.hover_frozen,
             self.smooth_scroll_wake(),
             self.invalidation.graveyard_wake,
+            self.frame_work_wake(),
+            self.held_rebuild_wake(),
         ]
         .into_iter()
         .flatten()

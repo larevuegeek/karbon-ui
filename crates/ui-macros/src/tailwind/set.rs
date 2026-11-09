@@ -45,6 +45,33 @@ struct Entry {
     decls: Vec<(String, String)>,
     keyframes: Vec<String>,
 }
+/// `value` lit (directement ou par une autre variable) une des variables `names`.
+fn reads_tw(
+    value: &str,
+    names: &[String],
+    vars: &std::collections::BTreeMap<String, String>,
+    depth: usize,
+) -> bool {
+    if depth > 8 {
+        return false;
+    }
+    let mut rest = value;
+    while let Some(at) = rest.find("var(--tw-") {
+        rest = &rest[at + 4..];
+        let end = rest.find([',', ')']).unwrap_or(rest.len());
+        let name = rest[..end].trim();
+        if names.iter().any(|n| n == name) {
+            return true;
+        }
+        if vars
+            .get(name)
+            .is_some_and(|v| reads_tw(v, names, vars, depth + 1))
+        {
+            return true;
+        }
+    }
+    false
+}
 /// Compile les utilitaires `tokens` d'un élément ; l'erreur désigne le jeton fautif.
 pub fn compile_set(tokens: &[&str], cfg: &Config) -> Result<Set, (usize, String)> {
     let mut entries = Vec::new();
@@ -166,12 +193,34 @@ pub fn compile_set(tokens: &[&str], cfg: &Config) -> Result<Set, (usize, String)
         } else {
             &mut set.normal
         };
-        for (i, (condition, raw, keyframes)) in groups.into_iter().enumerate() {
+        for (i, (condition, mut raw, keyframes)) in groups.into_iter().enumerate() {
             let is_base = condition.key() == Condition::default().key();
             let mut vars = base_vars.clone();
             for (n, v) in &raw {
                 if n.starts_with("--tw-") {
                     vars.insert(n.clone(), v.clone());
+                }
+            }
+            // Variables changées par une requête `@media` (`dark:ring-white/6` sur un
+            // `ring-1` de base, `dark:from-…`) : les déclarations de la base qui les lisent
+            // valent dans ce groupe, comme l'héritage des variables en CSS.
+            if !is_base && condition.states.is_empty() && condition.pseudo.is_none() {
+                let own = raw
+                    .iter()
+                    .filter(|(n, _)| n.starts_with("--tw-"))
+                    .map(|(n, _)| n.clone())
+                    .collect::<Vec<_>>();
+                if !own.is_empty() {
+                    let extra = base_raw
+                        .iter()
+                        .filter(|(n, v)| {
+                            !n.starts_with("--tw-")
+                                && !raw.iter().any(|(m, _)| m == n)
+                                && reads_tw(v, &own, &vars, 0)
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>();
+                    raw.extend(extra);
                 }
             }
             let base = (!is_base).then_some(base_raw.as_slice());

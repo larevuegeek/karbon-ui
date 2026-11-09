@@ -43,7 +43,9 @@ pub(super) unsafe fn window_message(
             timer::frame_fired();
             // L'horloge est lue une fois la place de l'image prise dans la file de
             // présentation : intervalle constant entre lecture et affichage.
+            runtime::prepare_pending_rebuild(window);
             runtime::wait_for_frame();
+            runtime::hold_rebuild();
             send_ui(window, UiEvent::Timer(std::time::Instant::now()));
             0
         }

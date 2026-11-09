@@ -124,7 +124,7 @@ tout le thème. Les `@keyframes` déclarés dans `@theme` ou dans la feuille ser
 | `peer-checked`, `peer-focus-visible`… | état d’un frère précédent `peer` |
 | `sm` … `2xl`, `max-md`, `min-[900px]`, `max-[760px]`, `portrait`, `landscape` | `@media` sur la fenêtre |
 | `@md`, `@3xl`, `@max-6xl`, `@[500px]`, `@max-[760px]`, `@lg/nom` | `@container` (déclarer `@container` ou `@container/nom` sur un ancêtre) |
-| `dark` | stratégie par classe : `&:where(.dark, .dark *)`, l’élément ou un ancêtre porte `class="dark"` (ou `class:dark={…}`) ; `@custom-variant dark (…)` la remplace (`(&)` : toujours) |
+| `dark` | avec `@custom-variant dark (@media (prefers-color-scheme: dark))`, suit `Application::color_preferences` à l'exécution, dialogues et popovers compris ; par défaut, stratégie par classe : `&:where(.dark, .dark *)`, l’élément ou un ancêtre porte `class="dark"` (ou `class:dark={…}`) ; `@custom-variant dark (…)` la remplace (`(&)` : toujours) |
 | `data-[state=open]`, `data-active`, `aria-expanded`, `aria-[sort=ascending]`, `group-data-[…]`, `peer-aria-…`, `not-data-…` | attributs `data-*` et `aria-*` écrits dans le template, littéraux ou calculés (`aria-expanded={…}` : `"true"`/`"false"`) |
 | `in-data-[x]`, `in-focus` | état d’un ancêtre quelconque (`:where(*:…) &`) |
 | `motion-safe`, `motion-reduce` | `@media (prefers-reduced-motion: …)`, suivi du réglage du runtime (`set_reduced_motion`) |

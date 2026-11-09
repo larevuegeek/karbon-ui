@@ -148,7 +148,11 @@ un défilement ne signale pas le déplacement de chaque élément : sur une list
 morceaux, ces milliers d'événements par publication occupaient plus du tiers du thread
 de l'interface dès qu'un client UI Automation écoutait. Les nœuds de l'ancien snapshot
 sont indexés par clé, et le fournisseur n'est demandé que pour un nœud qui change ; le
-snapshot indexe aussi ses nœuds pour les requêtes des clients.
+snapshot indexe aussi ses nœuds pour les requêtes des clients. Pendant un défilement
+(glissement de la molette, pouce tiré), l'arbre n'est republié qu'une fois le contenu
+arrêté, sauf changement de focus : le reconstruire dix fois par seconde (~6 ms sur une
+liste de morceaux) coûtait des images ; `IsOffscreen` n'est pas signalé non plus, les
+clients le lisent à la demande.
 TextPattern reçoit également les événements de changement de texte et de sélection.
 
 La liste virtualisée expose seulement ses lignes matérialisées : le fournisseur

@@ -12,7 +12,7 @@ pub(super) fn has_dynamic_styles(node: &Element) -> bool {
 pub(super) fn carry_caches(
     old: &mut Element,
     new: &mut Element,
-    live: &std::collections::HashSet<ElementId>,
+    live: &crate::ui::core::hash::FastSet<ElementId>,
 ) {
     type Carried = (
         crate::ui::rendering::component_shadow::Cache,
@@ -22,8 +22,8 @@ pub(super) fn carry_caches(
     );
     fn take(
         node: &mut Element,
-        live: &std::collections::HashSet<ElementId>,
-        out: &mut std::collections::HashMap<ElementId, Carried>,
+        live: &crate::ui::core::hash::FastSet<ElementId>,
+        out: &mut crate::ui::core::hash::FastMap<ElementId, Carried>,
     ) {
         // Élément vide laissé par un sous-arbre mémorisé repris : rien à reporter (le
         // sous-arbre a gardé son état).
@@ -41,7 +41,7 @@ pub(super) fn carry_caches(
             take(child, live, out);
         }
     }
-    fn give(node: &mut Element, carried: &mut std::collections::HashMap<ElementId, Carried>) {
+    fn give(node: &mut Element, carried: &mut crate::ui::core::hash::FastMap<ElementId, Carried>) {
         if let Some((shadows, seen, rect, clip)) = carried.remove(&node.id) {
             if let Some(styles) = node.styles.as_deref_mut() {
                 styles.shadow_cache = shadows;
@@ -58,7 +58,7 @@ pub(super) fn carry_caches(
             give(child, carried);
         }
     }
-    let mut carried = std::collections::HashMap::new();
+    let mut carried = crate::ui::core::hash::FastMap::default();
     take(old, live, &mut carried);
     give(new, &mut carried);
 }
@@ -265,6 +265,8 @@ impl UiRuntime {
                 animate_sizes: Some(&animate_sizes),
                 pixel_scale: context.scale,
                 reduced_motion: self.motions.reduced,
+                dark: self.invalidation.colors.0,
+                high_contrast: self.invalidation.colors.1,
                 partial,
             },
         );

@@ -183,3 +183,60 @@ fn container_queries_follow_the_container_width() -> karbon_ui::Result<()> {
     assert_eq!(a.top, b.top);
     Ok(())
 }
+
+struct Themed(std::rc::Rc<std::cell::Cell<ColorPreferences>>);
+
+impl Application for Themed {
+    type Message = Msg;
+    fn view(&self, _: &ViewContext) -> Element {
+        let cx = TemplateContext::default();
+        ui! { @context(cx); @styles(css);
+            <div memo={0u8}><p class="themed">Thème</p></div>
+        }
+    }
+    fn update(&mut self, _: Msg) -> bool {
+        false
+    }
+    fn color_preferences(&self) -> ColorPreferences {
+        self.0.get()
+    }
+}
+
+fn themed_color(app: &HeadlessApp<Themed>) -> Option<Color> {
+    app.scene().commands.iter().find_map(|c| match c {
+        DrawCommand::RichText {
+            paragraph, color, ..
+        } if &*paragraph.text == "Thème" => Some(*color),
+        DrawCommand::FormattedText { text, color, .. }
+        | DrawCommand::FontText { text, color, .. }
+            if &**text == "Thème" =>
+        {
+            Some(*color)
+        }
+        _ => None,
+    })
+}
+
+#[test]
+fn colour_preferences_of_the_application_drive_the_media_features() -> karbon_ui::Result<()> {
+    let preferences = std::rc::Rc::new(std::cell::Cell::new(ColorPreferences {
+        scheme: ColorScheme::Light,
+        high_contrast: false,
+    }));
+    let mut app = HeadlessApp::with_options(Themed(preferences.clone()), options(800., 400.))?;
+    assert_eq!(themed_color(&app), Some(Color::hex(0x111111)));
+    // Sous-arbre mémorisé : il suit quand même le thème.
+    preferences.set(ColorPreferences {
+        scheme: ColorScheme::Dark,
+        high_contrast: false,
+    });
+    app.resize(801., 400.)?;
+    assert_eq!(themed_color(&app), Some(Color::hex(0x0000ff)));
+    preferences.set(ColorPreferences {
+        scheme: ColorScheme::Dark,
+        high_contrast: true,
+    });
+    app.resize(800., 400.)?;
+    assert_eq!(themed_color(&app), Some(Color::hex(0x00ff00)));
+    Ok(())
+}

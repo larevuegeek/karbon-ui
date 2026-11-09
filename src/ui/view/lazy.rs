@@ -68,7 +68,13 @@ pub fn lazy<K: Hash + ?Sized>(
 pub(crate) fn previous_keys(root: Option<&Element>) -> FastMap<ElementId, u64> {
     fn walk(node: &Element, table: &mut FastMap<ElementId, u64>) {
         if let Some(memo) = node.memo.as_deref() {
-            table.insert(node.id, memo.key);
+            if !memo.hoisted {
+                table.insert(node.id, memo.key);
+            }
+            // Rien de mémorisé dessous : inutile de parcourir tous ses éléments.
+            if !memo.nested {
+                return;
+            }
         }
         for child in &node.children {
             walk(child, table);

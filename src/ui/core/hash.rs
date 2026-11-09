@@ -50,3 +50,5 @@ impl Hasher for FastHasher {
 }
 /// Table de hachage du moteur, hachée par [`FastHasher`].
 pub(crate) type FastMap<K, V> = std::collections::HashMap<K, V, BuildHasherDefault<FastHasher>>;
+/// Ensemble du moteur, haché par [`FastHasher`].
+pub(crate) type FastSet<K> = std::collections::HashSet<K, BuildHasherDefault<FastHasher>>;

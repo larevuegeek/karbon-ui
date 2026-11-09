@@ -155,6 +155,17 @@ pub(in crate::css) fn render_class(
         let tokens = literals.finish(&value)?;
         properties += &emit(name, tokens, out, "cx", "__ui_node", span)?;
     }
+    if !class.view_rules.is_empty() {
+        properties += "let __ui_scheme=__ui_root::ui::styling::color_scheme();";
+    }
+    for (test, props) in class.view_rules {
+        let mut inner = String::new();
+        for (name, value) in props {
+            let tokens = literals.finish(&value)?;
+            inner += &emit(name, tokens, out, "cx", "__ui_node", span)?;
+        }
+        properties += &format!("let __ui_node=if {test}{{{inner}__ui_node}}else{{__ui_node}};");
+    }
     for (name, states) in [("hover", class.hover), ("pressed", class.active)] {
         if states.is_empty() {
             continue;

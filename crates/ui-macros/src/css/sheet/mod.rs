@@ -33,7 +33,7 @@ pub(super) fn compile(
     }
     let mut vars = BTreeMap::new();
     for rule in &rules {
-        if rule.selectors == [":root"] {
+        if rule.selectors == [":root"] && rule.media.is_empty() {
             for d in &rule.declarations {
                 if !d.name.starts_with("--") {
                     return Err(diagnostic(
@@ -151,6 +151,7 @@ pub(super) fn compile(
         .map(|p| crate::input::files::dependency(p))
         .collect::<String>();
     let meta = sheet_meta(&classes, &vars, &tailwind);
+    body += &root_variables(&rules, &vars, span)?;
     for (name, class) in classes {
         let symbol = parser::class_symbol(&class.original).map_err(|m| Error::new(m, span))?;
         let display_kind = class.display_kind.unwrap_or(-1);
@@ -176,6 +177,50 @@ pub(super) fn compile(
     // feuille d'abord, puis utilitaires Tailwind si la feuille les active.
     body += &classes_macro(&meta);
     out.finish(&body)
+}
+/// Fonction `root_variables(dark, high_contrast)` du module généré : les variables `:root`
+/// des blocs `@media (prefers-color-scheme: …)` / `(prefers-contrast: …)` de la feuille,
+/// pour ce thème et ce contraste. Rien si la feuille n'en déclare pas.
+fn root_variables(
+    rules: &[load::Rule],
+    vars: &BTreeMap<String, String>,
+    span: Span,
+) -> Result<String> {
+    const VARIABLES: &str = "__ui_root::ui::styling::CssVariables";
+    let mut blocks = String::new();
+    for rule in rules
+        .iter()
+        .filter(|r| r.selectors == [":root"] && !r.media.is_empty())
+    {
+        let fail = |m: String| diagnostic(&rule.source, &rule.text, rule.at, m, span);
+        let mut wanted = (None, None);
+        for query in &rule.media {
+            let (dark, high) = media::color_preferences(query).map_err(fail)?;
+            wanted = (wanted.0.or(dark), wanted.1.or(high));
+        }
+        let mut statements = String::new();
+        for d in &rule.declarations {
+            if !d.name.starts_with("--") {
+                return Err(fail(
+                    ":root currently accepts custom properties only".into(),
+                ));
+            }
+            let code = values::resolve(&d.value, vars)
+                .and_then(|value| values::custom_value(&value))
+                .map_err(|m| diagnostic(&rule.source, &rule.text, d.at, m, span))?;
+            statements += &format!("__ui_vars.set({:?},{code});", d.name);
+        }
+        blocks += &format!(
+            "if {}{{{statements}}}",
+            media::color_test(wanted.0, wanted.1)
+        );
+    }
+    if blocks.is_empty() {
+        return Ok(String::new());
+    }
+    Ok(format!(
+        "/// Custom properties of the stylesheet's conditional `:root` blocks for this colour scheme and contrast, for [`TemplateContext::with_variables`].\n#[allow(dead_code)] pub fn root_variables(dark:bool,high_contrast:bool)->&'static {VARIABLES}{{static CACHE:[::std::sync::OnceLock<{VARIABLES}>;4]=[const{{::std::sync::OnceLock::new()}};4];CACHE[usize::from(dark)*2+usize::from(high_contrast)].get_or_init(||{{let __ui_scheme=(dark,high_contrast);let mut __ui_vars={VARIABLES}::default();{blocks}__ui_vars}})}}"
+    ))
 }
 /// Longueur d'un bloc `{…}` (accolade fermante comprise), chaînes ignorées.
 fn block_len(text: &str) -> Option<usize> {

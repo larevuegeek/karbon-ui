@@ -100,6 +100,15 @@ pub(crate) fn next_wake() -> Option<std::time::Instant> {
 pub(crate) fn tooltip() -> Option<crate::ui::tooltip::TooltipInfo> {
     DRAWING.with(|slot| slot.try_borrow().ok()?.as_ref()?.runtime.tooltip())
 }
+/// Un défilement est en cours dans la fenêtre courante.
+pub(crate) fn scrolling() -> bool {
+    DRAWING.with(|slot| {
+        slot.try_borrow()
+            .ok()
+            .and_then(|s| s.as_ref().map(|s| s.runtime.is_scrolling()))
+            .unwrap_or(false)
+    })
+}
 pub(crate) fn accessibility_version()
 -> Option<(u64, u64, u64, u64, Option<crate::ui::element::ElementId>)> {
     DRAWING.with(|slot| {
@@ -244,6 +253,39 @@ pub(crate) fn drag_region_at(point: crate::ui::scene::PointF) -> bool {
                 .is_some_and(|state| state.runtime.drag_region_at(point))
         })
     })
+}
+/// Image d'animation qui doit aussi reconstruire la vue (un lot de données arrivé pendant
+/// un défilement) : ce travail se fait tout de suite, à la place de l'attente de
+/// [`wait_for_frame`]. Fait après elle, il s'ajoutait au temps de l'image, qui manquait
+/// alors son affichage (11 ms de préparation après 12 ms d'attente inactive). Une tranche
+/// du travail étalé de l'application passe au même moment.
+pub(crate) fn prepare_pending_rebuild(window: Hwnd) {
+    let result = DRAWING.with(|slot| -> crate::Result<()> {
+        if let Ok(mut state) = slot.try_borrow_mut()
+            && let Some(state) = state.as_mut()
+        {
+            state.runtime.begin_frame_work(std::time::Instant::now());
+            if state.runtime.rebuild_pending() {
+                state.prepare(window)?;
+            }
+        }
+        Ok(())
+    });
+    if let Err(error) = result {
+        record_error(error);
+        // SAFETY : destruction sur le thread propriétaire ; Windows valide le handle.
+        unsafe { DestroyWindow(window) };
+    }
+}
+/// L'attente de l'écran est finie : voir `UiRuntime::hold_rebuild`.
+pub(crate) fn hold_rebuild() {
+    DRAWING.with(|slot| {
+        if let Ok(mut state) = slot.try_borrow_mut()
+            && let Some(state) = state.as_mut()
+        {
+            state.runtime.hold_rebuild(std::time::Instant::now());
+        }
+    });
 }
 /// Image d'animation : attend sa place dans la file de présentation avant que l'horloge
 /// soit lue (voir `graphics::swapchain::FrameSlot`), pour que chaque image soit

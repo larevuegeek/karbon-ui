@@ -247,3 +247,23 @@ fn malformed_keyframes_and_groups_are_rejected() {
         .is_ok()
     );
 }
+
+/// Un dialogue qui entre par une mise à l'échelle peut contenir un champ : l'écart à la mise
+/// en page ne dure que le temps de l'animation. Un déplacement durable reste refusé.
+#[test]
+fn inputs_are_accepted_under_a_one_shot_entrance_only() {
+    let panel = |animation: Animation| {
+        let input = crate::ui::widgets::TextInput::new("", |text| Msg::Text(1, text));
+        layout::validate(&Element::column(1, vec![Element::custom(2, input)]).animate(animation))
+    };
+    assert!(panel(Animation::scale_in()).is_ok());
+    assert!(panel(Animation::scale_in().fill_mode(FillMode::Forwards)).is_ok());
+    assert!(crate::error::rejected(panel(
+        Animation::scale_in().forever()
+    )));
+    assert!(crate::error::rejected(panel(
+        Animation::scale_in()
+            .reverse()
+            .fill_mode(FillMode::Forwards)
+    )));
+}

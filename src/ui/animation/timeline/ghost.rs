@@ -67,7 +67,7 @@ impl Timeline {
     pub fn collect_ghosts(
         &mut self,
         old: &mut Element,
-        live: &std::collections::HashSet<ElementId>,
+        live: &crate::ui::core::hash::FastSet<ElementId>,
         now: Instant,
     ) -> usize {
         if self.reduced {
@@ -81,7 +81,7 @@ impl Timeline {
         // retirés, le reste est libéré plus tard par le runtime (hors de l'image).
         fn walk(
             node: &mut Element,
-            live: &std::collections::HashSet<ElementId>,
+            live: &crate::ui::core::hash::FastSet<ElementId>,
             out: &mut Vec<Element>,
         ) -> usize {
             let mut count = 1;

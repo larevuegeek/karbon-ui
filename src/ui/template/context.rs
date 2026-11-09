@@ -83,6 +83,27 @@ impl<'a, R> TemplateContext<'a, R> {
             variables: Some(variables),
         }
     }
+    /// Evaluates `expression` against the context's variables (colours of gradients and
+    /// shadows, read while the view is built); `fixed` when the context has none.
+    pub fn variable_expression(
+        &self,
+        expression: &'static crate::ui::styling::ColorExpression,
+        fixed: crate::ui::theme::Color,
+    ) -> crate::ui::theme::Color {
+        match self.variables {
+            Some(variables) => expression.evaluate(fixed, Some(variables)),
+            None => fixed,
+        }
+    }
+    /// Shadow list whose colours were read from the context's variables.
+    pub fn variable_shadows(
+        &self,
+        values: Vec<crate::ui::rendering::component_shadow::BoxShadow>,
+    ) -> crate::ui::rendering::component_shadow::Shadows {
+        crate::ui::rendering::component_shadow::Shadows::new(
+            crate::ui::rendering::component_shadow::intern(values),
+        )
+    }
     /// Reads color variable `name`, or returns `fallback`.
     pub fn variable_color(
         &self,

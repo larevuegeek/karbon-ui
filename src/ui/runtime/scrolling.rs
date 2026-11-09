@@ -29,6 +29,21 @@ impl UiRuntime {
         self.interaction.hovered.map(Hit::id) != before
     }
 
+    /// Un défilement est en cours : glissement de la molette, contenu qui vient de défiler
+    /// sous le pointeur, pouce tiré (l'accessibilité Windows attend qu'il s'arrête).
+    /// Une reconstruction de la vue attend la prochaine préparation.
+    #[cfg(target_os = "windows")]
+    pub(crate) fn rebuild_pending(&self) -> bool {
+        self.invalidation.rebuild
+    }
+
+    #[cfg(target_os = "windows")]
+    pub(crate) fn is_scrolling(&self) -> bool {
+        self.components.scrolls.smooth.is_some()
+            || self.components.scrolls.drag.is_some()
+            || self.interaction.hover_frozen.is_some()
+    }
+
     pub(super) fn scroll_to(&mut self, id: ElementId, offset: f32) -> f32 {
         let Some(node) = self.root.as_mut().and_then(|r| r.find_mut(id)) else {
             return 0.;

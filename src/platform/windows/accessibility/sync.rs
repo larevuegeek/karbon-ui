@@ -35,6 +35,12 @@ static SYNCED: super::state::WindowLocal<std::cell::Cell<Synced>> =
     super::state::WindowLocal::new(|state| &state.accessibility_synced);
 static PENDING: super::state::WindowLocal<std::cell::Cell<bool>> =
     super::state::WindowLocal::new(|state| &state.accessibility_pending);
+thread_local! {
+    /// Élément focalisé lors de la dernière publication (défilement : rien à republier
+    /// tant qu'il ne change pas).
+    static PUBLISHED_FOCUS: std::cell::Cell<Option<Option<crate::ui::element::ElementId>>> =
+        const { std::cell::Cell::new(None) };
+}
 /// Publie l'arbre aux clients UI Automation, au plus dix fois par seconde : le reconstruire
 /// à chaque image (glisser un curseur, redimensionner) coûtait ~10 ms par image. Un
 /// changement de focus part tout de suite (les lecteurs d'écran l'annoncent).
@@ -45,9 +51,13 @@ pub(crate) fn sync(window: Hwnd) {
     let focus = version.4;
     let now = std::time::Instant::now();
     let last = SYNCED.with(std::cell::Cell::get);
+    // Pendant un défilement, l'arbre n'est republié qu'une fois le contenu arrêté : le
+    // reconstruire (~6 ms sur une liste de morceaux) dix fois par seconde coûtait des
+    // images. Un changement de focus part toujours tout de suite.
+    let scrolling = runtime::scrolling() && PUBLISHED_FOCUS.with(|f| f.get()) == Some(focus);
     let throttled =
         state::sizing() || last.is_some_and(|(at, _)| now.duration_since(at) < SYNC_INTERVAL);
-    if throttled && last.is_some_and(|(_, focused)| focused == focus) {
+    if scrolling || (throttled && last.is_some_and(|(_, focused)| focused == focus)) {
         if !PENDING.with(std::cell::Cell::get) {
             // SAFETY : sans callback, Windows publie WM_TIMER dans la file de la fenêtre.
             if unsafe { SetTimer(window, SYNC_TIMER, SYNC_INTERVAL.as_millis() as u32, None) } != 0
@@ -58,6 +68,7 @@ pub(crate) fn sync(window: Hwnd) {
         return;
     }
     SYNCED.with(|s| s.set(Some((now, focus))));
+    PUBLISHED_FOCUS.with(|f| f.set(Some(focus)));
     sync_now(window, version);
 }
 /// Minuteur de [`sync`] : publie l'état différé.
