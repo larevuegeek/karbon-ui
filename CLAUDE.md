@@ -27,7 +27,9 @@ l'OS dans `src/ui`, backends dans `src/platform`.
   `cargo run --release --example rustmusic_html -- --export x.png --size 1280x900 --scale 1.5 --renderer=software`
   (et `960x700`), voir [docs/next-session.md](docs/next-session.md).
 - **Lisibilité** : un dossier par thème, fichiers de 500 lignes au plus sauf exception
-  justifiée.
+  justifiée. Un `mod.rs` ne contient que la documentation du module, les `mod`, les
+  `pub use` et la sélection par `cfg` ; toute logique va dans un fichier nommé d'après
+  son rôle.
 - L'application cible RustMusic n'est pas dans ce dépôt : son code sert de référence,
   en lecture seule.
 

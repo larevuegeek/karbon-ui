@@ -162,10 +162,10 @@ ne construit pas les 10 000 lignes pour les outils d’accessibilité.
 
 | Fichier | Responsabilité |
 | --- | --- |
-| `src/ui/core/element/mod.rs` | Contrat sémantique des widgets. |
-| `src/ui/runtime/mod.rs` | Arbre accessible et actions communes. |
-| `src/ui/components/text_input/mod.rs` | Remplacement de valeur et état de l’éditeur. |
-| `src/platform/windows/accessibility/mod.rs` | Snapshots, commandes, géométrie et notifications. |
+| `src/ui/core/element/node.rs` | Contrat sémantique des widgets. |
+| `src/ui/runtime/ui_runtime.rs` | Arbre accessible et actions communes. |
+| `src/ui/components/text_input/model.rs` | Remplacement de valeur et état de l’éditeur. |
+| `src/platform/windows/accessibility/lifecycle.rs` | Snapshots, commandes, géométrie et notifications. |
 | `src/platform/windows/accessibility/provider/` | Objets COM et implémentation des interfaces. |
 | `src/platform/windows/accessibility/text/` | TextPattern, plages, géométrie, recherche et navigation. |
 | `src/platform/windows/accessibility/choices/` | Toggle, Selection, SelectionItem et notifications des choix. |

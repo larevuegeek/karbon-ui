@@ -55,7 +55,7 @@ Cette première API ne fournit ni drag clavier générique ni pattern UI Automat
 de drag/drop. Elle ne prend pas en charge les fichiers déposés depuis l’OS,
 les transferts entre fenêtres ou un aperçu flottant personnalisé.
 
-Code : `src/ui/runtime/drag_drop/mod.rs` (API), `src/ui/runtime/drag_drop/interaction.rs` (interaction),
+Code : `src/ui/runtime/drag_drop/model.rs` (API), `src/ui/runtime/drag_drop/interaction.rs` (interaction),
 `src/ui/tests/drag_drop.rs` (seuil, dépôt, annulation, groupes, désactivation,
 reconstruction et auto-scroll). Les sources et cibles utilisent deux options
 sur le tas dans `Element`, sans payload métier conservé par le runtime.

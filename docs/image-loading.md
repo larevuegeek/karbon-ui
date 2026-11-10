@@ -66,7 +66,7 @@ l’extraction de pochettes audio et la surveillance du dossier restent à ajout
 
 ## Fichiers et validation
 
-- `src/resources/image_loader/mod.rs` : limites, inspection et lecture commune.
+- `src/resources/image_loader/loader.rs` : limites, inspection et lecture commune.
 - `src/platform/windows/imaging.rs` : service natif et miniature.
 
 Les tests couvrent PNG, JPEG natif, troncature, budgets, annulation, confinement

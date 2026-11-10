@@ -7,7 +7,7 @@ uniquement l’API publique.
 ## Carte des modules
 
 Règles communes : un dossier par thème ; un module qui a des enfants est un
-dossier `foo/mod.rs` ; les tests unitaires d’un module sont dans `foo/tests.rs`
+dossier `foo/mod.rs`, qui ne contient que la documentation du module, les `mod`, les `pub use` et la sélection par `cfg` (la logique va dans un fichier nommé d’après son rôle) ; les tests unitaires d’un module sont dans `foo/tests.rs`
 (ou `foo/tests/<thème>.rs`) ; les fichiers restent sous ~500 lignes. Le moteur
 (`application`, `window`, `task`, `resources`, `ui`) ne dépend d’aucun OS ; tout
 ce qui touche un OS est sous `platform/`.
@@ -84,7 +84,8 @@ importante, on peut séparer les responsabilités ainsi :
 
 ```text
 mon_application/
-├── mod.rs          Implémentation d’Application
+├── mod.rs          Déclarations du module
+├── app.rs          Implémentation d’Application
 ├── view.rs         Structure de la page
 ├── state.rs        Données et actions
 ├── styles.rs       Recettes et palette

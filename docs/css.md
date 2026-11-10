@@ -297,7 +297,7 @@ ses coins arrondis quand les côtés présents partagent largeur et couleur
 quatre bandes droites rognées à la forme arrondie extérieure. Les largeurs par côté
 entrent dans le modèle de boîte. Comme dans les navigateurs, une largeur de bordure
 s’arrondit au pixel physique inférieur, au moins un
-([`ViewContext::scale`](../src/application/mod.rs)) : 1 px CSS fait 2/3 de pixel logique
+([`ViewContext::scale`](../src/application/contract.rs)) : 1 px CSS fait 2/3 de pixel logique
 à 150 %, ce qui change aussi le layout. Le contour (`outline`) est
 tracé hors de la boîte de bordure, sous le contenu, avec les rayons agrandis du
 décalage ; il ne change pas le layout. Les anneaux Tailwind (`ring-*`) restent des

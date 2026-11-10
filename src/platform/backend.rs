@@ -38,7 +38,7 @@
 //!
 //! | Obligation | API du moteur | Windows |
 //! | --- | --- | --- |
-//! | Valider les descripteurs avant d'ouvrir | `window::validation` | `window/mod.rs`, `window/session.rs` |
+//! | Valider les descripteurs avant d'ouvrir | `window::validation` | `window/event_loop.rs`, `window/session.rs` |
 //! | Créer, fermer et commander les fenêtres | `UiRuntime::take_window_commands`, `WindowCommand` | `window/` |
 //! | Changer une fenêtre ouverte (`WindowCommand::Change`), remettre son état après chaque changement, honorer les poignées `data-resize-region` (même sur une fenêtre fixe, dont les bords ne redimensionnent pas ; geste suivi en coordonnées de l'écran par `window::change::grip_size` quand la plateforme le permet) | `window::change`, `UiRuntime::window_changed`, `UiRuntime::resize_region_at` | `window/change.rs`, `events/nonclient.rs`, `events/grip.rs` |
 //! | Traduire les entrées natives (positions logiques, DPI appliqué) | `UiRuntime::event(UiEvent)` | `events/pointer.rs`, `events/keyboard.rs`, `events/nonclient.rs` |

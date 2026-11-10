@@ -1,7 +1,7 @@
 //! Classes Objective-C du backend : la vue de contenu (calque affichant l'image, entrées
 //! souris et clavier) et le délégué de fenêtre (fermeture, taille, activation).
 //!
-//! Les méthodes ne font que transmettre à `window/mod.rs`, qui retrouve la session par
+//! Les méthodes ne font que transmettre à `window/event_loop.rs`, qui retrouve la session par
 //! son identité.
 use super::Pointer;
 use crate::{

@@ -103,7 +103,9 @@ fn window_changes_apply_natively_and_report_the_new_state() {
         style(window, GWL_STYLE) & (WS_THICKFRAME | WS_MAXIMIZEBOX),
         0
     );
-    assert_ne!(style(window, GWL_EXSTYLE) & WS_EX_TOPMOST, 0);
+    // Le style natif n'est pas vérifié ici : pour remonter une fenêtre, `SetWindowPos`
+    // exige le droit de premier plan, que n'a pas toujours un test lancé en arrière-plan
+    // (Windows répond alors succès sans rien faire). Voir le test suivant.
     let last = *states.borrow().last().unwrap();
     assert_eq!((last.width, last.height), (380, 150));
     assert_eq!((last.x, last.y), (40, 50));
@@ -179,6 +181,49 @@ fn window_changes_apply_natively_and_report_the_new_state() {
         session.commands(false),
         Err(crate::Error::InvalidWindowOptions { .. })
     ));
+    // SAFETY : fenêtre de test créée sur ce thread.
+    unsafe { DestroyWindow(window) };
+}
+
+/// Effet natif de `Topmost`, dans le sens qui ne demande pas le droit de premier plan :
+/// le style posé à la création, puis retiré par la commande.
+#[test]
+fn a_topmost_window_is_lowered_natively() {
+    let (_apartment, session) = session();
+    let commands = Rc::new(RefCell::new(Vec::new()));
+    let states = Rc::new(RefCell::new(Vec::new()));
+    let app = Watcher {
+        commands: Rc::clone(&commands),
+        states: Rc::clone(&states),
+    };
+    let window = session
+        .open(
+            WindowDescriptor::new(
+                WindowId(1),
+                WindowOptions {
+                    title: "Karbon UI - premier plan",
+                    width: 300,
+                    height: 220,
+                    activate: false,
+                    topmost: true,
+                    renderer: RenderMode::Software,
+                    ..WindowOptions::DEFAULT
+                },
+                app,
+            ),
+            false,
+        )
+        .unwrap();
+    assert_ne!(style(window, GWL_EXSTYLE) & WS_EX_TOPMOST, 0);
+    assert!(states.borrow().first().unwrap().topmost);
+
+    commands.borrow_mut().push(WindowCommand::Change(
+        WindowId(1),
+        WindowChange::Topmost(false),
+    ));
+    session.commands(false).unwrap();
+    assert_eq!(style(window, GWL_EXSTYLE) & WS_EX_TOPMOST, 0);
+    assert!(!states.borrow().last().unwrap().topmost);
     // SAFETY : fenêtre de test créée sur ce thread.
     unsafe { DestroyWindow(window) };
 }

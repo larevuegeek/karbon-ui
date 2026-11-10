@@ -16,23 +16,9 @@
 //! Each component is built on the native controls of the engine: keyboard, focus and
 //! accessibility come with them. Colours and radii come from [`KitTheme`] and follow the
 //! light or dark colour scheme.
-use crate::ui::template::Slots;
-
+#[macro_use]
+mod support;
 crate::css_file!(mod css, "css/kit.css");
-
-/// Gabarit d'un composant du kit : feuille du kit, variables du thème.
-macro_rules! kit_ui {
-    ($cx:ident, $slots:ident; $($markup:tt)*) => {{
-        let variables = super::theme::scope($cx.variables);
-        let cx = $cx.with_variables(&variables);
-        crate::ui! { @context(cx); @slots($slots); @styles(css); $($markup)* }
-    }};
-    ($cx:ident; $($markup:tt)*) => {{
-        let variables = super::theme::scope($cx.variables);
-        let cx = $cx.with_variables(&variables);
-        crate::ui! { @context(cx); @styles(css); $($markup)* }
-    }};
-}
 
 pub mod animation;
 pub mod buttons;
@@ -77,21 +63,6 @@ pub(crate) use theme::{engine_theme, revision, take_used};
 pub use tone::{CustomColor, Variant};
 pub use typography::{Code, Kbd, Link, Text, Title};
 
-/// Le slot `name` a du contenu.
-fn has_slot(slots: &Slots, name: &str) -> bool {
-    slots.unused_names().any(|used| used == name)
-}
-/// Texte du contenu du slot par défaut.
-fn slot_text(slots: &mut Slots) -> String {
-    slots
-        .take("")
-        .iter()
-        .filter_map(|element| element.widget.as_ref())
-        .map(|widget| widget.semantics().name.to_string())
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
 /// Everything needed to write a view with the kit: the usual prelude, with the kit's
 /// components in place of the widgets of the same name.
 pub mod prelude {
@@ -106,3 +77,4 @@ pub mod prelude {
     };
     pub use crate::ui::prelude::*;
 }
+use support::*;
