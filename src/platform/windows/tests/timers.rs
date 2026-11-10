@@ -7,8 +7,15 @@ use super::super::{
 use super::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::DestroyWindow;
 
+/// Considère le réglage système « Afficher les animations » comme actif pour ce thread :
+/// il est coupé sur les exécuteurs de CI, où aucune animation ne tournerait.
+fn allow_system_motion() {
+    super::super::present::SYSTEM_REDUCED_MOTION.with(|cached| cached.set(Some(false)));
+}
+
 #[test]
 fn timer_requests_presentation_even_when_prepare_already_sampled_the_animation() {
+    allow_system_motion();
     struct Animated(u32);
     impl Application for Animated {
         type Message = ();
@@ -75,6 +82,7 @@ fn system_reduced_motion_is_read_once_and_again_after_a_setting_change() {
 
 #[test]
 fn reduced_motion_option_finishes_native_entry_and_hidden_windows_do_not_arm_timers() {
+    allow_system_motion();
     struct Animated;
     impl Application for Animated {
         type Message = ();
