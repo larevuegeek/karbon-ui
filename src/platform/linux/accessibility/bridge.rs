@@ -1,7 +1,7 @@
 pub(super) use super::tree::{ROOT, Tree};
 use super::*;
 pub(super) use crate::{
-    platform::linux::ffi::dbus::{Connection, METHOD_CALL, Message},
+    platform::linux::ffi::dbus::{Connection, METHOD_CALL, METHOD_RETURN, Message},
     ui::runtime::{AccessibilityAction, UiRuntime},
     window::WindowId,
 };
@@ -20,8 +20,9 @@ pub(in crate::platform::linux) trait Host {
     /// la refuse.
     fn act(&mut self, action: AccessibilityAction) -> crate::Result<bool>;
 }
-/// Délai des appels de connexion (bus de session, registre).
-pub(super) const TIMEOUT: i32 = 1000;
+/// Délai des appels de connexion (bus de session, registre) : un démon sain répond en
+/// quelques millisecondes ; gelé, il ne retarde pas le démarrage de plus d'une seconde.
+pub(super) const TIMEOUT: i32 = 500;
 
 pub(in crate::platform::linux) struct Bridge {
     pub(super) bus: Connection,
@@ -33,6 +34,8 @@ pub(in crate::platform::linux) struct Bridge {
     pub(super) trees: HashMap<WindowId, Tree>,
     /// Écoutes d'événements déclarées au registre (nom du client, événement).
     pub(super) listeners: HashSet<(String, String)>,
+    /// Numéro de la demande des écoutes déjà déclarées, dont la réponse arrive par `pump`.
+    pub(super) registered: Option<u32>,
     pub(super) announced: events::Announced,
 }
 impl Bridge {
@@ -80,12 +83,14 @@ impl Bridge {
             app: app_name(),
             trees: HashMap::new(),
             listeners: HashSet::new(),
+            registered: None,
             announced: Default::default(),
         };
         bridge.registered_events();
         Some(bridge)
     }
-    /// Écoutes déjà déclarées au registre.
+    /// Demande les écoutes déjà déclarées au registre, sans attendre : la réponse est lue
+    /// par `pump` (`registered_reply`).
     pub(super) fn registered_events(&mut self) {
         let Some(call) = Message::method_call(
             "org.a11y.atspi.Registry",
@@ -95,9 +100,11 @@ impl Bridge {
         ) else {
             return;
         };
-        let Some(reply) = self.bus.call(&call, TIMEOUT) else {
-            return;
-        };
+        self.registered = self.bus.send_serial(&call);
+        self.bus.flush();
+    }
+    /// Réponse à `registered_events` : écoutes `(client, événement)`.
+    fn registered_reply(&mut self, reply: &Message) {
         let mut reader = reply.reader();
         if let Some(mut list) = reader.enter() {
             while let Some(mut pair) = list.enter() {
@@ -119,6 +126,13 @@ impl Bridge {
     pub fn pump<H: Host>(&mut self, windows: &mut [H]) {
         self.bus.pump();
         while let Some(message) = self.bus.pop() {
+            if message.kind() == METHOD_RETURN
+                && self.registered.is_some_and(|s| s == message.reply_serial())
+            {
+                self.registered = None;
+                self.registered_reply(&message);
+                continue;
+            }
             if message.kind() != METHOD_CALL {
                 self.signal(&message);
                 continue;

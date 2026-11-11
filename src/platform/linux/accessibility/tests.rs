@@ -1,6 +1,6 @@
 //! Pont AT-SPI sans bus : chemins des objets, états, rôles, actions et frontières du
-//! texte. Le dialogue avec un vrai client (libatspi) se vérifie à la main, voir
-//! `docs/tests.md`.
+//! texte ; avec le bus de la session s'il existe, l'inscription auprès du registre. Le
+//! dialogue avec un vrai client (libatspi) se vérifie à la main, voir `docs/tests.md`.
 use super::{
     text,
     tree::{self, Object, state},
@@ -166,4 +166,46 @@ fn text_offsets_are_characters_and_boundaries_follow_words_and_lines() {
     assert_eq!(at(0, 0, false), "é");
     assert_eq!(tree::role(&input), (61, "text"), "champ multiligne");
     assert!(tree::interfaces(&input).contains(&"org.a11y.atspi.EditableText"));
+}
+
+/// Fenêtre jamais créée : le pont est pompé sans fenêtre.
+struct NoWindow;
+impl super::bridge::Host for NoWindow {
+    fn id(&self) -> crate::window::WindowId {
+        unreachable!()
+    }
+    fn title(&self) -> &str {
+        unreachable!()
+    }
+    fn size(&self) -> (i32, i32) {
+        unreachable!()
+    }
+    fn runtime(&self) -> &crate::ui::runtime::UiRuntime {
+        unreachable!()
+    }
+    fn active(&self) -> bool {
+        unreachable!()
+    }
+    fn act(&mut self, _: crate::ui::runtime::AccessibilityAction) -> crate::Result<bool> {
+        unreachable!()
+    }
+}
+/// La connexion au registre (sauté sans bus d'accessibilité) n'attend pas la liste des
+/// écoutes déjà déclarées : elle arrive ensuite, par `pump`.
+#[test]
+fn the_registered_listeners_arrive_after_connecting() {
+    let Some(mut bridge) = super::Bridge::connect() else {
+        eprintln!("karbon-ui: no accessibility bus, test skipped");
+        return;
+    };
+    assert!(
+        bridge.registered.is_some(),
+        "listeners requested without waiting"
+    );
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    while bridge.registered.is_some() && std::time::Instant::now() < deadline {
+        bridge.bus.wait(50);
+        bridge.pump::<NoWindow>(&mut []);
+    }
+    assert!(bridge.registered.is_none(), "registry answered");
 }
