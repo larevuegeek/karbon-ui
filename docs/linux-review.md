@@ -157,6 +157,8 @@ bibliothèque, crates de `tests/`, exemple, compilateur). Restent les points 2 �
 | A13 | lisibilité | Proposé | `accessibility/interfaces.rs` | Clone complet de l'élément (clusters, lignes) à chaque appel Text pour contourner l'emprunt ; emprunter `trees` séparément de `windows`. |
 | A14 | lisibilité | Proposé | `accessibility/events.rs` | `announce` traite quatre sujets en 100 lignes : `announce_window`, `announce_focus`, `announce_text`, `announce_value`. |
 | A15 | lisibilité | Corrigé | `docs/architecture.md` | Invariant mono-thread de libdbus (pas de `dbus_threads_init_default`) et surveillance du descripteur par les deux boucles, écrits. |
+| A15 | important | Corrigé | `ui/runtime/accessibility/snapshot.rs`, `ui/template/action.rs` | Trouvé le 2026-11-11 par un essai AT-SPI de bout en bout : tout bouton riche (icône et texte en enfants, donc chaque `Button` et `NavItem` du kit) s'appelait « Action » pour les lecteurs d'écran, sous les trois systèmes. Bouton, lien et entrée de menu sans nom propre prennent celui de leur contenu, comme sur le web. Test : `rich_buttons_are_named_by_their_content` (`tests/kit`). |
+| A16 | mineur | Corrigé | `accessibility/text.rs` | Frontières de mot fausses pile au début d'un mot (`GetStringAtOffset` sur le « l » de « le » rendait « Bonjour ») et sur une fin de mot. Segments calculés entre frontières ; cas ajoutés au test des frontières. Vérifié par AT-SPI dans `system_dialogs`. |
 
 ## Ce qui est bien fait (à préserver)
 

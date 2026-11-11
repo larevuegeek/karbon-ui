@@ -47,13 +47,13 @@ impl Application for Dialogs {
         ui! {
             <Page padding="xl" gap="lg">
                 <Title>Dialogues du système</Title>
-                <Text muted>"Le thème suit le réglage clair ou sombre du bureau."</Text>
+                <Text muted>Le thème suit le réglage clair ou sombre du bureau.</Text>
                 <Card title="Fichiers" subtitle="Portail XDG sous Linux">
                     <Row gap="sm">
-                        <Button primary icon="file" onclick={Msg::OpenFile}>"Un fichier"</Button>
-                        <Button soft onclick={Msg::OpenFiles}>"Plusieurs fichiers"</Button>
-                        <Button soft icon="folder" onclick={Msg::Folder}>"Un dossier"</Button>
-                        <Button outline onclick={Msg::Save}>"Enregistrer sous"</Button>
+                        <Button primary icon="file" onclick={Msg::OpenFile}>Un fichier</Button>
+                        <Button soft onclick={Msg::OpenFiles}>Plusieurs fichiers</Button>
+                        <Button soft icon="folder" onclick={Msg::Folder}>Un dossier</Button>
+                        <Button outline onclick={Msg::Save}>Enregistrer sous</Button>
                     </Row>
                     <Text mono>{status}</Text>
                 </Card>

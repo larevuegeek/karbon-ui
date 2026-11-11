@@ -62,7 +62,9 @@ impl Widget for ActionArea {
     fn semantics(&self) -> Semantics<'_> {
         Semantics {
             role: Role::Button,
-            name: self.inner.as_ref().map_or("Action", |w| w.semantics().name),
+            // Sans widget propre (bouton riche), le nom vient du contenu (instantané
+            // d'accessibilité, `content_name`).
+            name: self.inner.as_ref().map_or("", |w| w.semantics().name),
             enabled: self.enabled && self.inner.as_ref().is_none_or(|w| w.semantics().enabled),
         }
     }

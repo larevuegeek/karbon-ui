@@ -36,11 +36,20 @@ impl UiRuntime {
                 let choice = choice(node);
                 let bounds = runtime.motions.bounds(node.id, layout::content_rect(node));
                 let clipped = layout::intersect(bounds, runtime.motions.clip(node));
+                // Bouton, lien ou entrée de menu sans nom propre : celui de son contenu,
+                // comme le calcul du nom accessible du web (`<button><svg/>Ouvrir</button>`).
+                let name = if s.name.trim().is_empty()
+                    && matches!(s.role, Role::Button | Role::Link | Role::MenuItem)
+                {
+                    content_name(node)
+                } else {
+                    s.name.to_owned()
+                };
                 descriptor = Some(AccessibleElement {
                     id: node.id,
                     parent,
                     role: s.role,
-                    name: s.name.to_owned(),
+                    name,
                     enabled: s.enabled,
                     focused: focused == Some(node.id)
                         && runtime.components.selects.active(node.id).is_none(),
@@ -201,4 +210,30 @@ pub(super) fn choice(node: &Element) -> Option<ChoiceState> {
         .as_ref()
         .and_then(|w| w.choice())
         .or_else(|| node.aria.choice())
+}
+/// Nom tiré du contenu : noms des descendants visibles (textes, images nommées), dans
+/// l'ordre, séparés par une espace ; un descendant nommé n'est pas parcouru plus loin.
+fn content_name(node: &Element) -> String {
+    fn collect(node: &Element, out: &mut Vec<String>) {
+        for child in &node.children {
+            if crate::ui::layout::hidden(child) || child.semantics_hidden {
+                continue;
+            }
+            if let Some(widget) = &child.widget {
+                let name = widget
+                    .semantics()
+                    .name
+                    .split_whitespace()
+                    .collect::<Vec<_>>();
+                if !name.is_empty() {
+                    out.push(name.join(" "));
+                    continue;
+                }
+            }
+            collect(child, out);
+        }
+    }
+    let mut parts = Vec::new();
+    collect(node, &mut parts);
+    parts.join(" ")
 }

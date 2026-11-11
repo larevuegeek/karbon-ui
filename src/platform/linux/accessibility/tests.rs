@@ -165,6 +165,12 @@ fn text_offsets_are_characters_and_boundaries_follow_words_and_lines() {
     assert_eq!(at(14, 5, false), "suivant mot");
     assert_eq!(at(0, 0, false), "é");
     assert_eq!(tree::role(&input), (61, "text"), "champ multiligne");
+    // Pile au début d'un mot (« s » de « suivant », octet 6) : ce mot, pas le précédent ;
+    // fin de mot sur sa frontière (blanc après « suivant », octet 13) : le segment suivant.
+    assert_eq!(at(6, 1, false), "suivant ");
+    assert_eq!(at(13, 2, false), " mot");
+    assert_eq!(at(12, 2, false), "\nsuivant");
+    assert_eq!(at(value.len(), 1, false), "mot");
     assert!(tree::interfaces(&input).contains(&"org.a11y.atspi.EditableText"));
 }
 

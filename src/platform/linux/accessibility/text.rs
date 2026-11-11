@@ -39,31 +39,48 @@ pub(super) fn property(e: &AccessibleElement, name: &str) -> Option<Prop> {
         _ => return None,
     })
 }
-/// Frontière « début de mot » : octets du mot commencé à ou avant `at` (blancs qui le
-/// suivent compris), jusqu'au début du mot suivant.
+/// Segment de `text` qui contient l'octet `at`, entre deux frontières consécutives de
+/// `boundary(avant, après)` (caractères de part et d'autre d'une position, `None` aux
+/// bouts) ; à la fin du texte, le dernier segment.
+fn segment(
+    text: &str,
+    at: usize,
+    boundary: impl Fn(Option<char>, Option<char>) -> bool,
+) -> (usize, usize) {
+    let mut cuts = vec![0];
+    let mut before = None;
+    for (i, c) in text.char_indices() {
+        if i > 0 && boundary(before, Some(c)) {
+            cuts.push(i);
+        }
+        before = Some(c);
+    }
+    if cuts.last() != Some(&text.len()) {
+        cuts.push(text.len());
+    }
+    let at = at.min(text.len());
+    let index = cuts
+        .iter()
+        .rposition(|&cut| cut <= at && cut < text.len())
+        .unwrap_or(0);
+    (
+        cuts[index],
+        cuts.get(index + 1).copied().unwrap_or(text.len()),
+    )
+}
+/// Frontière « début de mot » : du début du mot qui contient `at` (ou le précède) au début
+/// du mot suivant, blancs compris.
 fn word(text: &str, at: usize) -> (usize, usize) {
-    let space = |c: char| c.is_whitespace();
-    let start = text[..at]
-        .trim_end_matches(space)
-        .trim_end_matches(|c: char| !space(c))
-        .len();
-    let rest = &text[start..];
-    let word_end = start + rest.find(space).unwrap_or(rest.len());
-    let after = &text[word_end..];
-    let end = word_end + (after.len() - after.trim_start_matches(space).len());
-    (start, end)
+    segment(text, at, |before, after| {
+        before.is_some_and(char::is_whitespace) && after.is_some_and(|c| !c.is_whitespace())
+    })
 }
 /// Frontière « fin de mot » : de la fin du mot précédent (blancs compris) à la fin du mot
 /// qui contient `at` ou le suit.
 fn word_end(text: &str, at: usize) -> (usize, usize) {
-    let space = |c: char| c.is_whitespace();
-    let current = text[..at].trim_end_matches(|c: char| !space(c)).len();
-    let start = text[..current].trim_end_matches(space).len();
-    let rest = &text[current..];
-    let next = current + (rest.len() - rest.trim_start_matches(space).len());
-    let word = &text[next..];
-    let end = next + word.find(space).unwrap_or(word.len());
-    (start, end)
+    segment(text, at, |before, after| {
+        before.is_some_and(|c| !c.is_whitespace()) && after.is_some_and(char::is_whitespace)
+    })
 }
 /// Ligne visuelle (ou paragraphe) qui contient `at`.
 fn line(t: &AccessibleText, at: usize, paragraph: bool) -> (usize, usize) {

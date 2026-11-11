@@ -213,6 +213,15 @@ fn a_grid_with_a_minimum_width_puts_as_many_columns_as_fit() {
 }
 
 #[test]
+fn rich_buttons_are_named_by_their_content() {
+    let app = demo();
+    // Bouton du kit (icône et texte en enfants) : son texte, pas un nom générique.
+    let go = app.accessible("go").expect("button");
+    assert_eq!(go.name, "Go");
+    assert_eq!(app.accessible("custom").expect("button").name, "Custom");
+}
+
+#[test]
 fn fields_report_their_values() -> karbon_ui::Result<()> {
     let mut app = demo();
     app.click("name")?;
