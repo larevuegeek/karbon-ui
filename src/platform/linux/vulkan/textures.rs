@@ -31,7 +31,7 @@ const IMAGE_BYTES: usize = 64 << 20;
 const RASTER_BYTES: usize = 32 << 20;
 /// Textures d'une sorte au plus : chacune est une allocation Vulkan, et certains pilotes
 /// n'en admettent que 4096 (`maxMemoryAllocationCount`) ; les rastérisations sont clés
-/// par position sous-pixel, un défilement fractionnaire en crée donc une par image.
+/// par position au quart de pixel (seize au plus par contenu).
 const MAX_TEXTURES: usize = 1024;
 /// Lecture d'un niveau par une réduction.
 const BLIT_READ: (u64, u64) = (

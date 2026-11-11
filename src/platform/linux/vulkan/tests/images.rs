@@ -234,3 +234,24 @@ fn textures_are_kept_between_frames_and_released_when_unused_or_trimmed() {
     assert_eq!(vulkan.resources.textures.counts(), [0, 0]);
     assert!(!again.is_empty());
 }
+#[test]
+fn a_fractional_scroll_reuses_the_rasterizations() {
+    let Some(mut vulkan) = renderer() else {
+        return;
+    };
+    // Vingt positions d'un défilement fractionnaire sur un cinquième de pixel : quelques
+    // rastérisations par contenu (quarts touchés, pixel entier franchi) au lieu d'une par
+    // position (80 avant la quantification).
+    for i in 0..20 {
+        let mut scene = Scene::new(Color::rgb(0, 0, 0));
+        scene.commands.push(DrawCommand::PushEffect {
+            transform: Affine::translation(0.3 + i as f32 * 0.01, 0.),
+            opacity: 1.,
+            bounds: RectF::new(0., 0., 200., 90.),
+        });
+        scene.commands.extend(vectors());
+        scene.commands.push(DrawCommand::PopEffect);
+        vulkan.render(&scene, 200, 90, 1.).unwrap();
+    }
+    assert!(vulkan.resources.textures.counts()[1] <= 16);
+}

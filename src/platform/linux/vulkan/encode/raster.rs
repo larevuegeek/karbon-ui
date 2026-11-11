@@ -190,12 +190,20 @@ impl Builder<'_> {
                 x: bounds.left,
                 y: bounds.top,
             });
+            // Position sous-pixel quantifiée au quart, comme les glyphes : au plus seize
+            // rastérisations par contenu, réutilisées pendant un défilement fractionnaire
+            // (au lieu d'une par image), pour un écart d'au plus 1/8 de pixel.
+            let quarter = |v: f32| (v * 4.).round() / 4.;
+            let offset = (quarter(o.x - x), quarter(o.y - y));
             let key = RasterKey {
                 content,
                 scale: [t.m11.to_bits(), t.m22.to_bits()],
-                offset: [(o.x - x).to_bits(), (o.y - y).to_bits()],
+                offset: [offset.0.to_bits(), offset.1.to_bits()],
             };
-            let raster = t.then(Affine::translation(-x, -y));
+            let raster = t.then(Affine::translation(
+                -x + offset.0 - (o.x - x),
+                -y + offset.1 - (o.y - y),
+            ));
             let quad = RectF {
                 left: x,
                 top: y,
