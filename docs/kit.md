@@ -46,24 +46,24 @@ Ils sont rangés par type, dans autant de modules (`kit::typography`, `kit::form
 
 | Type | Composants |
 | --- | --- |
-| Mise en page | `Page` (`fixed`), `Container`, `Stack`, `Row`, `Grid`, `Spacer`, `Divider` |
+| Mise en page | `Page` (`fixed`), `Container`, `Stack`, `Row` (`wrap`), `Grid` (`cols`, ou `min` : colonnes d'au moins N px, autant que la largeur en permet), `Spacer`, `Divider` |
 | Texte | `Title` (`display`, `h2`, `h3`, `h4`, `gradient`, `center`), `Text` (`muted`, `sm`, `lg`, `bold`, `center`, `mono`), `Code`, `Kbd`, `Link` |
 | Boutons | `Button` (`icon`, `icon_right`, `loading`, `disabled`, `full`), `IconButton` (`icon`, `label`) |
 | Formulaires | `Field`, `Input` (`label`, `hint`, `error`, `icon`, `outline`, `password`, `search`, `required`), `Textarea`, `Select`, `Checkbox`, `Switch`, `RadioGroup`, `Slider` |
 | Affichage | `Card` (`hover`, `glass`, `onclick`), `User`, `AvatarGroup`, `Snippet`, `Badge` (`solid`, `outline`, `dot`, `onclose`), `Avatar`, `Stat`, `Table`, `TableRow`, `TableCell`, `List`, `ListItem`, `EmptyState`, `Accordion`, `Icon` |
 | Retours d'état | `Alert`, `Progress`, `Spinner`, `Skeleton`, `Toasts`, `Toast` |
-| Navigation | `Tabs` (`underlined`), `Breadcrumb`, `Steps`, `Navbar` (`glass`), `Sidebar` (défile seule si sa rangée porte `clip`), `NavItem`, `NavLabel` |
+| Navigation | `Tabs` (`underlined`), `Breadcrumb`, `Steps`, `Navbar` (`glass`), `Sidebar` (défile seule si sa rangée porte `clip` ; `responsive` : icônes seules sous 900 px de large), `NavItem`, `NavLabel` |
 | Pagination | `Pagination` |
 | Carrousel | `Carousel` (`per_view`, `loop_around`, `no_arrows`, `no_dots`) |
 | Animation | `Animate` : entrées `fade`, `up`, `down`, `left`, `right`, `zoom`, `bounce`, `shake` ; boucles `pulse`, `float`, `spin` ; `delay`, `duration`, `replay` |
 | Effets | `Glass` (`strong`, `pill`, `tint`), `Aurora` (`full`, `flat`, `animated`), `Title gradient`, `Card glass`, `Dialog glass` |
-| Couches | `Dialog`, `Dropdown`, `MenuItem`, `Tooltip` |
+| Couches | `Dialog`, `Dropdown`, `ContextMenu` (clic droit), `MenuItem`, `Tooltip` |
 
 Icônes : `ICON_NAMES` donne la liste ; `<Icon name="plus" size={20} />`, à la couleur du
 texte. L'état reste dans l'application, comme pour tout contrôle : `<Tabs value={self.tab}
 onchange={Msg::Tab} />`, `<Dialog>` dans un `{#if}` ou avec `open={self.visible}`.
 
-Slots : `Card` (`cover`, `actions`, `footer`), `Input` (`end`), `Dialog` (`footer`), `Navbar` (`actions`), `ListItem`
+Slots : `Card` (`cover`, `actions`, `footer`), `Input` (`end`), `Dialog` (`footer`), `ContextMenu` (`menu`), `Navbar` (`actions`), `ListItem`
 (`leading`, `trailing`).
 
 ## Effets
@@ -93,12 +93,37 @@ Tout élément et tout composant accepte, sur sa racine :
 | `onpress={Msg::Press}` | `bool` : l'appui commence, puis finit |
 | `onfocus={Msg::Focus}` | `bool` : le focus entre, puis sort |
 | `ondblclick={Msg::Open}` | rien |
+| `oncontextmenu={Msg::Menu}` | `ContextMenuRequest` : position du pointeur, `keyboard` pour Maj+F10 ou la touche Menu |
 
 Ces événements comptent aussi ce qui arrive aux descendants : survoler un bouton, c'est
 survoler sa carte. Chaque contrôle garde les siens : `onclick`, `oninput`, `onchange`,
 `onenter`, `onclose`, `ontoggle`. Les valeurs s'écrivent `Msg::Volume` ou
 `|v: f64| Msg::Set(3, v)`. En Rust : `Element::on_hover`, `on_press`, `on_focus`,
-`on_double_click`.
+`on_double_click`, `context_menu`.
+
+## Clic droit
+
+`ContextMenu` ouvre ses entrées à l'endroit du clic droit sur son contenu (ou sous
+l'élément actif, au clavier) ; l'application garde la position :
+
+```rust,ignore
+// Msg::Open(r) => self.menu_at = Some(r.position), Msg::Close => self.menu_at = None
+<ContextMenu at={self.menu_at} onopen={Msg::Open} onclose={Msg::Close}>
+    <Card>Blue Train</Card>
+    <MenuItem slot="menu" icon="play" onclick={Msg::Play}>Lire</MenuItem>
+    <MenuItem slot="menu" icon="trash" danger onclick={Msg::Remove}>Retirer</MenuItem>
+</ContextMenu>
+```
+
+Échap, un clic à côté ou une entrée choisie envoient `onclose`. Pour un autre menu,
+`oncontextmenu` sur n'importe quel élément donne la demande brute.
+
+## Fenêtre étroite
+
+`<Grid min={240.}>` remplace un nombre fixe de colonnes par des colonnes d'au moins 240 px,
+jusqu'à une seule ; `<Row wrap>` passe à la ligne ; `<Sidebar responsive>` ne garde que les
+icônes sous 900 px. Pour le reste, les `@media (max-width: …)` et `@container` des feuilles
+de l'application (voir [le CSS](css.md)).
 
 ## Personnaliser
 

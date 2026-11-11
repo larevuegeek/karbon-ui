@@ -1,6 +1,6 @@
     <Card title="Entrées">
         <Button slot="actions" primary icon="refresh" onclick={Msg::Replay}>Rejouer</Button>
-        <Grid cols={4} gap="md">
+        <Grid min={200.} gap="md">
             <Animate fade replay={self.replay}><Card padding="lg"><Text bold>Fondu</Text></Card></Animate>
             <Animate up replay={self.replay} delay={80}><Card padding="lg"><Text bold>Montée</Text></Card></Animate>
             <Animate left replay={self.replay} delay={160}><Card padding="lg"><Text bold>Glissement</Text></Card></Animate>

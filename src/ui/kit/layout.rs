@@ -2,6 +2,7 @@
 use super::{css, space::Space};
 use crate::ui::{
     element::Element,
+    layout::{GridTrack, TrackBreadth},
     template::{Component, Slots, TemplateContext},
 };
 
@@ -100,11 +101,15 @@ impl<R> Component<R> for Container {
     }
 }
 
-/// Grid of equal columns: `<Grid cols={3} gap="md">`.
+/// Grid of equal columns: `<Grid cols={3} gap="md">`, or as many columns of at least
+/// `min` pixels as the width allows, `<Grid min={240.} gap="md">`: the grid adapts to a
+/// narrow window, down to one column (`repeat(auto-fit, minmax(240px, 1fr))`).
 #[derive(Default)]
 pub struct Grid {
-    /// Number of columns, 2 by default.
+    /// Number of columns, 2 by default; ignored with `min`.
     pub cols: Option<f32>,
+    /// Smallest column width: the number of columns follows the width of the grid.
+    pub min: Option<f32>,
     /// Distance between cells.
     pub gap: Space,
 }
@@ -112,7 +117,18 @@ impl<R> Component<R> for Grid {
     fn render(self, cx: &TemplateContext<'_, R>, mut slots: Slots) -> Element {
         let cols = self.cols.unwrap_or(2.).max(1.) as usize;
         let gap = self.gap.or(12.);
-        kit_ui!(cx, slots; <div class="k-grid" style:columns={cols} style:gap={gap}><slot /></div>)
+        let mut grid = kit_ui!(cx, slots;
+            <div class="k-grid" style:columns={cols} style:gap={gap}><slot /></div>
+        );
+        if let Some(min) = self.min.filter(|m| m.is_finite() && *m > 0.) {
+            let rules = grid.layout_rules();
+            rules.columns = Some(std::sync::Arc::from([GridTrack {
+                min: TrackBreadth::Px(min),
+                max: TrackBreadth::Fr(1.),
+            }]));
+            rules.grid_auto_repeat = Some(true);
+        }
+        grid
     }
 }
 

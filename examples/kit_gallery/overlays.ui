@@ -1,4 +1,4 @@
-<Grid cols={2} gap="lg">
+<Grid min={340.} gap="lg">
     <Card title="Dialogue">
         <Button primary onclick={Msg::Dialog(true)}>Ouvrir un dialogue</Button>
     </Card>
@@ -8,6 +8,24 @@
             <MenuItem icon="copy" onclick={Msg::Menu}>Dupliquer</MenuItem>
             <MenuItem icon="trash" danger onclick={Msg::Menu}>Supprimer</MenuItem>
         </Dropdown>
+    </Card>
+    <Card title="Clic droit" subtitle="Ou Maj+F10, ou la touche Menu">
+        <ContextMenu at={self.context_at} onopen={Msg::OpenContext} onclose={Msg::CloseContext} label="Actions">
+            <Card padding="lg" hover>
+                <Row gap="md">
+                    <Icon name="music" size={20} />
+                    <Stack gap="none" grow>
+                        <Text bold>Blue Train</Text>
+                        <Text sm muted>Cliquez avec le bouton droit</Text>
+                    </Stack>
+                </Row>
+            </Card>
+            <MenuItem slot="menu" icon="play" onclick={Msg::Pick("Lire")}>Lire</MenuItem>
+            <MenuItem slot="menu" icon="plus" onclick={Msg::Pick("Ajouter à la file")}>Ajouter à la file</MenuItem>
+            <MenuItem slot="menu" icon="copy" onclick={Msg::Pick("Copier le lien")}>Copier le lien</MenuItem>
+            <MenuItem slot="menu" icon="trash" danger onclick={Msg::Pick("Retirer")}>Retirer</MenuItem>
+        </ContextMenu>
+        <Text sm muted>{if self.picked.is_empty() { "Aucune action choisie." } else { self.picked }}</Text>
     </Card>
     <Card title="Infobulle">
         <Tooltip text="Copier le lien"><IconButton icon="copy" label="Copier" outline onclick={Msg::Save} /></Tooltip>

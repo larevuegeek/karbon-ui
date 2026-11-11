@@ -1,5 +1,5 @@
-<Row gap="lg" stretch full>
-    <Card padding="xl" gap="lg" style="flex-grow: 3; flex-basis: 0">
+<Row gap="lg" stretch full wrap>
+    <Card padding="xl" gap="lg" style="flex-grow: 3; flex-basis: 0; min-width: 320px">
         <div class="album" style:background={cover(self.track)}><Icon name="music" size={72} /></div>
         <Row between full>
             <Stack gap="none">
@@ -21,7 +21,7 @@
             <IconButton icon="chevron-right" label="Suivant" lg pill onclick={Msg::Next} />
         </Row>
     </Card>
-    <Stack gap="sm" style="flex-grow: 2; flex-basis: 0">
+    <Stack gap="sm" style="flex-grow: 2; flex-basis: 0; min-width: 280px">
         <Title h3>À suivre</Title>
         <List>
             {#each TRACKS.iter().enumerate() as item (item.0)}

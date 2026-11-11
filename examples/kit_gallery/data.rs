@@ -231,6 +231,10 @@ pub const CODE_EVENTS: &str = r#"<Button onclick={Msg::Save}
         onhover={Msg::Hover}
         onpress={|down: bool| Msg::Press(down)}
         onfocus={Msg::Focus}
-        ondblclick={Msg::Open}>Enregistrer</Button>"#;
+        ondblclick={Msg::Open}>Enregistrer</Button>
+<ContextMenu at={self.menu_at} onopen={Msg::OpenMenu} onclose={Msg::CloseMenu}>
+    <Card>Clic droit ici</Card>
+    <MenuItem slot="menu" icon="copy" onclick={Msg::Copy}>Copier</MenuItem>
+</ContextMenu>"#;
 pub const CODE_THEME: &str =
     r#"set_theme(KitTheme::default().primary(Color::hex(0xe11d48)).radius(16.));"#;

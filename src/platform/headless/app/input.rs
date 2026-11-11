@@ -48,6 +48,17 @@ impl<A: Application> HeadlessApp<A> {
         self.event(UiEvent::PointerUp(point))?;
         Ok(())
     }
+    /// Move the pointer to the center of element `id`, then right-click there: the
+    /// context-menu request a backend sends for the secondary button.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`click`](Self::click).
+    pub fn right_click(&mut self, id: impl Into<ElementId>) -> crate::Result<()> {
+        let point = self.center(id.into())?;
+        self.event(UiEvent::PointerMove(point))?;
+        self.event(UiEvent::ContextMenu(Some(point))).map(drop)
+    }
     /// Move the pointer to the center of element `id`.
     ///
     /// # Errors

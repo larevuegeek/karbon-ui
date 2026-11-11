@@ -123,12 +123,15 @@ impl<R> Component<R> for Navbar {
 pub struct Sidebar {
     /// Name at the top of the panel.
     pub brand: Text,
+    /// In a window narrower than 900 pixels, only the icons of the links remain (their
+    /// text stays readable by screen readers).
+    pub responsive: bool,
 }
 impl<R> Component<R> for Sidebar {
     fn render(self, cx: &TemplateContext<'_, R>, mut slots: Slots) -> Element {
         let brand = !self.brand.0.is_empty();
         kit_ui!(cx, slots;
-            <aside class="k-sidebar">
+            <aside class="k-sidebar" class:k-sidebar-responsive={self.responsive}>
                 {#if brand}<div class="k-brand k-sidebar-brand">{self.brand.0}</div>{/if}
                 <slot />
             </aside>
@@ -161,7 +164,7 @@ impl<R> Component<R> for NavItem {
         kit_ui!(cx, slots;
             <button class="k-nav-item" class:k-nav-active={self.active} onclick={action}>
                 {#if !self.icon.is_empty()}<Icon name={self.icon} size={18} />{/if}
-                <slot />
+                <div class="k-nav-text"><slot /></div>
             </button>
         )
     }

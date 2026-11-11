@@ -1,4 +1,4 @@
-<Grid cols={2} gap="2xl" style="padding: 40px 8px 24px">
+<Grid min={380.} gap="2xl" style="padding: 40px 8px 24px">
     <Stack gap="lg" main_center>
         <Badge primary dot>Natif, sans navigateur</Badge>
         <Stack gap="none">
@@ -7,7 +7,7 @@
             <Title display>sans effort.</Title>
         </Stack>
         <Text lg muted>Des composants soignés, un thème clair et sombre, et une syntaxe que vous lisez comme du HTML.</Text>
-        <Row gap="md">
+        <Row gap="md" wrap>
             <Button primary shadow pill lg icon_right="arrow-right" onclick={Msg::Section(1)}>Voir les exemples</Button>
             <Button faded pill lg onclick={Msg::Section(EVENTS_SECTION)}>Voir les événements</Button>
         </Row>
@@ -60,7 +60,7 @@
 </Grid>
 <Stack gap="sm">
     <Title h3>Des écrans complets, prêts à copier</Title>
-    <Grid cols={4} gap="md">
+    <Grid min={220.} gap="md">
         {#each SECTIONS.iter().enumerate().skip(1).take(FIRST_COMPONENT - 1) as item (item.0)}
             <Card padding="md" gap="xs" hover title="" onclick={Msg::Section(item.0)}>
                 <div class="mini" style:background={cover(item.0)}><Icon name={item.1.1} size={20} /></div>

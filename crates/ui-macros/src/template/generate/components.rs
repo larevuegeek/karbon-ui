@@ -86,6 +86,7 @@ impl Generator {
                     | "onpress"
                     | "onfocus"
                     | "ondblclick"
+                    | "oncontextmenu"
             ) || name.starts_with("data-")
                 || name.starts_with("class:")
                 || name.starts_with("style:")
@@ -138,8 +139,8 @@ impl Generator {
         let kind = Kind::Component;
         self.finish_component(e, kind, &id, &constructor)
     }
-    /// Survol, appui, focus et double clic : posés sur l'élément, ou sur la racine d'un
-    /// composant, qui voit ainsi ce qui arrive à ses descendants.
+    /// Survol, appui, focus, double clic et menu contextuel : posés sur l'élément, ou sur
+    /// la racine d'un composant, qui voit ainsi ce qui arrive à ses descendants.
     pub(super) fn listeners(&mut self, e: &Element) -> Result<String> {
         let mut code = String::new();
         for (attr, method) in [
@@ -147,6 +148,7 @@ impl Generator {
             ("onpress", "on_press"),
             ("onfocus", "on_focus"),
             ("ondblclick", "on_double_click"),
+            ("oncontextmenu", "context_menu"),
         ] {
             if let Some(a) = e.attr(attr) {
                 let handler = self.message(a)?;

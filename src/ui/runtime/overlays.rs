@@ -59,7 +59,13 @@ impl UiRuntime {
                     return Some(target);
                 }
             }
-            (node.context_menu.is_some()
+            // La découpe seule ne suffit pas : en `overflow: visible`, celle d'un élément est
+            // celle de son parent, et le dernier frère l'emporterait sur tout le parent.
+            let inside = point.is_none_or(|p| {
+                layout::contains(layout::intersect(node.bounds(), node.clip), p.x, p.y)
+            });
+            (inside
+                && node.context_menu.is_some()
                 && node.widget.as_ref().is_none_or(|w| w.semantics().enabled))
             .then_some(node)
         }

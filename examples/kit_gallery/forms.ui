@@ -1,4 +1,4 @@
-<Grid cols={2} gap="lg">
+<Grid min={340.} gap="lg">
     <Card title="Connexion" subtitle="Champs remplis, sans bordure" gap="md">
         <Input label="Nom" required placeholder="Ada Lovelace" icon="user" value={&self.name} oninput={Msg::Name} hint="Tel qu'affiché sur votre profil." />
         <Input label="Courriel" value="ada@" icon="mail" error="Adresse incomplète." />

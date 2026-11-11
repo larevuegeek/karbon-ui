@@ -146,6 +146,12 @@ non redimensionnable.
 Écrit sous Windows le 2026-11-09, vérifié seulement à la compilation
 (`cargo clippy --target …`) : rien n'a tourné sur ces systèmes.
 
+Linux, 2026-11-10 (VM Ubuntu 22.04, GNOME 42) : toutes les vérifications passent ; la
+lecture du portail donne le bon thème pour `default`, `prefer-dark` et `prefer-light`.
+Un changement sans perte de focus (bascule programmée jour/nuit) attend le focus suivant :
+écouter `SettingChanged` du portail le suivrait en direct. Mesure de la cadence à faire
+sur le poste Radeon (la VM n'a que llvmpipe, écarté des fenêtres).
+
 - **Thème système** : macOS, apparence effective de la fenêtre (changement suivi par
   `viewDidChangeEffectiveAppearance`) ; Linux, `color-scheme` du portail
   `org.freedesktop.portal.Settings` (`portal/appearance.rs`), relu à la reprise du focus.
@@ -182,8 +188,10 @@ non redimensionnable.
 ## Kit de composants (2026-11-09)
 
 `src/ui/kit/`, galerie `examples/kit_gallery`, guide [kit.md](kit.md). Vérifié par les tests
-`tests/kit/` et des exports clair et sombre sous Windows. Reste : `Drawer` (placement
-latéral des dialogues), rendu à regarder sur macOS et Linux.
+`tests/kit/` et des exports clair et sombre sous Windows ; sous Linux (2026-11-10), les
+19 sections en clair et en sombre par Cairo, et par Vulkan (`--renderer=gpu`, options de
+fenêtre désormais acceptées par la galerie) : écarts limités au placement des glyphes.
+Reste : `Drawer` (placement latéral des dialogues), rendu à regarder sur macOS.
 
 ## Publication (décidée le 2026-11-06)
 

@@ -401,7 +401,7 @@ non finis et divisions invalides produisent une erreur.
 Les media queries acceptent screen/all, only/not, des alternatives séparées par
 virgule, `and`, min/max-width/height, width/height, orientation et
 `prefers-color-scheme: dark | light` et `prefers-contrast: more | no-preference`
-(`Application::color_preferences`, thème système par défaut, lu sous Windows seulement ;
+(`Application::color_preferences`, thème système par défaut, lu sous Windows, macOS et Linux ;
 un changement refait toute la vue ; pendant `view`, `color_scheme()` donne les valeurs
 effectives `(sombre, contraste élevé)`, `System` résolu),
 `prefers-reduced-motion: reduce | no-preference` (réglage du runtime,

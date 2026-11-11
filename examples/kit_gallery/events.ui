@@ -1,4 +1,4 @@
-<Grid cols={2} gap="lg">
+<Grid min={340.} gap="lg">
     <Card title="Essayez" subtitle="Chaque composant accepte ces événements" gap="md">
         <Button id="demo-events" primary onclick={Msg::Log("onclick", true)}
             onhover={|on: bool| Msg::Log("onhover", on)}
@@ -9,8 +9,9 @@
             onfocus={|on: bool| Msg::Log("Champ : onfocus", on)}
             onhover={|on: bool| Msg::Log("Champ : onhover", on)} />
         <Card padding="lg" hover onhover={|on: bool| Msg::Log("Carte : onhover", on)}
-            ondblclick={Msg::Log("Carte : ondblclick", true)}>
-            <Text>Une carte voit aussi ce qui arrive à ses enfants.</Text>
+            ondblclick={Msg::Log("Carte : ondblclick", true)}
+            oncontextmenu={|r: ContextMenuRequest| Msg::Log("Carte : oncontextmenu", !r.keyboard)}>
+            <Text>Une carte voit aussi ce qui arrive à ses enfants. Essayez le clic droit.</Text>
         </Card>
     </Card>
     <Card title="Journal" subtitle="Les derniers événements reçus par update" gap="xs">
@@ -35,6 +36,7 @@
         vec!["onpress".to_string(), "bool : début ou fin d'appui".to_string(), "Tout élément et composant".to_string()],
         vec!["onfocus".to_string(), "bool : prise ou perte du focus".to_string(), "Tout élément et composant".to_string()],
         vec!["oninput, onchange".to_string(), "la valeur".to_string(), "Champs, listes, cases, curseurs".to_string()],
+        vec!["oncontextmenu".to_string(), "ContextMenuRequest : position, clavier".to_string(), "Tout élément et composant".to_string()],
         vec!["onclose, ontoggle".to_string(), "rien".to_string(), "Dialogues, menus, accordéons".to_string()],
     ]} />
 </Stack>

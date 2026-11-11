@@ -21,7 +21,7 @@ pub use super::{
     layout::{ComputedLength, Expression, GridTrack, TrackBreadth},
     overlays::{
         modal::{Modal, ModalPlacement},
-        popover::{Anchor, Popover},
+        popover::{Anchor, ContextMenuRequest, Popover},
     },
     rendering::brush::{
         Background, GradientStop, LinearGradient, RadialExtent, RadialGradient, linear_gradient,

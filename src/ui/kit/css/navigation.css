@@ -42,3 +42,12 @@
 .k-nav-active:hover { background: color-mix(in srgb, var(--k-primary) 12%, transparent); color: var(--k-primary); }
 .k-nav-label { padding: 14px 12px 6px; font-size: 12px; font-weight: 500; color: var(--k-muted); flex-shrink: 0; }
 .k-brand-row { display: flex; flex-direction: row; align-items: center; gap: 10px; flex-shrink: 0; }
+.k-nav-text { display: flex; flex-direction: row; align-items: center; min-width: 0; overflow: hidden; }
+/* Barre étroite : icônes seules, textes gardés (largeur nulle) pour les lecteurs d'écran. */
+@media (max-width: 900px) {
+    .k-sidebar-responsive { width: 64px; padding: 8px; }
+    .k-sidebar-responsive .k-nav-item { justify-content: center; gap: 0; padding: 0; }
+    .k-sidebar-responsive .k-nav-text { max-width: 0; }
+    .k-sidebar-responsive .k-nav-label { display: none; }
+    .k-sidebar-responsive .k-sidebar-brand { display: none; }
+}

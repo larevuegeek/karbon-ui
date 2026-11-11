@@ -6,7 +6,7 @@
         <Button primary shadow icon="plus">Nouveau rapport</Button>
     </Row>
 </Row>
-<Grid cols={4} gap="md">
+<Grid min={220.} gap="md">
     {#each RANGES[self.range].stats.iter() as stat (stat.0)}
         <Stat label={stat.0} value={stat.1} delta={stat.2} up={stat.3} down={!stat.3} icon={stat.4} />
     {/each}

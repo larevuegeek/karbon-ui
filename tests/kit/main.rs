@@ -3,6 +3,7 @@ use karbon_ui::{
     platform::headless::{HeadlessApp, HeadlessOptions},
     ui::{
         kit::{ICON_NAMES, prelude::*},
+        popover::ContextMenuRequest,
         rendering::brush::Background,
         runtime::Key,
         scene::{DrawCommand, PointF},
@@ -22,6 +23,9 @@ enum Msg {
     Press(bool),
     Focus(bool),
     Double,
+    OpenMenu(ContextMenuRequest),
+    CloseMenu,
+    Pick(&'static str),
 }
 
 #[derive(Default)]
@@ -33,6 +37,7 @@ struct Demo {
     dialog: bool,
     dark: bool,
     events: Vec<&'static str>,
+    menu_at: Option<PointF>,
 }
 
 impl Application for Demo {
@@ -58,6 +63,12 @@ impl Application for Demo {
             Msg::Press(on) => self.events.push(if on { "press" } else { "release" }),
             Msg::Focus(on) => self.events.push(if on { "focus" } else { "blur" }),
             Msg::Double => self.events.push("double"),
+            Msg::OpenMenu(request) => {
+                self.events.push("menu");
+                self.menu_at = Some(request.position);
+            }
+            Msg::CloseMenu => self.menu_at = None,
+            Msg::Pick(entry) => self.events.push(entry),
         }
         true
     }
@@ -73,6 +84,12 @@ impl Application for Demo {
                     <Checkbox id="flag" label="Flag" checked={self.flag} onchange={Msg::Flag} />
                     <Tabs id="tabs" items={["One", "Two"]} value={self.tab} onchange={Msg::Tab} />
                     <div class="promo"><Tabs underlined items={["Red"]} value={0usize} /></div>
+                    <ContextMenu at={self.menu_at} onopen={Msg::OpenMenu} onclose={Msg::CloseMenu}>
+                        <Card id="area"><Text>Area</Text></Card>
+                        <MenuItem slot="menu" id="copy" onclick={Msg::Pick("copy")}>Copy</MenuItem>
+                    </ContextMenu>
+                    <Grid id="cells" min={250.}><Card>A</Card><Card>B</Card><Card>C</Card></Grid>
+                    <Badge id="badge" oncontextmenu={|_: ContextMenuRequest| Msg::Pick("badge")}>New</Badge>
                 </Stack>
                 {#if self.dialog}
                     <Dialog title="Sure?" onclose={Msg::Close}><Text>Body</Text></Dialog>
@@ -156,6 +173,43 @@ fn element_events_report_hover_press_focus_and_double_click() -> karbon_ui::Resu
     app.hover("idle")?;
     assert!(app.app().events.contains(&"unhover"));
     Ok(())
+}
+
+#[test]
+fn a_right_click_opens_the_context_menu_at_the_pointer() -> karbon_ui::Result<()> {
+    let mut app = demo();
+    app.right_click("area")?;
+    assert_eq!(app.app().events, ["menu"]);
+    let at = app.app().menu_at.expect("menu position");
+    let area = app.bounds("area").expect("area");
+    assert!(at.x > area.left && at.x < area.right && at.y > area.top && at.y < area.bottom);
+    // Entrée choisie : son message, puis la fermeture du menu.
+    app.click("copy")?;
+    assert!(app.app().events.contains(&"copy"));
+    assert_eq!(app.app().menu_at, None);
+    // Échap referme un menu rouvert.
+    app.right_click("area")?;
+    app.press(Key::Escape)?;
+    assert_eq!(app.app().menu_at, None);
+    // Sur un composant, `oncontextmenu` reçoit la demande.
+    app.right_click("badge")?;
+    assert!(app.app().events.contains(&"badge"));
+    Ok(())
+}
+
+#[test]
+fn a_grid_with_a_minimum_width_puts_as_many_columns_as_fit() {
+    let app = demo();
+    let cells = app
+        .root()
+        .expect("a built view")
+        .find(ElementId::named("cells"))
+        .expect("grid");
+    let [a, b, c] = [0, 1, 2].map(|i| cells.children[i].bounds());
+    // Moins de 750 px : deux colonnes d'au moins 250 px, la troisième carte en dessous.
+    assert_eq!(a.top, b.top);
+    assert!(b.left > a.right && a.right - a.left >= 250.);
+    assert!(c.top > a.bottom && c.left == a.left);
 }
 
 #[test]

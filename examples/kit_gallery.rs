@@ -1,6 +1,8 @@
 //! Galerie du kit : écrans d'exemple complets et composants par type.
 //! `cargo run --release --example kit_gallery`.
-//! Aperçu sans fenêtre : `-- --export galerie.png [--size 1320x860] [--section 0] [--dark]`.
+//! Aperçu sans fenêtre : `-- --export galerie.png [--size 1320x860] [--section 0] [--dark]`
+//! (logiciel, sauf `--renderer=gpu|auto`). Les autres options sont celles de
+//! [`WindowOptions::from_args`] (`--profile`, `--renderer=…`).
 #[path = "kit_gallery/data.rs"]
 mod data;
 use data::*;
@@ -8,7 +10,10 @@ use karbon_ui::{
     Error, diagnostics,
     diagnostics::BenchmarkOptions,
     platform,
-    ui::kit::{ICON_NAMES, prelude::*},
+    ui::{
+        kit::{ICON_NAMES, prelude::*},
+        scene::PointF,
+    },
     window::{RenderMode, WindowOptions},
 };
 
@@ -23,6 +28,10 @@ enum Msg {
     Accent(u64),
     Dialog(bool),
     Menu,
+    // Clic droit : demande du contenu, fermeture, entrée choisie.
+    OpenContext(ContextMenuRequest),
+    CloseContext,
+    Pick(&'static str),
     // Composants.
     Name(String),
     Bio(String),
@@ -79,6 +88,10 @@ struct Gallery {
     accent: u64,
     dialog: bool,
     menu: bool,
+    /// Position du menu contextuel ouvert.
+    context_at: Option<PointF>,
+    /// Dernière entrée choisie dans le menu contextuel.
+    picked: &'static str,
     toast: bool,
     name: String,
     bio: String,
@@ -195,6 +208,9 @@ impl Application for Gallery {
             }
             Msg::Dialog(v) => self.dialog = v,
             Msg::Menu => self.menu = !self.menu,
+            Msg::OpenContext(request) => self.context_at = Some(request.position),
+            Msg::CloseContext => self.context_at = None,
+            Msg::Pick(entry) => self.picked = entry,
             Msg::Name(v) => self.name = v,
             Msg::Bio(v) => self.bio = v,
             Msg::Genre(v) => self.genre = Some(v),
@@ -266,6 +282,7 @@ impl Application for Gallery {
 fn main() -> karbon_ui::Result<()> {
     let mut app = Gallery::new();
     let (mut export, mut size) = (None, (1320, 860));
+    let mut native = Vec::new();
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -289,9 +306,11 @@ fn main() -> karbon_ui::Result<()> {
                     h.parse().map_err(Error::application)?,
                 );
             }
-            _ => {}
+            _ => native.push(arg),
         }
     }
+    let chosen = native.iter().any(|a| a.starts_with("--renderer="));
+    let options = WindowOptions::from_args(native)?;
     if let Some(path) = export {
         let image = diagnostics::render_preview(
             BenchmarkOptions {
@@ -300,7 +319,11 @@ fn main() -> karbon_ui::Result<()> {
                 scale: 1.,
                 title_bar: false,
                 reduced_motion: true,
-                renderer: RenderMode::Software,
+                renderer: if chosen {
+                    options.renderer
+                } else {
+                    RenderMode::Software
+                },
                 ..Default::default()
             },
             app,
@@ -312,7 +335,7 @@ fn main() -> karbon_ui::Result<()> {
             title: "Karbon UI · galerie",
             width: 1280,
             height: 880,
-            ..WindowOptions::DEFAULT
+            ..options
         },
         app,
     )

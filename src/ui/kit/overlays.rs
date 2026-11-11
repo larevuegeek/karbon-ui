@@ -1,8 +1,8 @@
-//! Overlays: dialog, drop-down menu, tooltip.
+//! Overlays: dialog, drop-down menu, context menu, tooltip.
 use super::{
     buttons::{Button, IconButton},
     css,
-    events::OnClick,
+    events::{OnChange, OnClick},
     has_slot,
     icons::Icon,
     props::Text,
@@ -10,7 +10,8 @@ use super::{
 };
 use crate::ui::{
     element::{Element, ElementId},
-    popover::Anchor,
+    popover::{Anchor, ContextMenuRequest},
+    scene::PointF,
     template::{Component, Slots, TemplateContext},
 };
 
@@ -110,7 +111,56 @@ impl<R> Component<R> for Dropdown {
     }
 }
 
-/// Entry of a [`Dropdown`].
+/// Menu of [`MenuItem`] children opened by a right click (or Shift+F10, or the menu key)
+/// on its content, at the pointer. The application keeps the position: `onopen` gives
+/// the request, `at` shows the menu there, `onclose` hides it (Escape, a click outside,
+/// a chosen entry). Slots: default (the area that reacts), `menu` (the entries).
+///
+/// ```ignore
+/// <ContextMenu at={self.menu_at} onopen={Msg::OpenMenu} onclose={Msg::CloseMenu}>
+///     <Card>Right-click here</Card>
+///     <MenuItem slot="menu" icon="copy" onclick={Msg::Copy}>Copy</MenuItem>
+/// </ContextMenu>
+/// ```
+///
+/// with `Msg::OpenMenu(request) => self.menu_at = Some(request.position)`.
+#[derive(Default)]
+pub struct ContextMenu {
+    /// Where the menu is shown (logical window coordinates); `None` hides it.
+    pub at: Option<PointF>,
+    /// Sent with the request when the content asks for a menu.
+    pub onopen: OnChange<ContextMenuRequest>,
+    /// Sent by Escape, a click outside and a chosen entry.
+    pub onclose: OnClick,
+    /// Accessible name of the menu.
+    pub label: Text,
+}
+impl<R> Component<R> for ContextMenu {
+    fn render(self, cx: &TemplateContext<'_, R>, mut slots: Slots) -> Element {
+        let open = self.onopen.emitter();
+        let close = self.onclose.action();
+        let label = if self.label.0.is_empty() {
+            "Menu".to_string()
+        } else {
+            self.label.0
+        };
+        let shown = self.at.is_some();
+        let at = self.at.unwrap_or(PointF { x: 0., y: 0. });
+        kit_ui!(cx, slots;
+            <div class="k-context" oncontextmenu={open}>
+                <slot />
+                {#if shown}
+                    <k-popover class="k-menu" anchor={Anchor::Point(at)} aria-label={label.as_str()}
+                        onclose={close} menu placement="bottom-start">
+                        <slot name="menu" />
+                    </k-popover>
+                {/if}
+            </div>
+        )
+    }
+}
+
+/// Entry of a [`Dropdown`] or a [`ContextMenu`].
 #[derive(Default)]
 pub struct MenuItem {
     /// Icon before the text.

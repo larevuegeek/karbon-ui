@@ -12,7 +12,7 @@
                     <Button faded sm>Changer la photo</Button>
                     <Button ghost danger sm>Retirer</Button>
                 </Row>
-                <Grid cols={2} gap="md">
+                <Grid min={220.} gap="md">
                     <Input label="Prénom" value="Ada" />
                     <Input label="Nom" value="Lovelace" />
                 </Grid>

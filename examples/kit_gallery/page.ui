@@ -11,7 +11,7 @@
             </Row>
         </Navbar>
         <Row grow clip stretch gap="none">
-            <Sidebar>
+            <Sidebar responsive>
                 <NavItem icon="home" active={self.section == 0} onclick={Msg::Section(0)}>Aperçu</NavItem>
                 <NavLabel>Exemples</NavLabel>
                 {#each SECTIONS.iter().enumerate().skip(1).take(FIRST_COMPONENT - 1) as item (item.0)}

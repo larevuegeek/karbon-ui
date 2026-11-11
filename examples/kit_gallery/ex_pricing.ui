@@ -2,7 +2,7 @@
     <Title gradient center>Une offre pour chaque projet</Title>
     <Tabs items={["Mensuel", "Annuel, 2 mois offerts"]} value={self.billing} onchange={Msg::Billing} />
 </Stack>
-<Grid cols={3} gap="lg">
+<Grid min={280.} gap="lg">
     {#each PLANS.iter().enumerate() as plan (plan.0)}
         <Card padding="xl" gap="md" class:plan-featured={plan.0 == 1}>
             <Row between full>

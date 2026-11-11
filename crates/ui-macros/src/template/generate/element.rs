@@ -250,10 +250,6 @@ impl Generator {
         } else if let Some(a) = e.attr("dropzone") {
             return Err(a.loc.error("dropzone needs ondrop={Msg::Dropped}"));
         }
-        if let Some(a) = e.attr("oncontextmenu") {
-            let handler = self.message(a)?;
-            post += &format!("__ui_el=__ui_el.context_menu({handler});");
-        }
         if let Some(a) = e.attr("onscroll") {
             let handler = self.message(a)?;
             post += &format!("__ui_el=__ui_el.on_scroll({handler});");

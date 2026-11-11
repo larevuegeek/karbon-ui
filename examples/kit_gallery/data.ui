@@ -1,4 +1,4 @@
-<Grid cols={4} gap="md">
+<Grid min={220.} gap="md">
             <Stat label="Morceaux" value="9 440" delta="+12 cette semaine" up icon="music" />
             <Stat label="Albums" value="602" icon="folder" />
             <Stat label="Artistes" value="995" delta="-3" down icon="users" />

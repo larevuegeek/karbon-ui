@@ -7,7 +7,7 @@
         <Button faded pill icon="folder">Panier : {self.cart} article(s), {self.cart_total} €</Button>
     </Row>
 </Row>
-<Grid cols={4} gap="lg">
+<Grid min={220.} gap="lg">
     {#each self.visible_products() as item (item.0)}
         <Animate up delay={item.0 as u32 * 25} replay={self.category as u64}>
             <Card padding="md" gap="sm" hover>
