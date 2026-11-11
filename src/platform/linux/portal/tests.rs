@@ -197,3 +197,36 @@ fn colour_scheme_is_read_from_one_or_two_nested_variants() {
     assert_eq!(parse(&reply(true, 2)), Some(false));
     assert_eq!(parse(&reply(false, 0)), Some(false));
 }
+
+#[test]
+fn a_colour_scheme_change_is_read_from_its_signal_and_other_settings_are_ignored() {
+    use super::appearance::parse_change;
+    let changed = |namespace: &str, key: &str, code: u32| {
+        let mut message = Message::signal(
+            "/org/freedesktop/portal/desktop",
+            "org.freedesktop.portal.Settings",
+            "SettingChanged",
+        )
+        .expect("message");
+        {
+            let mut writer = message.writer();
+            writer.string(namespace).string(key);
+            writer.open(b'v', Some("u")).u32(code).close();
+        }
+        message
+    };
+    let appearance = "org.freedesktop.appearance";
+    assert_eq!(
+        parse_change(&changed(appearance, "color-scheme", 1)),
+        Some(true)
+    );
+    assert_eq!(
+        parse_change(&changed(appearance, "color-scheme", 2)),
+        Some(false)
+    );
+    assert_eq!(parse_change(&changed(appearance, "accent-color", 1)), None);
+    assert_eq!(
+        parse_change(&changed("org.gnome.desktop.interface", "color-scheme", 1)),
+        None
+    );
+}

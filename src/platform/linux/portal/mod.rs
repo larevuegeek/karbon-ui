@@ -12,6 +12,6 @@ mod file_chooser;
 #[cfg(test)]
 mod tests;
 
-pub(in crate::platform::linux) use appearance::prefers_dark;
+pub(in crate::platform::linux) use appearance::{prefers_dark, watch};
 mod dialogs;
 pub(in crate::platform::linux) use dialogs::*;

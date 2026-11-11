@@ -9,11 +9,12 @@
 //! bureau. Les polices sont lues une fois par processus (un changement suit au lancement
 //! suivant) ; le mouvement réduit est relu quand une fenêtre reprend le focus.
 //!
-//! Le thème vient du portail (`portal/appearance.rs`), relu au même moment, sur un thread
-//! à part car l'appel peut attendre le démarrage du portail.
+//! Le thème vient du portail (`portal/appearance.rs`) : suivi en direct par son signal
+//! `SettingChanged` sur un thread à lui, et relu au retour du focus (portails anciens),
+//! sur un thread à part car l'appel peut attendre le démarrage du portail.
 use super::{
     ffi::{gio::Settings, pango::family_of},
-    portal::{Waker, prefers_dark},
+    portal::{Waker, prefers_dark, watch},
 };
 use std::{
     cell::Cell,
@@ -97,11 +98,8 @@ fn read_dark(wait: Duration) {
     let spawned = std::thread::Builder::new()
         .name("karbon-ui-color-scheme".into())
         .spawn(move || {
-            if let Some(dark) = prefers_dark()
-                && DARK.swap(dark, Ordering::Relaxed) != dark
-                && let Some(wake) = WAKE.lock().unwrap_or_else(PoisonError::into_inner).as_ref()
-            {
-                wake();
+            if let Some(dark) = prefers_dark() {
+                store_dark(dark);
             }
             let _ = done.send(());
         });
@@ -109,12 +107,25 @@ fn read_dark(wait: Duration) {
         let _ = finished.recv_timeout(wait);
     }
 }
+/// Thème reçu du portail : la boucle est réveillée s'il a changé.
+fn store_dark(dark: bool) {
+    if DARK.swap(dark, Ordering::Relaxed) != dark
+        && let Some(wake) = WAKE.lock().unwrap_or_else(PoisonError::into_inner).as_ref()
+    {
+        wake();
+    }
+}
 /// Une fenêtre s'ouvre : `wake` réveillera la boucle quand le thème change. La première
-/// lecture du processus est attendue un court instant.
+/// lecture du processus est attendue un court instant, puis le thème est suivi en direct.
 pub(super) fn follow_color_scheme(wake: Waker) {
     *WAKE.lock().unwrap_or_else(PoisonError::into_inner) = Some(wake);
     static FIRST: Once = Once::new();
-    FIRST.call_once(|| read_dark(FIRST_READ_WAIT));
+    FIRST.call_once(|| {
+        read_dark(FIRST_READ_WAIT);
+        let _ = std::thread::Builder::new()
+            .name("karbon-ui-settings".into())
+            .spawn(|| watch(store_dark));
+    });
 }
 /// Une fenêtre reprend le focus : les réglages ont pu changer entre-temps.
 pub(super) fn refresh() {

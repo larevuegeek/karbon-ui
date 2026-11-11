@@ -148,13 +148,13 @@ non redimensionnable.
 
 Linux, 2026-11-10 (VM Ubuntu 22.04, GNOME 42) : toutes les vérifications passent ; la
 lecture du portail donne le bon thème pour `default`, `prefer-dark` et `prefer-light`.
-Un changement sans perte de focus (bascule programmée jour/nuit) attend le focus suivant :
-écouter `SettingChanged` du portail le suivrait en direct. Mesure de la cadence à faire
+Le thème est suivi en direct par le signal `SettingChanged` du portail (relu aussi au
+retour du focus pour les portails anciens), vérifié en basculant le réglage de GNOME. Mesure de la cadence à faire
 sur le poste Radeon (la VM n'a que llvmpipe, écarté des fenêtres).
 
 - **Thème système** : macOS, apparence effective de la fenêtre (changement suivi par
   `viewDidChangeEffectiveAppearance`) ; Linux, `color-scheme` du portail
-  `org.freedesktop.portal.Settings` (`portal/appearance.rs`), relu à la reprise du focus.
+  `org.freedesktop.portal.Settings` (`portal/appearance.rs`), suivi par `SettingChanged`.
   Sans portail, `ColorScheme::System` donne le clair.
 - **Cadence** : contrat dans [`platform/backend.rs`](../src/platform/backend.rs)
   (« Cadence d'une image »). Toujours actif sous Windows ; sur macOS et Linux seulement
