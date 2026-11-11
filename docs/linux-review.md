@@ -90,7 +90,7 @@ bibliothèque, crates de `tests/`, exemple, compilateur). Restent les points 2 �
 | W6 | important | Corrigé | `wayland/clipboard.rs` | Offres de glisser-déposer jamais rendues (fuite de proxies et de types à chaque survol). Rendues au `leave`. |
 | W7 | mineur | Corrigé | `wayland/display.rs` | `global_remove` d'une sortie oubliait le proxy. |
 | W8 | mineur | Corrigé | `wayland/seat.rs` | Échec de chargement du thème de curseurs retenté à chaque mouvement du pointeur. Mémorisé. |
-| W9 | mineur | À faire | `wayland/text_input.rs` | `done.serial` ignoré : comparer au nombre de `commit` envoyés avant de renvoyer `set_surrounding_text` (certaines méthodes bouclent sinon). À reproduire sous Linux. |
+| W9 | mineur | Corrigé | `wayland/text_input.rs` | `done.serial` ignoré. Les `commit` sont comptés ; un `done` en retard est appliqué mais l'état (caret, texte environnant) n'est renvoyé qu'après un `done` à jour, ou au plus tard 200 ms après, comme le demande le protocole. La boucle décrite n'a pas été reproduite (IBus sous GNOME 42 ne la montre pas) : à surveiller avec d'autres méthodes. |
 | W10 | mineur | Corrigé | `wayland/input.rs` | `axis_discrete` (wl_pointer 5-7) ignoré : molette en pixels sur les compositeurs sans v8. Traité comme `value120 × 120`. |
 | W11 | mineur | Corrigé | `wayland/window/{mod,paint}.rs` | État `suspended` : `hidden()` libérait tout, puis la configuration repeignait et réallouait aussitôt. Drapeau `suspended` ; la configuration est validée par un envoi sans tampon. |
 | W12 | mineur | Corrigé | `wayland/mod.rs` | `wl_display_flush` en EAGAIN silencieux : requêtes en attente jusqu'au prochain événement. `POLLOUT` demandé quand le tampon d'envoi est plein. |

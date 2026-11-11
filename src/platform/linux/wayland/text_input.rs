@@ -4,6 +4,11 @@
 //! jusqu'à `done` sont appliqués dans l'ordre du protocole : suppression autour du caret,
 //! texte validé, puis nouveau texte en composition, traduits dans la séquence du moteur
 //! (`CompositionStart`, `CompositionUpdate`…, `CompositionCommit`, `CompositionEnd`).
+//!
+//! Numéro de `done` : celui des `commit` vus par le compositeur. Un `done` en retard sur
+//! les nôtres est appliqué, mais l'état (caret, texte environnant) n'est renvoyé qu'après
+//! un `done` à jour, comme le demande le protocole (certaines méthodes d'entrée bouclent
+//! sinon), ou au plus tard après `STALE_WAIT`.
 use super::{
     Wayland,
     display::{Event, Kind, NEW, Ptr, create, destroy, request},
@@ -16,6 +21,8 @@ use crate::{
 
 /// Texte environnant au plus (limite du protocole, 4000 octets).
 const SURROUNDING: usize = 4000;
+/// Attente au plus d'un `done` à jour avant de renvoyer l'état malgré tout.
+const STALE_WAIT: std::time::Duration = std::time::Duration::from_millis(200);
 
 /// État annoncé à la méthode d'entrée : caret (unités logiques) et texte environnant
 /// (texte, caret et ancre en octets).
@@ -37,6 +44,10 @@ pub(super) struct TextInput {
     entered: Ptr,
     enabled: Option<Announced>,
     pending: Pending,
+    /// Nombre de `commit` envoyés (numéro attendu dans `done`).
+    commits: u32,
+    /// Dernier `done` en retard sur nos `commit` : l'état attend un `done` à jour.
+    stale: Option<std::time::Instant>,
     /// Texte en composition affiché dans le champ.
     pub composition: Composition,
 }
@@ -59,10 +70,21 @@ impl TextInput {
             entered: std::ptr::null_mut(),
             enabled: None,
             pending: Pending::default(),
+            commits: 0,
+            stale: None,
             composition: Composition::default(),
         }
     }
-    fn announce(&self, state: &Announced) {
+    /// Envoie l'état en attente (`commit`), compté pour les numéros de `done`.
+    fn commit(&mut self) {
+        request!(self.object, zwp_text_input_v3::COMMIT);
+        self.commits = self.commits.wrapping_add(1);
+    }
+    /// L'état peut être renvoyé : dernier `done` à jour, ou attente écoulée.
+    fn may_update(&self) -> bool {
+        self.stale.is_none_or(|since| since.elapsed() >= STALE_WAIT)
+    }
+    fn announce(&mut self, state: &Announced) {
         let [x, y, w, h] = state.caret;
         request!(
             self.object,
@@ -82,7 +104,8 @@ impl TextInput {
                 *anchor as i32
             );
         }
-        request!(self.object, zwp_text_input_v3::COMMIT);
+        self.commit();
+        self.stale = None;
     }
     pub fn close(&mut self) {
         destroy!(self.object, zwp_text_input_v3::DESTROY);
@@ -112,7 +135,10 @@ impl Wayland {
             zwp_text_input_v3::EV_DELETE_SURROUNDING_TEXT => {
                 ime.pending.delete = (event.uint(0), event.uint(1));
             }
-            zwp_text_input_v3::EV_DONE => self.text_input_done(),
+            zwp_text_input_v3::EV_DONE => {
+                ime.stale = (event.uint(0) != ime.commits).then(std::time::Instant::now);
+                self.text_input_done();
+            }
             _ => {}
         }
     }
@@ -197,7 +223,7 @@ impl Wayland {
         let ime = &mut self.text_input;
         if ime.enabled.take().is_some() {
             request!(ime.object, zwp_text_input_v3::DISABLE);
-            request!(ime.object, zwp_text_input_v3::COMMIT);
+            ime.commit();
         }
     }
     /// Active, met à jour ou désactive la saisie selon le champ focalisé de la fenêtre
@@ -241,14 +267,14 @@ impl Wayland {
                 ime.announce(&state);
                 ime.enabled = Some(state);
             }
-            (Some(state), Some(previous)) if *previous != state => {
+            (Some(state), Some(previous)) if *previous != state && ime.may_update() => {
                 ime.announce(&state);
                 ime.enabled = Some(state);
             }
             (None, Some(_)) => {
                 ime.enabled = None;
                 request!(ime.object, zwp_text_input_v3::DISABLE);
-                request!(ime.object, zwp_text_input_v3::COMMIT);
+                ime.commit();
             }
             _ => {}
         }
