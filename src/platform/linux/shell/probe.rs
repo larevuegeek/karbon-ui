@@ -34,14 +34,22 @@ struct Probe {
     tasks: Vec<TaskCommand>,
     commands: Vec<WindowCommand>,
     step: u64,
+    /// Tâches d'attente supplémentaires (seconde fenêtre pas encore affichée).
+    waits: u64,
 }
+/// Attentes au plus que la seconde fenêtre soit affichée (40 × 150 ms).
+const MAX_WAITS: u64 = 40;
 impl Probe {
     fn next(&mut self) {
         self.step += 1;
-        self.tasks
-            .push(TaskCommand::Spawn(Task::new(TaskId(self.step), |_| {
-                std::thread::sleep(Duration::from_millis(150));
-            })));
+        self.wait();
+    }
+    /// Tâche de 150 ms sous un identifiant neuf, sans changer d'étape.
+    fn wait(&mut self) {
+        let id = TaskId(self.step + 1000 * self.waits);
+        self.tasks.push(TaskCommand::Spawn(Task::new(id, |_| {
+            std::thread::sleep(Duration::from_millis(150));
+        })));
     }
 }
 impl Application for Probe {
@@ -54,6 +62,13 @@ impl Application for Probe {
         Ok(())
     }
     fn task_completed(&mut self, _: TaskResult) -> bool {
+        // Seconde fenêtre pas encore configurée par le compositeur (machine chargée) :
+        // la fermer maintenant ne laisserait voir aucune de ses vues.
+        if self.step == 2 && self.log.lock().unwrap().views[1] == 0 && self.waits < MAX_WAITS {
+            self.waits += 1;
+            self.wait();
+            return true;
+        }
         self.log.lock().unwrap().tasks += 1;
         match self.step {
             1 => self
@@ -146,6 +161,7 @@ pub(in crate::platform::linux) fn probe(run: Run, name: &str, available: bool, r
         tasks: Vec::new(),
         commands: Vec::new(),
         step: 0,
+        waits: 0,
     };
     let start = Instant::now();
     run(
