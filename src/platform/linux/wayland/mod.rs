@@ -12,6 +12,7 @@ mod display;
 mod event_loop;
 mod events;
 mod input;
+mod presentation;
 mod protocol;
 mod seat;
 mod shm;

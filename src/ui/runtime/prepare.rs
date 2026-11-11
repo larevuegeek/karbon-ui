@@ -150,6 +150,13 @@ impl UiRuntime {
                 text,
             )?;
             layout::arrange(root, bounds, bounds, text)?;
+            // Ancrage du défilement dès ce placement : des lignes retirées au-dessus de la
+            // vue ne déplacent pas le contenu sous le pointeur, le survol ne change pas et
+            // la passe de styles qui le suivrait n'a pas lieu. Refait plus bas pour ce que
+            // les passes suivantes déplacent encore (sans effet sinon).
+            for (id, delta) in anchoring::apply(root, &anchors) {
+                self.components.scrolls.shift_smooth(id, delta);
+            }
             // Requêtes de conteneur : un conteneur dont ce layout change la taille relance
             // la résolution des styles puis le layout, sans reconstruire la vue. Pendant une
             // transition de taille ou un redimensionnement, la taille change à chaque image :
@@ -323,7 +330,8 @@ impl UiRuntime {
             self.invalidation.repaint = true;
         }
         let motion_hover = self.motion_hover();
-        if motion_tree_changed {
+        // Contenu révélé en défilant : les chemins des animations s'arrêtaient à lui.
+        if motion_tree_changed || revealed {
             self.motions.invalidate_paths();
         }
         // Contenu disposé en approchant de la vue : ses pistes d'animation sont créées.

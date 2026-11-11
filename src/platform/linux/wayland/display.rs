@@ -101,10 +101,12 @@ pub(super) enum Kind {
     TextInput,
     /// Fenêtre exportée (`xdg-foreign`) : sa poignée.
     Exported,
+    /// Retour d'affichage d'une image (`wp_presentation`, sonde).
+    Feedback,
     /// Objet sans événement utile (région, viewport, pool).
     Silent,
 }
-const KINDS: [Kind; 19] = [
+const KINDS: [Kind; 20] = [
     Kind::Registry,
     Kind::WmBase,
     Kind::XdgSurface,
@@ -123,6 +125,7 @@ const KINDS: [Kind; 19] = [
     Kind::Decoration,
     Kind::TextInput,
     Kind::Exported,
+    Kind::Feedback,
     Kind::Silent,
 ];
 /// Argument décodé d'un événement.
@@ -312,6 +315,8 @@ pub(super) struct Globals {
     /// version.
     pub exporter: Ptr,
     pub exported: &'static crate::platform::linux::ffi::wayland::Interface,
+    /// Instants d'affichage (`wp_presentation`), liés seulement pendant la sonde.
+    pub presentation: Ptr,
 }
 pub(super) struct Display {
     pub raw: Ptr,
@@ -352,6 +357,7 @@ impl Display {
                 text_input: std::ptr::null_mut(),
                 exporter: std::ptr::null_mut(),
                 exported: &protocol::ZXDG_EXPORTED_V2,
+                presentation: std::ptr::null_mut(),
             },
         };
         display.roundtrip()?;
@@ -473,6 +479,9 @@ impl Display {
                 "zxdg_exporter_v1" if g.exporter.is_null() => {
                     g.exporter = bind(&protocol::ZXDG_EXPORTER_V1, 1, Kind::Silent);
                     g.exported = &protocol::ZXDG_EXPORTED_V1;
+                }
+                "wp_presentation" if std::env::var_os("KARBON_SCROLL_PROBE").is_some() => {
+                    g.presentation = bind(&protocol::WP_PRESENTATION, 1, Kind::Silent);
                 }
                 "zwp_text_input_manager_v3" => {
                     g.text_input = bind(&protocol::ZWP_TEXT_INPUT_MANAGER_V3, 1, Kind::Silent);

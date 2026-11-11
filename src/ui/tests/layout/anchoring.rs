@@ -91,6 +91,39 @@ fn a_new_container_starts_at_its_initial_target_only() {
 }
 
 #[test]
+fn rows_removed_above_leave_the_hover_alone_without_a_style_pass() {
+    // L'ancrage s'applique dès le premier placement : des lignes retirées au-dessus de la
+    // vue ne déplacent pas le contenu sous le pointeur, le survol ne change pas et aucune
+    // passe de styles du survol ne suit la reconstruction (une liste chargée par pages
+    // en faisait une à chaque lot de lignes).
+    let first = Rc::new(Cell::new(0));
+    let mut ui = rows(first.clone());
+    let mut measure = Measure::default();
+    prepare(&mut ui, &mut measure);
+    let p = PointF { x: 30., y: 70. };
+    wheel(&mut ui, p, 0., 300.);
+    prepare(&mut ui, &mut measure);
+    // Survol dégelé, sur la ligne sous le pointeur.
+    while let Some(wake) = ui.next_wake() {
+        ui.event(UiEvent::Timer(wake));
+    }
+    ui.event(UiEvent::PointerMove(p));
+    prepare(&mut ui, &mut measure);
+    let hovered = ui.hovered_id();
+    assert!(hovered.is_some());
+    let styles = ui.stats().partial_styles;
+    first.set(3);
+    ui.invalidate();
+    prepare(&mut ui, &mut measure);
+    assert_eq!(ui.hovered_id(), hovered);
+    assert_eq!(
+        ui.stats().partial_styles,
+        styles,
+        "passe de styles du survol"
+    );
+}
+
+#[test]
 fn hover_follows_scrolled_content_at_most_every_100_ms() {
     // Comme Chromium : pendant un défilement sous un pointeur immobile, le survol reste
     // sur la ligne d'avant, puis rejoint celle sous le pointeur au réveil ; un mouvement
@@ -200,6 +233,33 @@ fn a_notch_during_a_glide_keeps_the_speed_reached() {
     let end = sample(&mut ui, 1000);
     near(end, 200.);
     assert!(ui.next_wake().is_none_or(|w| w > at(1000)));
+}
+
+#[test]
+fn a_notch_between_two_frames_keeps_the_ground_covered_since_the_last_one() {
+    // Un cran arrive entre deux images : le nouveau glissement part de la position de la
+    // courbe à l'instant du cran, pas du dernier décalage affiché. Sinon l'image qui suit
+    // perd le chemin parcouru depuis la précédente et ne bouge presque pas (sous Wayland,
+    // un rafraîchissement manqué à chaque cran).
+    let mut ui = rows(Rc::new(Cell::new(0)));
+    let mut measure = Measure::default();
+    prepare(&mut ui, &mut measure);
+    ui.event(UiEvent::Timer(std::time::Instant::now()));
+    notch(&mut ui);
+    let start = std::time::Instant::now();
+    // Image à 10 ms du départ : ≈ 1,3 px d'une courbe de 150 ms partie de l'arrêt.
+    ui.event(UiEvent::Timer(start + std::time::Duration::from_millis(10)));
+    let shown = scroll_metrics(&ui, 1).offset;
+    // Le cran suivant arrive au moins 30 ms après le départ (≥ 10 px sur la courbe).
+    std::thread::sleep(std::time::Duration::from_millis(30));
+    notch(&mut ui);
+    ui.event(UiEvent::Timer(std::time::Instant::now()));
+    let next = scroll_metrics(&ui, 1).offset;
+    assert!(
+        next - shown > 5.,
+        "l'image après le cran avance de {} px seulement",
+        next - shown
+    );
 }
 
 #[test]

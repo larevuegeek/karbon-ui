@@ -17,6 +17,11 @@ impl MotionPaths {
     pub(super) fn new(root: &Element) -> Self {
         fn walk(node: &Element, paths: &mut MotionPaths) -> bool {
             let mut any = node.motion.as_deref().is_some_and(|m| !m.exit_only());
+            // Contenu sauté (`content-visibility`) : ni animé ni touché, la synchronisation
+            // n'y descend pas ; les chemins sont refaits quand il est révélé.
+            if node.content_skipped {
+                return any;
+            }
             for child in &node.children {
                 paths.parents.insert(child.id, node.id);
                 any |= walk(child, paths);

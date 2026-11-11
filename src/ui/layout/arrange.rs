@@ -80,6 +80,9 @@ fn arrange_node(
     if node.content_skipped {
         return Ok(());
     }
+    // Le contenu est disposé ci-dessous (ou repris et translaté à sa place) : plus aucun
+    // défilement reporté.
+    node.skipped_shift = (0., 0.);
     super::containment::remember(node, size);
     let border = node.border();
     let positioned = node

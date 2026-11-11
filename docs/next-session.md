@@ -149,20 +149,36 @@ non redimensionnable.
 Linux, 2026-11-10 (VM Ubuntu 22.04, GNOME 42) : toutes les vérifications passent ; la
 lecture du portail donne le bon thème pour `default`, `prefer-dark` et `prefer-light`.
 Le thème est suivi en direct par le signal `SettingChanged` du portail (relu aussi au
-retour du focus pour les portails anciens), vérifié en basculant le réglage de GNOME. Mesure de la cadence à faire
-sur le poste Radeon (la VM n'a que llvmpipe, écarté des fenêtres).
+retour du focus pour les portails anciens), vérifié en basculant le réglage de GNOME.
+
+Linux, 2026-11-11 (poste Radeon 760M, Zorin 18.1, GNOME 46, écran 4K à 60 Hz, échelle
+1,5) : cadence mesurée sous **Wayland** sur le clone RustMusic du poste (voir « Backend
+Linux », session du 2026-11-11), 5 essais de chaque en alternance, après deux correctifs
+qui faussaient la première mesure :
+
+| Sonde 30:8, onglet Morceaux | Images/s | p95 | À-coups (médiane) | Pire écart (médiane / max) |
+| --- | --- | --- | --- | --- |
+| Avant les correctifs, sans cadence | 49,5 | 34 ms | 304 | 49,5 / 55,0 ms |
+| Avant les correctifs, cadence | 49,6 | 34 ms | 293 | 45,2 / 52,6 ms |
+| Correctifs, sans cadence | 59,0 | 18,0 ms | 28 | 47,7 / 54,8 ms |
+| Correctifs, cadence | 59,2 | 18,0 ms | 26 | 42,1 / 43,3 ms |
+
+Règle du point 4 remplie : la cadence est **active par défaut sous Wayland**
+(`KARBON_FRAME_PACING=0` pour l'ôter) ; X11 et macOS, à l'attente estimée, la gardent
+sur demande (`=1`) jusqu'à leur mesure. X11 sous XWayland, sans cadence : 59,5 images/s,
+19 à-coups en 20 s (pas une vraie session X11).
 
 - **Thème système** : macOS, apparence effective de la fenêtre (changement suivi par
   `viewDidChangeEffectiveAppearance`) ; Linux, `color-scheme` du portail
   `org.freedesktop.portal.Settings` (`portal/appearance.rs`), suivi par `SettingChanged`.
   Sans portail, `ColorScheme::System` donne le clair.
 - **Cadence** : contrat dans [`platform/backend.rs`](../src/platform/backend.rs)
-  (« Cadence d'une image »). Toujours actif sous Windows ; sur macOS et Linux seulement
-  avec `KARBON_FRAME_PACING=1`.
+  (« Cadence d'une image »). Toujours actif sous Windows, par défaut sous Wayland
+  (mesuré) ; sur X11 et macOS seulement avec `KARBON_FRAME_PACING=1`.
 
 | Système | Fin de l'attente de l'écran | À vérifier |
 | --- | --- | --- |
-| Wayland | `frame_done` (`wl_surface.frame`), exact | Point le plus sûr |
+| Wayland | `frame_done` (`wl_surface.frame`), exact ; horloge des animations | Fait (2026-11-11) |
 | X11 | échéance de `next_wake`, faute de rappel du serveur | Approximatif |
 | macOS | échéance de `next_wake` ; `nextDrawable` attend, lui, après la préparation | Peut demander un lien d'affichage (`CADisplayLink`) |
 
@@ -182,8 +198,9 @@ sur le poste Radeon (la VM n'a que llvmpipe, écarté des fenêtres).
    ferme l'application. Le résumé donne les images par seconde, les écarts (médian, p95,
    max) et les à-coups (écart de plus de 25 ms). La page doit rester longue pendant toute
    la mesure : les « arrêts » signalent qu'elle a touché le bout.
-4. Activer par défaut (retirer `platform/shared/pacing.rs`) si la médiane des à-coups
-   baisse sans que le pire écart augmente ; sinon, laisser désactivé et noter la mesure.
+4. Activer par défaut (`platform/shared/pacing.rs` : `enabled(exact)`, ou la retirer
+   quand tous les systèmes sont mesurés) si la médiane des à-coups baisse sans que le
+   pire écart augmente ; sinon, laisser désactivé et noter la mesure.
 
 ## Kit de composants (2026-11-09)
 
@@ -233,6 +250,55 @@ Reste à faire à la main :
 
 ## Backend Linux (en cours)
 
+### Session du 2026-11-11 (poste Radeon 760M, Zorin 18.1, GNOME 46, Wayland)
+
+- **Clone RustMusic du poste** : le clone de Windows n'étant pas ici, copie refaite hors
+  du dépôt, `~/Developpement/perso/rust/rustmusic-karbon` (cadre de l'exemple
+  `rustmusic_html`, onglet Morceaux traduit de l'original sur une copie de
+  `rustmusic.db` : 9 386 titres, pages de 100, fenêtre de 500, lots de dix lignes par
+  image, pochettes de 160 px en tâches de fond ; SQLite par liaison écrite à la main).
+  Son README donne lancement, recopie de la base et mesure.
+- **Rafraîchissement manqué à chaque cran de molette** (moteur commun, tous systèmes) :
+  le nouveau glissement repartait du dernier décalage affiché au lieu de la position de
+  la courbe à l'instant du cran ; l'image suivante ne bougeait presque pas
+  (`runtime/smooth_scroll.rs`, test `a_notch_between_two_frames_…`). Cause probable de
+  « l'effet de pompage » signalé sur RustMusic ; à revérifier sous Windows et macOS.
+- **Horloge des animations sous Wayland** : un réveil dû dans l'image qui vient part du
+  rappel de trame (`Session::frame_callback`) au lieu d'attendre `poll`, dont l'arrondi
+  donnait une image toutes les 17,7 ms à 60 Hz (écart médian 17,7 → 16,6 ms).
+- Résultat sur la sonde : 49,5 → 59,2 images/s, p95 34 → 18 ms, à-coups 304 → 26 en
+  30 s ; cadence active par défaut sous Wayland (tableau dans « Cadence et thème »).
+- **Affichage réel mesuré** : sous Wayland, la sonde relève aussi l'instant d'affichage de
+  chaque image (`wp_presentation`, `wayland/presentation.rs`, lié pendant la sonde
+  seulement) ; `--profile` donne le coût de chaque reconstruction faite pendant
+  l'attente de l'écran. Constat : entre deux pages, aucun rafraîchissement manqué ; les
+  ratés tombent tous à l'arrivée d'une page (lots de dix lignes, une reconstruction par
+  image). Mutter ne prend qu'une image dont le GPU a fini : une reconstruction qui
+  dépasse ~14 ms décale l'envoi suivant contre sa composition (vb + 12,5 ms).
+- **Reconstruction allégée** (moteur commun) : défilement reporté sur le contenu sauté
+  (`Element::skipped_shift`, plus de translation des 22 000 nœuds d'une liste à chaque
+  image) ; styles d'une ligne mémorisée repris malgré une règle de frère précédent
+  (`[.a+&]`, et sa boîte `::after` : empreinte du frère au lieu du rang, test
+  `tests/css/layout/siblings.rs`) ; parcours qui ne calculent plus rien dans le contenu
+  sauté (faits du pointeur, animations de style, chemins des animations). Styles d'une
+  reconstruction 4-5 → ~2 ms, synchronisation des animations 1,2-3,4 → 0,3-0,5 ms.
+- **Ancrage du défilement dès le premier placement** (`runtime/prepare.rs`) : des lignes
+  retirées au-dessus de la vue ne déplacent plus le contenu sous le pointeur entre le
+  layout et la correction ; plus de passe de styles du survol ni de lignes « révélées »
+  pour rien après chaque lot (test `rows_removed_above_leave_the_hover_alone_…`).
+  Reconstruction pendant un chargement de page : 15-20 → 9-13 ms.
+- Clone : zones stables mémorisées (barre latérale, lecteur, en-têtes), fenêtre de
+  200 lignes comme le clone de Windows, **pochettes décodées une tâche à la fois** :
+  quatre décodages en parallèle ralentissaient le fil de l'interface (Ryzen 5 7640HS,
+  cœurs à deux fils, cache partagé). Rafraîchissements manqués en 30 s (affichage réel),
+  essais alternés : 7-12 avec quatre tâches, 1-9 avec une (médiane 3 sur 7 essais),
+  contre ~300 à-coups au début de la session ; 59,9 images/s. Piste moteur : le pool de
+  tâches prend jusqu'à quatre fils, sans priorité plus basse que l'interface.
+- Restent dans une reconstruction (~10 ms) : vue (`view()` du clone 2-3 ms, indexation
+  1,2-2,6 ms), placement (~1,5 ms), contrôle du survol (~0,5 ms) ; une quinzaine de
+  parcours complets de l'arbre par reconstruction. `perf` est bloqué sur ce poste
+  (`perf_event_paranoid=4`) : profil fait par instrumentation.
+
 ### Session du 2026-11-10/11 (VM Ubuntu 22.04, GNOME 42, llvmpipe, Cairo 1.16)
 
 Recette du propriétaire, puis balayages automatiques (frappe XTEST sous X11, lecture par
@@ -259,7 +325,7 @@ AT-SPI, client GTK 3 pour le presse-papiers). Corrigé, chaque fois avec un test
 
 Reste sous Linux : Fcitx (absent de la VM), recette à la main du dialogue de fichiers
 modal, de la composition IBus (Ctrl+Maj+U, méthode asiatique), d'Orca à la voix, de la
-disposition russe ; mesure de la cadence sur le poste Radeon. Les remaniements
+disposition russe ; mesure de la cadence sous une vraie session X11. Les remaniements
 « Proposé » de [linux-review.md](linux-review.md) restent à décider.
 
 

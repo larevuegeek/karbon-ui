@@ -21,6 +21,7 @@ impl UiRuntime {
             node: &Element,
             parent: Option<ElementId>,
             selection_group: Option<ElementId>,
+            deferred: Option<Deferred>,
             runtime: &UiRuntime,
             order: &HashSet<ElementId>,
             result: &mut Vec<AccessibleElement>,
@@ -34,8 +35,11 @@ impl UiRuntime {
                 let s = widget.semantics();
                 let input = widget.text_input();
                 let choice = choice(node);
-                let bounds = runtime.motions.bounds(node.id, layout::content_rect(node));
-                let clipped = layout::intersect(bounds, runtime.motions.clip(node));
+                let (bounds, clipped) = place(
+                    runtime.motions.bounds(node.id, layout::content_rect(node)),
+                    runtime.motions.clip(node),
+                    deferred,
+                );
                 // Bouton, lien ou entrée de menu sans nom propre : celui de son contenu,
                 // comme le calcul du nom accessible du web (`<button><svg/>Ouvrir</button>`).
                 let name = if s.name.trim().is_empty()
@@ -101,8 +105,8 @@ impl UiRuntime {
             if let Layout::Split(split) = node.layout
                 && split.resizable
             {
-                let bounds = node.divider.unwrap_or(node.rect);
-                let clipped = layout::intersect(bounds, node.clip);
+                let (bounds, clipped) =
+                    place(node.divider.unwrap_or(node.rect), node.clip, deferred);
                 descriptor = Some(AccessibleElement {
                     id: node.id,
                     parent,
@@ -128,6 +132,7 @@ impl UiRuntime {
                 });
             }
             if node.scroll.is_some() {
+                let (bounds, clipped) = place(node.rect, node.clip, deferred);
                 descriptor = Some(AccessibleElement {
                     id: node.id,
                     parent,
@@ -142,10 +147,10 @@ impl UiRuntime {
                     ),
                     enabled: true,
                     focused: focused == Some(node.id),
-                    bounds: node.rect,
-                    clipped_bounds: node.clip,
+                    bounds,
+                    clipped_bounds: clipped,
                     focusable: order.contains(&node.id),
-                    offscreen: layout::width(node.clip) <= 0. || layout::height(node.clip) <= 0.,
+                    offscreen: layout::width(clipped) <= 0. || layout::height(clipped) <= 0.,
                     invokable: false,
                     value: None,
                     choice: None,
@@ -187,8 +192,32 @@ impl UiRuntime {
             } else {
                 parent
             };
+            // Contenu sauté : ses descendants n'ont pas suivi les défilements reportés.
+            let deferred =
+                if node.content_skipped && (deferred.is_some() || node.skipped_shift != (0., 0.)) {
+                    let base = deferred.unwrap_or(Deferred {
+                        dx: 0.,
+                        dy: 0.,
+                        clip: node.clip,
+                    });
+                    Some(Deferred {
+                        dx: base.dx + node.skipped_shift.0,
+                        dy: base.dy + node.skipped_shift.1,
+                        ..base
+                    })
+                } else {
+                    deferred
+                };
             for child in &node.children {
-                visit(child, parent, selection_group, runtime, order, result);
+                visit(
+                    child,
+                    parent,
+                    selection_group,
+                    deferred,
+                    runtime,
+                    order,
+                    result,
+                );
             }
         }
         let mut result = Vec::new();
@@ -197,12 +226,37 @@ impl UiRuntime {
                 layers::active(root),
                 None,
                 None,
+                None,
                 self,
                 &self.interaction.focus_order.iter().copied().collect(),
                 &mut result,
             );
         }
         result
+    }
+}
+/// Sous un contenu sauté (`content-visibility`) : défilement reporté sur ses descendants
+/// (`Element::skipped_shift`, cumulé) et zone visible de l'élément sauté, seule tenue à
+/// jour.
+#[derive(Clone, Copy)]
+struct Deferred {
+    dx: f32,
+    dy: f32,
+    clip: RectF,
+}
+/// Bornes et bornes visibles d'un élément de boîte `bounds` et de découpe `clip`.
+fn place(bounds: RectF, clip: RectF, deferred: Option<Deferred>) -> (RectF, RectF) {
+    match deferred {
+        None => (bounds, layout::intersect(bounds, clip)),
+        Some(d) => {
+            let moved = RectF {
+                left: bounds.left + d.dx,
+                top: bounds.top + d.dy,
+                right: bounds.right + d.dx,
+                bottom: bounds.bottom + d.dy,
+            };
+            (moved, layout::intersect(moved, d.clip))
+        }
     }
 }
 /// État de choix d'un élément : celui de son widget (case, interrupteur, radio natifs),

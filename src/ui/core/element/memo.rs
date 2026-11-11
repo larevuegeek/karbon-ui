@@ -84,6 +84,9 @@ pub(crate) struct MemoState {
     /// Empreinte des entrées de la cascade à la racine du sous-arbre (héritage, position,
     /// faits des ancêtres) lors de sa dernière résolution, et portée des variables.
     pub style_inputs: Option<u64>,
+    /// Typographie héritée lors de cette résolution, comparée telle quelle (la hacher
+    /// passait par son texte `Debug`, ~4 µs par sous-arbre : 2 ms pour 500 lignes).
+    pub style_inherited: Option<crate::ui::styling::Typography>,
     pub style_scope: Option<crate::ui::styling::CssVariables>,
     /// Résumé de la dernière vérification du sous-arbre.
     pub checked: std::cell::Cell<Option<CheckedSubtree>>,
@@ -101,6 +104,7 @@ impl MemoState {
             transplanted: false,
             style_dirty: false,
             style_inputs: None,
+            style_inherited: None,
             style_scope: None,
             checked: std::cell::Cell::new(None),
             nested: false,

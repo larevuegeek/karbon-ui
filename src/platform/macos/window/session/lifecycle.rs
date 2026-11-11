@@ -321,7 +321,7 @@ impl Session {
     pub fn frame_presented(&mut self) -> crate::Result<()> {
         let now = Instant::now();
         self.runtime.frame_presented(now);
-        if crate::platform::shared::pacing::enabled() {
+        if crate::platform::shared::pacing::enabled(false) {
             self.runtime.begin_frame_work(now);
             if self.runtime.rebuild_pending() {
                 self.prepare()?;
@@ -332,7 +332,7 @@ impl Session {
     }
     /// L'attente de l'écran est finie : ce qui est demandé maintenant attend l'image suivante.
     pub fn frame_wait_over(&mut self, now: Instant) {
-        if crate::platform::shared::pacing::enabled() {
+        if crate::platform::shared::pacing::enabled(false) {
             self.runtime.hold_rebuild(now);
         }
     }

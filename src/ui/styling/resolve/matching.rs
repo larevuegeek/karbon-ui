@@ -80,6 +80,33 @@ impl Frame<'_> {
     /// Empreinte de ce que la cascade lit de ce cadre et de ses ancêtres pour les
     /// descendants : faits de chaque élément (états, classes, conteneur), règles pour les
     /// enfants et rayons hérités (reprise des styles d'un sous-arbre mémorisé).
+    /// Empreinte des faits du frère `sibling` (rang `index` parmi `siblings`) que lit une
+    /// règle `[.a+&]` de l'élément suivant ; sans son rang sauf `positions`.
+    pub(super) fn sibling_fingerprint(
+        sibling: &Element,
+        env: &StyleEnvironment,
+        (index, siblings): (usize, usize),
+        parent_clipped: bool,
+        positions: bool,
+        h: &mut impl std::hash::Hasher,
+    ) {
+        let frame = Frame {
+            facts: facts(
+                sibling,
+                env,
+                index,
+                siblings,
+                clipped(sibling, env, parent_clipped),
+            ),
+            parent: None,
+            previous: &[],
+            following: &[],
+            parent_clipped,
+            children: &[],
+            corners: [0.; 4],
+        };
+        frame.fingerprint(h, positions);
+    }
     pub(super) fn fingerprint(&self, h: &mut impl std::hash::Hasher, positions: bool) {
         use std::hash::Hash;
         let mut frame = Some(self);
@@ -215,8 +242,26 @@ pub(crate) fn pointer_facts(root: &Element, env: &StyleEnvironment) -> PointerFa
         *out.bits.last_mut().unwrap() |=
             (u64::from(pointer_clipped) | u64::from(hot) << 1) << (index % 64);
         out.ids.push(node.id);
+        if node.content_skipped {
+            // Contenu sauté (`content-visibility`) : ni touché ni restylé, ses positions
+            // ne suivent plus le défilement. Faits nuls, sans calcul ; les identités
+            // restent pour que deux relevés gardent la même forme.
+            for child in &node.children {
+                skipped(child, out);
+            }
+            return;
+        }
         for child in &node.children {
             visit(child, env, pointer_clipped && !layout::fixed(child), out);
+        }
+    }
+    fn skipped(node: &Element, out: &mut PointerFacts) {
+        if (out.ids.len() * 2).is_multiple_of(64) {
+            out.bits.push(0);
+        }
+        out.ids.push(node.id);
+        for child in &node.children {
+            skipped(child, out);
         }
     }
     let mut out = PointerFacts {

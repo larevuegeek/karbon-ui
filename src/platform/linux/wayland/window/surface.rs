@@ -76,6 +76,8 @@ pub(crate) struct Window {
     /// Fenêtre exportée (`xdg-foreign`) et sa poignée, parent des dialogues du portail.
     pub exported: Ptr,
     pub foreign_handle: Option<String>,
+    /// Instants d'affichage des images, pendant la sonde de défilement.
+    pub presentation: super::super::presentation::Presentation,
 }
 impl Window {
     /// Charge l'application, puis crée sa surface (affichée à la première configuration).
@@ -223,6 +225,7 @@ impl Window {
             geometry: None,
             exported,
             foreign_handle: None,
+            presentation: super::super::presentation::Presentation::new(globals.presentation),
         })
     }
     /// Bordure de redimensionnement et géométrie de la fenêtre, à jour de sa taille et de
@@ -325,7 +328,7 @@ impl Window {
         // SAFETY : rappel terminé, sans requête destructrice dans le protocole.
         unsafe { crate::platform::linux::ffi::wayland::wl_proxy_destroy(callback) };
         self.frame = std::ptr::null_mut();
-        self.session.frame_wait_over(std::time::Instant::now());
+        self.session.frame_callback(std::time::Instant::now());
         true
     }
     pub fn set_maximized(&self, maximized: bool) {

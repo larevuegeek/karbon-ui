@@ -32,6 +32,7 @@ impl Element {
             layout_cache: None,
             layout_bits: 0,
             content_skipped: false,
+            skipped_shift: (0., 0.),
             tooltip: None,
             surface_style: None,
             drag_source: None,

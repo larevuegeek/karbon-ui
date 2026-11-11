@@ -421,7 +421,11 @@ embarque. Sonde commune des deux boucles : `probe.rs`.
   renderer Vulkan), ou dessinée par Cairo sur une surface du renderer et copiée dans un
   tampon `wl_shm` libre (trois au plus) ; envoyée avec un rappel de trame : l’image
   suivante attend ce rappel, sauf après une configuration ; une fenêtre cachée n’en
-  reçoit pas et ne peint pas.
+  reçoit pas et ne peint pas. Le rappel est l’horloge des animations
+  (`Session::frame_callback`, comme `requestAnimationFrame`) : un réveil dû dans l’image
+  qui vient (défilement doux, transitions) est avancé au rappel au lieu d’être attendu
+  par `poll`, dont l’arrondi à la milliseconde donnait une image toutes les 17,7 ms sur
+  un écran à 60 Hz. X11, sans rappel, garde l’échéance.
   Régions opaque (fond du thème) et d’entrée (vide pour `click_through`).
   Chemin Cairo, à l’échelle 2 ou plus : un mouvement qui change toute la fenêtre
   (défilement, animation) est dessiné en demi-résolution et étiré par `wp_viewport`, comme

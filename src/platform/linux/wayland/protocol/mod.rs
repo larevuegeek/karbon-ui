@@ -12,6 +12,8 @@ mod decoration;
 #[allow(dead_code)]
 mod foreign;
 #[allow(dead_code)]
+mod presentation;
+#[allow(dead_code)]
 mod scale;
 #[allow(dead_code)]
 mod text_input;
@@ -21,6 +23,7 @@ mod xdg_shell;
 pub(super) use self::core::*;
 pub(super) use decoration::*;
 pub(super) use foreign::*;
+pub(super) use presentation::*;
 pub(super) use scale::*;
 pub(super) use text_input::*;
 pub(super) use xdg_shell::*;

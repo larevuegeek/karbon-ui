@@ -76,7 +76,19 @@ pub(in crate::platform::linux) struct Session {
     pub failure: Option<crate::Error>,
     /// Position, plein écran, bornes de taille (`facts.rs`).
     pub facts: super::facts::Facts,
+    /// Rappel de trame du compositeur reçu (Wayland) : au prochain tour, les réveils dus
+    /// dans l'image qui vient partent de lui (voir [`Session::frame_callback`]).
+    frame_clock: bool,
+    /// La fenêtre reçoit des rappels de trame (Wayland) : la fin de l'attente de l'écran
+    /// est exacte, la cadence d'une image s'applique par défaut (`shared/pacing.rs`).
+    frame_clocked: bool,
 }
+
+/// Avance accordée aux réveils au rappel de trame : une image. Le défilement doux et les
+/// animations demandent « dernier échantillon + 16,67 ms » ; attendue par `poll` (arrondi
+/// à la milliseconde supérieure), cette échéance donnait une image toutes les 17,7 ms
+/// environ et un rafraîchissement de l'écran manqué toutes les quinze images.
+const FRAME_CLOCK_HORIZON: Duration = Duration::from_nanos(16_666_667);
 impl Session {
     pub fn new(
         id: WindowId,
@@ -119,6 +131,8 @@ impl Session {
             focused: false,
             failure: None,
             facts: Default::default(),
+            frame_clock: false,
+            frame_clocked: false,
         }
     }
     /// La barre de titre du moteur est dessinée (pas de décorations du système).
@@ -176,20 +190,42 @@ impl Session {
     pub fn frame_presented(&mut self) -> crate::Result<()> {
         let now = Instant::now();
         self.runtime.frame_presented(now);
-        if crate::platform::shared::pacing::enabled() {
+        if crate::platform::shared::pacing::enabled(self.frame_clocked) {
+            let before = self.runtime.stats();
             self.runtime.begin_frame_work(now);
+            let work = now.elapsed();
             if self.runtime.rebuild_pending() {
                 self.prepare()?;
                 self.dirty = true;
+            }
+            let after = self.runtime.stats();
+            if self.options.profile && after.views != before.views {
+                let ms = |d: Duration| d.as_secs_f64() * 1e3;
+                eprintln!(
+                    "karbon-ui: reconstruction pendant l'attente de l'écran : {:.1} ms (travail étalé {:.1}, vue {:.1}, styles {:.1}, layout {:.1})",
+                    ms(now.elapsed()),
+                    ms(work),
+                    ms(after.view_time - before.view_time),
+                    ms(after.style_time - before.style_time),
+                    ms(after.layout_time - before.layout_time),
+                );
             }
         }
         Ok(())
     }
     /// L'attente de l'écran est finie : ce qui est demandé maintenant attend l'image suivante.
     pub fn frame_wait_over(&mut self, now: Instant) {
-        if crate::platform::shared::pacing::enabled() {
+        if crate::platform::shared::pacing::enabled(self.frame_clocked) {
             self.runtime.hold_rebuild(now);
         }
+    }
+    /// Rappel de trame du compositeur (Wayland), l'horloge de l'écran : l'attente est
+    /// finie, et les animations de l'image suivante sont échantillonnées tout de suite au
+    /// lieu d'attendre leur échéance (comme `requestAnimationFrame` des navigateurs).
+    pub fn frame_callback(&mut self, now: Instant) {
+        self.frame_clocked = true;
+        self.frame_wait_over(now);
+        self.frame_clock = true;
     }
     /// Envoie `event` au runtime ; la boucle applique les demandes de presse-papiers.
     pub fn input(&mut self, event: UiEvent) -> crate::Result<EventResult> {
@@ -232,7 +268,13 @@ impl Session {
                 gpu.trim(vulkan::Trim::Idle);
             }
         }
-        if self.runtime.next_wake().is_some_and(|wake| wake <= now) {
+        // Juste après un rappel de trame, un réveil dû dans l'image qui vient part de lui.
+        let horizon = if std::mem::take(&mut self.frame_clock) {
+            now + FRAME_CLOCK_HORIZON
+        } else {
+            now
+        };
+        if self.runtime.next_wake().is_some_and(|wake| wake <= horizon) {
             self.input(UiEvent::Timer(now))?;
         }
         Ok(())

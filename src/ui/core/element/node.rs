@@ -48,6 +48,11 @@ pub struct Element {
     /// `content-visibility` : contenu sauté au dernier layout (ni peint ni touché, son
     /// placement n'est plus tenu à jour).
     pub(crate) content_skipped: bool,
+    /// Défilement reporté sur le contenu sauté (`layout::scroll::translate`) : position
+    /// réelle des descendants = position retenue + ce décalage, jusqu'à ce que le layout
+    /// redispose le contenu. Un long défilement ne déplace ainsi que les lignes proches
+    /// de la vue, pas toute la liste à chaque image.
+    pub(crate) skipped_shift: (f32, f32),
     pub(crate) tooltip: Option<Box<crate::ui::tooltip::Tooltip>>,
     pub(crate) surface_style: Option<std::sync::Arc<crate::ui::style::SurfaceStyle>>,
     pub(crate) drag_source: Option<Box<crate::ui::drag_drop::DragSource>>,

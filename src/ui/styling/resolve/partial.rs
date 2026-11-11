@@ -63,19 +63,62 @@ pub(super) fn reads_previous_siblings(node: &Element) -> bool {
         )
     })
 }
-/// `node` a une règle qui lit ses frères au-delà de son rang (frères précédents, `*-of-type`).
-pub(super) fn reads_siblings(node: &Element) -> bool {
-    reads_state(node, |state| {
-        matches!(
-            state,
-            StyleState::PreviousSibling(_)
-                | StyleState::AnyPreviousSibling(_)
-                | StyleState::FirstOfType
-                | StyleState::LastOfType
-                | StyleState::OnlyOfType
-                | StyleState::NthOfType(..)
-                | StyleState::NthLastOfType(..)
-        )
+/// Règle posée sur l'élément lui-même qui ne lit que des faits de son frère précédent,
+/// sans rang (`[.ligne+&]` : classes, balise, attributs, états) : un sous-arbre mémorisé
+/// la reprend si ce frère n'a pas changé (son empreinte entre dans celle des entrées).
+fn previous_facts(state: &StyleState) -> bool {
+    matches!(state, StyleState::PreviousSibling(inner) if !reads(inner, positional))
+}
+/// Règle d'un enfant direct qui lit de même le frère précédent de son parent
+/// (`[.ligne+&]:after:` : la boîte `::after` de la ligne).
+fn parent_previous_facts(state: &StyleState) -> bool {
+    matches!(state, StyleState::Parent(inner) if previous_facts(inner))
+}
+fn own_states(node: &Element, keep: impl Fn(&StyleState) -> bool) -> bool {
+    node.styles
+        .as_ref()
+        .is_some_and(|s| s.states.iter().any(|(state, ..)| keep(state)))
+}
+/// `node`, ou l'un de ses enfants directs, a une règle qui lit le frère précédent de
+/// `node` sans rang ([`previous_facts`], [`parent_previous_facts`]).
+pub(super) fn reads_previous_facts(node: &Element) -> bool {
+    own_states(node, previous_facts)
+        || node
+            .children
+            .iter()
+            .any(|child| own_states(child, parent_previous_facts))
+}
+/// `node` a une règle qui lit ses frères au-delà de son rang (frères précédents,
+/// `*-of-type`), hors règles propres de frère précédent sans rang ([`previous_facts`]) :
+/// un sous-arbre mémorisé qui en a une est toujours résolu de nouveau.
+pub(super) fn reads_siblings_beyond_previous(node: &Element) -> bool {
+    node.styles.as_ref().is_some_and(|s| {
+        s.states.iter().any(|(state, ..)| {
+            !previous_facts(state)
+                && reads(state, |state| {
+                    matches!(
+                        state,
+                        StyleState::PreviousSibling(_)
+                            | StyleState::AnyPreviousSibling(_)
+                            | StyleState::FirstOfType
+                            | StyleState::LastOfType
+                            | StyleState::OnlyOfType
+                            | StyleState::NthOfType(..)
+                            | StyleState::NthLastOfType(..)
+                    )
+                })
+        })
+    })
+}
+/// Comme [`reads_position`], sans les règles qui lisent le frère précédent de `node`
+/// sans rang ([`reads_previous_facts`]) ; les autres règles du sous-arbre comptent.
+pub(super) fn reads_position_beyond_previous(node: &Element) -> bool {
+    own_states(node, |state| {
+        !previous_facts(state) && reads(state, positional)
+    }) || node.children.iter().any(|child| {
+        own_states(child, |state| {
+            !parent_previous_facts(state) && reads(state, positional)
+        }) || child.children.iter().any(reads_position)
     })
 }
 /// Une règle de `node` ou d'un descendant lit un rang parmi des frères (`:first-child`,

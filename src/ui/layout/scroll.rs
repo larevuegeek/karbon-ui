@@ -179,6 +179,13 @@ pub(crate) fn translate(node: &mut Element, dx: f32, dy: f32, clip: RectF) {
         s.track = translated(s.track, dx, dy);
         s.thumb = translated(s.thumb, dx, dy);
     }
+    // Contenu sauté (`content-visibility`) : ni peint ni touché, il sera redisposé en
+    // revenant près de la vue ; son déplacement est seulement retenu.
+    if node.content_skipped {
+        node.skipped_shift.0 += dx;
+        node.skipped_shift.1 += dy;
+        return;
+    }
     let child_clip = if let Some(s) = node.scroll {
         layout::intersect(s.viewport, node.clip)
     } else {

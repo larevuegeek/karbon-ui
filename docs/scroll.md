@@ -165,7 +165,11 @@ passe de 20 à 36 ms à 6 à 15 ms.
   vers sa cible en 150 ms (sortie cubique) au lieu de sauter ; un cran pendant le
   glissement allonge la cible en gardant la vitesse acquise (courbe raccordée, comme
   `UpdateTarget` de Chromium) : une rotation continue donne un mouvement continu, sans
-  élan relancé à chaque cran. Chaque image échantillonne la courbe à son instant (une
+  élan relancé à chaque cran. Le raccord se fait à l'instant du cran, depuis la position
+  de la courbe en cours et non depuis le dernier décalage affiché : un cran reçu entre
+  deux images ne fait pas perdre le chemin parcouru depuis la précédente (avant le
+  2026-11-11, l'image suivante ne bougeait presque pas, un rafraîchissement manqué par
+  cran). Chaque image échantillonne la courbe à son instant (une
   image un peu en avance sur le réveil prévu avance quand même), et un ancrage du
   défilement pendant le glissement (lignes retirées au-dessus par une liste chargée par
   pages) déplace aussi sa cible. Le défilement précis d'un pavé tactile

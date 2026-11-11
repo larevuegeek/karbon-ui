@@ -212,6 +212,7 @@ impl Window {
                 NEW
             );
         }
+        self.presentation.request(self.surface);
         request!(self.surface, wl_surface::COMMIT);
         self.acked = false;
         self.session.presented = Some(key);
@@ -261,8 +262,10 @@ impl Window {
             self.integer_scale.max(1),
         );
         let mut frame = self.frame;
+        let presentation = &mut self.presentation;
         // Requêtes appliquées par l'envoi de la surface que fait la présentation.
         let before = || {
+            presentation.request(surface);
             if fractional {
                 request!(surface, wl_surface::SET_BUFFER_SCALE, 1i32);
                 request!(viewport, wp_viewport::SET_DESTINATION, logical.0, logical.1);

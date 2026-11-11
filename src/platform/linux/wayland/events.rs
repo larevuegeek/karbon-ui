@@ -64,6 +64,13 @@ impl Wayland {
                 _ => {}
             },
             Kind::Surface => self.surface_event(&event),
+            Kind::Feedback => {
+                for w in &mut self.windows {
+                    if w.presentation.event(&event) {
+                        break;
+                    }
+                }
+            }
             Kind::Callback => {
                 for w in &mut self.windows {
                     if w.frame_done(target) {

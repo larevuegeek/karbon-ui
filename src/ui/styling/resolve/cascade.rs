@@ -69,9 +69,26 @@ pub(crate) fn resolve_inherited(
         let memo_inputs = node.memo.as_ref().map(|_| {
             use std::hash::{Hash, Hasher};
             let mut h = std::hash::DefaultHasher::new();
-            format!("{inherited:?}").hash(&mut h);
             (root_font.to_bits(), root, pointer_clipped).hash(&mut h);
-            let positions = super::partial::reads_position(node)
+            // Règle `[.a+&]` de l'élément : les faits de son frère précédent, pas son rang
+            // (une liste qui lâche ses premières lignes garde les styles des suivantes).
+            if super::partial::reads_previous_facts(node) {
+                match previous.last() {
+                    Some(sibling) => {
+                        1u8.hash(&mut h);
+                        super::matching::Frame::sibling_fingerprint(
+                            sibling,
+                            &env,
+                            (index.saturating_sub(1), siblings),
+                            pointer_clipped,
+                            false,
+                            &mut h,
+                        );
+                    }
+                    None => 0u8.hash(&mut h),
+                }
+            }
+            let positions = super::partial::reads_position_beyond_previous(node)
                 || parent.is_some_and(|p| {
                     p.children
                         .iter()
@@ -105,8 +122,9 @@ pub(crate) fn resolve_inherited(
                 && env.partial.is_none()
                 && !std::mem::take(&mut memo.style_dirty)
                 && memo.style_inputs == Some(inputs)
+                && memo.style_inherited == Some(inherited)
                 && same_scope
-                && !super::partial::reads_siblings(node)
+                && !super::partial::reads_siblings_beyond_previous(node)
             {
                 return Ok((false, false));
             }
@@ -522,6 +540,7 @@ pub(crate) fn resolve_inherited(
         result?;
         if let (Some(inputs), Some(memo)) = (memo_inputs, node.memo.as_deref_mut()) {
             memo.style_inputs = Some(inputs);
+            memo.style_inherited = Some(inherited);
             memo.style_scope = declared.cloned();
             memo.style_dirty = false;
         }

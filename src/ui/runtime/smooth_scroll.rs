@@ -124,9 +124,13 @@ impl UiRuntime {
         let to = (base + delta).clamp(0., s.max_offset());
         let consumed = to - base;
         if consumed != 0. {
-            let velocity = current.map_or(0., |m| m.velocity(now));
-            self.components.scrolls.smooth =
-                Some(SmoothScroll::new(id, s.offset, to, velocity, now));
+            // Raccord à l'instant du cran : position et vitesse de la courbe en cours
+            // (`UpdateTarget` de Chromium). Repartir du dernier décalage affiché perdait le
+            // chemin parcouru depuis la dernière image : l'image suivante ne bougeait pas.
+            let (from, velocity) = current.map_or((s.offset, 0.), |m| {
+                (m.position(now).clamp(0., s.max_offset()), m.velocity(now))
+            });
+            self.components.scrolls.smooth = Some(SmoothScroll::new(id, from, to, velocity, now));
         }
         consumed
     }

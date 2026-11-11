@@ -1,0 +1,12 @@
+/* Lignes mémorisées qui lisent leur frère précédent (siblings.rs) : trait entre deux lignes
+   porté par la ligne et par sa boîte ::after, comme la liste des morceaux de RustMusic
+   (`[.ligne-morceau+&]:after:`), survol et ligne marquée qui change de classe. */
+.list { display: flex; flex-direction: column; padding: 6px; overflow: auto; height: 100%; }
+.ligne { position: relative; height: 32px; padding: 0 8px; display: flex; align-items: center; border-radius: 6px; flex-shrink: 0; }
+.ligne + .ligne { border-top: 2px solid #ff3030; }
+.ligne::after { content: ""; position: absolute; left: 8px; right: 8px; top: 0px; height: 1px; }
+.ligne + .ligne::after { background: #30ff30; }
+.ligne:hover { background: #202040; }
+.ligne:hover::after { background: #3030ff; }
+.marque { height: 32px; padding: 0 8px; background: #402020; flex-shrink: 0; }
+.nom { margin: 0; font-size: 13px; }

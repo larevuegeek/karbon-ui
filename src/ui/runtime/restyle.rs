@@ -291,6 +291,10 @@ fn style_animated(node: &Element, out: &mut Vec<ElementId>) {
     {
         out.push(node.id);
     }
+    // Contenu sauté : la cascade n'y descend pas (il est résolu en revenant).
+    if node.content_skipped {
+        return;
+    }
     for child in &node.children {
         style_animated(child, out);
     }
@@ -303,8 +307,12 @@ fn mark_memo_dirty(
     touched: &crate::ui::core::hash::FastMap<ElementId, ()>,
 ) -> bool {
     let mut any = touched.contains_key(&node.id);
-    for child in &mut node.children {
-        any |= mark_memo_dirty(child, touched);
+    // Contenu sauté : aucun de ses éléments n'a de faits du pointeur (voir
+    // `pointer_facts`), et il est résolu en entier en revenant.
+    if !node.content_skipped {
+        for child in &mut node.children {
+            any |= mark_memo_dirty(child, touched);
+        }
     }
     if any && let Some(memo) = node.memo.as_deref_mut() {
         memo.style_dirty = true;
