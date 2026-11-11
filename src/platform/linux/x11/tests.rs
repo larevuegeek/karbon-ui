@@ -28,6 +28,72 @@ fn the_keyboard_comes_from_the_server_through_xkb() {
     eprintln!("karbon-ui: AD01 = {sym:#x}");
     assert!(sym != 0);
 }
+/// Texte de 1 Mo copié par une connexion et lu par une autre : servi et lu par morceaux
+/// (`INCR`, au-delà de 256 Ko), sur une sélection privée pour ne pas toucher au
+/// presse-papiers de la session.
+#[test]
+fn a_large_text_crosses_the_clipboard_in_chunks() {
+    use super::{clipboard::Clipboard, connection::Connection};
+    use crate::platform::linux::ffi::xcb::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    if std::env::var_os("DISPLAY").is_none() {
+        eprintln!("karbon-ui: no X server, test skipped");
+        return;
+    }
+    let text: String = (0..1_000_000)
+        .map(|i| char::from(b'a' + (i % 26) as u8))
+        .collect();
+    let text = format!("{text}é");
+    let done = std::sync::Arc::new(AtomicBool::new(false));
+    let (ready, owned) = std::sync::mpsc::channel();
+    let owner = {
+        let (text, done) = (text.clone(), done.clone());
+        std::thread::spawn(move || {
+            let mut connection = Connection::connect().expect("X server");
+            connection.atoms.clipboard = connection.intern("KARBON_TEST_SELECTION");
+            let mut clipboard = Clipboard::new(&connection);
+            clipboard.write(&connection, &text, XCB_CURRENT_TIME);
+            connection.flush();
+            ready.send(()).unwrap();
+            while !done.load(Ordering::Relaxed) {
+                // SAFETY : connexion valide ; événement possédé, libéré ici.
+                let event = unsafe { (connection.xcb.xcb_poll_for_event)(connection.raw) };
+                if event.is_null() {
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                    continue;
+                }
+                // SAFETY : événement valide du type testé.
+                unsafe {
+                    match (*event).response_type & 0x7f {
+                        XCB_SELECTION_REQUEST => clipboard.request(&connection, &*event.cast()),
+                        XCB_PROPERTY_NOTIFY => {
+                            clipboard.property_changed(&connection, &*event.cast())
+                        }
+                        _ => {}
+                    }
+                    libc::free(event.cast());
+                }
+            }
+            clipboard.close(&connection);
+        })
+    };
+    owned.recv().unwrap();
+    let mut connection = Connection::connect().expect("X server");
+    connection.atoms.clipboard = connection.intern("KARBON_TEST_SELECTION");
+    let clipboard = Clipboard::new(&connection);
+    let mut deferred = std::collections::VecDeque::new();
+    let read = clipboard.read(&connection, XCB_CURRENT_TIME, &mut deferred);
+    done.store(true, Ordering::Relaxed);
+    owner.join().unwrap();
+    clipboard.close(&connection);
+    for event in deferred {
+        // SAFETY : événements gardés par la lecture, libérés une fois.
+        unsafe { libc::free(event.cast()) };
+    }
+    let read = read.expect("text read");
+    assert_eq!(read.len(), text.len());
+    assert!(read == text);
+}
 #[test]
 fn desktop_scale_comes_from_xft_dpi() {
     use super::connection::dpi_scale;

@@ -119,7 +119,7 @@ bibliothèque, crates de `tests/`, exemple, compilateur). Restent les points 2 �
 | X11 | sécurité | Accepté | `x11/events.rs` | `WM_DELETE_WINDOW` et `_NET_WM_PING` arrivent par `ClientMessage`, que tout client X peut envoyer : comportement standard du protocole. `SelectionRequest` : les écritures vont sur la fenêtre du requérant ; aucune valeur serveur n'alimente une taille non bornée (propriétés plafonnées, XInput borné par `get`). |
 | X12 | sécurité | Corrigé | `ime/ibus.rs` | `IBUS_ADDRESS` et le fichier `~/.config/ibus/bus/…` passaient tels quels à `dbus_connection_open_private`, qui accepte `unixexec:` (exécution d'un programme). Même utilisateur, donc pas une frontière, mais seul `unix:` est admis. |
 | X13 | lisibilité | Corrigé | `ffi/xcb/` | Voir F9. |
-| X14 | mineur | À faire | `x11/clipboard.rs` | Transferts `INCR` (textes plus grands qu'une requête) refusés ; Fcitx ; menu de la fenêtre au clic droit sur la barre (déjà listés dans `architecture.md`). |
+| X14 | important | Corrigé | `x11/clipboard.rs`, `x11/connection.rs`, `x11/input.rs` | Transferts `INCR` refusés : GTK 3 envoie par morceaux au-delà de 256 Ko, un gros texte copié depuis une application GTK sous X11 ne se collait pas ; à l'envoi, le texte était tronqué à la taille d'une requête ; les propriétés étaient tronquées à 1 Mo. Morceaux lus et servis (256 Ko), propriétés lues par tranches ; menu de la fenêtre au clic droit sur la barre (`_GTK_SHOW_WINDOW_MENU`). Test : `a_large_text_crosses_the_clipboard_in_chunks` (1 Mo entre deux connexions) ; vérifié dans les deux sens avec GTK 3. Reste Fcitx. |
 
 ## Cairo, Pango, polices, shell (`graphics/`, `fonts.rs`, `shell/`)
 

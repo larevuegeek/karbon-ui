@@ -41,6 +41,8 @@ pub(super) struct Atoms {
     pub net_wm_state_above: u32,
     pub net_active_window: u32,
     pub net_workarea: u32,
+    /// Menu de la fenêtre du gestionnaire (extension de GTK, mutter et KWin).
+    pub gtk_show_window_menu: u32,
 }
 pub(super) struct Connection {
     pub raw: *mut xcb_connection_t,
@@ -170,6 +172,20 @@ impl Connection {
         false
     }
     /// Atomes du backend, demandés ensemble puis lus.
+    /// Atome de nom `name` (créé s'il n'existe pas).
+    #[cfg(test)]
+    pub(super) fn intern(&self, name: &str) -> u32 {
+        let xcb = self.xcb;
+        // SAFETY : nom local lu pendant l'appel ; réponse libérée ici.
+        unsafe {
+            let cookie =
+                (xcb.xcb_intern_atom)(self.raw, 0, name.len() as u16, name.as_ptr().cast());
+            let reply = (xcb.xcb_intern_atom_reply)(self.raw, cookie, std::ptr::null_mut());
+            let atom = reply.as_ref().map_or(0, |r| r.atom);
+            libc::free(reply.cast());
+            atom
+        }
+    }
     fn atoms(&self) -> Atoms {
         let names = [
             "WM_PROTOCOLS",
@@ -196,6 +212,7 @@ impl Connection {
             "_NET_WM_STATE_ABOVE",
             "_NET_ACTIVE_WINDOW",
             "_NET_WORKAREA",
+            "_GTK_SHOW_WINDOW_MENU",
         ];
         let xcb = self.xcb;
         // SAFETY : noms locaux lus pendant l'appel.
@@ -236,6 +253,7 @@ impl Connection {
             net_wm_state_above,
             net_active_window,
             net_workarea,
+            gtk_show_window_menu,
         ] = values;
         Atoms {
             wm_protocols,
@@ -262,6 +280,7 @@ impl Connection {
             net_wm_state_above,
             net_active_window,
             net_workarea,
+            gtk_show_window_menu,
         }
     }
     /// Disposition du clavier du serveur : lue telle quelle par l'extension XKB
@@ -341,26 +360,46 @@ impl Connection {
     pub fn take_property(&self, window: u32, property: u32) -> (u32, Vec<u8>) {
         self.read_property(window, property, true)
     }
+    /// Lue par tranches de 1 Mo jusqu'au bout (au plus `MAX_PROPERTY`) ; avec `delete`,
+    /// le serveur la supprime à la lecture de la dernière tranche.
     fn read_property(&self, window: u32, property: u32, delete: bool) -> (u32, Vec<u8>) {
+        /// Tranche lue par requête, en mots de 32 bits (1 Mo).
+        const SLICE: u32 = 1 << 18;
+        /// Taille au plus d'une propriété lue (presse-papiers compris).
+        const MAX_PROPERTY: usize = 64 << 20;
         let xcb = self.xcb;
-        // SAFETY : requête puis réponse libérée ici ; valeur de `length` octets.
-        unsafe {
-            let cookie =
-                (xcb.xcb_get_property)(self.raw, u8::from(delete), window, property, 0, 0, 1 << 18);
-            let reply = (xcb.xcb_get_property_reply)(self.raw, cookie, std::ptr::null_mut());
-            if reply.is_null() {
-                return (0, Vec::new());
-            }
-            let kind = (*reply).type_;
-            let length = (xcb.xcb_get_property_value_length)(reply).max(0) as usize;
-            let value = (xcb.xcb_get_property_value)(reply).cast::<u8>();
-            let bytes = if value.is_null() {
-                Vec::new()
-            } else {
-                std::slice::from_raw_parts(value, length).to_vec()
+        let (mut kind, mut bytes) = (0, Vec::new());
+        let mut offset = 0u32;
+        loop {
+            // SAFETY : requête puis réponse libérée ici ; valeur de `length` octets.
+            let after = unsafe {
+                let cookie = (xcb.xcb_get_property)(
+                    self.raw,
+                    u8::from(delete),
+                    window,
+                    property,
+                    0,
+                    offset,
+                    SLICE,
+                );
+                let reply = (xcb.xcb_get_property_reply)(self.raw, cookie, std::ptr::null_mut());
+                if reply.is_null() {
+                    return (kind, bytes);
+                }
+                kind = (*reply).type_;
+                let length = (xcb.xcb_get_property_value_length)(reply).max(0) as usize;
+                let value = (xcb.xcb_get_property_value)(reply).cast::<u8>();
+                if !value.is_null() {
+                    bytes.extend_from_slice(std::slice::from_raw_parts(value, length));
+                }
+                let after = (*reply).bytes_after;
+                libc::free(reply.cast());
+                after
             };
-            libc::free(reply.cast());
-            (kind, bytes)
+            if after == 0 || bytes.len() >= MAX_PROPERTY {
+                return (kind, bytes);
+            }
+            offset += SLICE;
         }
     }
     /// Échelle du bureau : `Xft.dpi` / 96 (ressources X de la racine), au moins 1.

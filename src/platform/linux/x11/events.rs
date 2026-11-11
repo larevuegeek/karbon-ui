@@ -71,6 +71,8 @@ impl X11 {
                 }
                 XCB_PROPERTY_NOTIFY => {
                     let e = &*event.cast::<xcb_property_notify_event_t>();
+                    // Morceau suivant d'un texte servi par morceaux.
+                    self.clipboard.property_changed(&self.connection, e);
                     if e.atom == self.connection.atoms.net_wm_state {
                         let connection = &self.connection;
                         if let Some(w) = self.windows.iter_mut().find(|w| w.window == e.window) {

@@ -244,7 +244,9 @@ impl X11 {
                     .windows
                     .iter()
                     .any(|w| w.session.id == id && w.session.caption_at(position));
-                if !caption {
+                if caption {
+                    self.window_menu(event);
+                } else {
                     self.send(id, UiEvent::ContextMenu(Some(position)));
                 }
             }
@@ -290,6 +292,24 @@ impl X11 {
             window: event.event,
             type_: connection.atoms.net_wm_moveresize,
             data: [event.root_x as u32, event.root_y as u32, direction, 1, 1],
+        };
+        super::window::send_to_root(connection, &message);
+        connection.flush();
+    }
+    /// Menu de la fenêtre du gestionnaire sous le pointeur (clic droit sur la barre de
+    /// titre du moteur), comme GTK : sans effet si le gestionnaire ne le connaît pas.
+    fn window_menu(&mut self, event: &xcb_button_press_event_t) {
+        let connection = &self.connection;
+        // SAFETY : connexion valide ; la saisie implicite du bouton est rendue au
+        // gestionnaire, qui saisit le pointeur pour son menu.
+        unsafe { (connection.xcb.xcb_ungrab_pointer)(connection.raw, XCB_CURRENT_TIME) };
+        let message = xcb_client_message_event_t {
+            response_type: XCB_CLIENT_MESSAGE,
+            format: 32,
+            sequence: 0,
+            window: event.event,
+            type_: connection.atoms.gtk_show_window_menu,
+            data: [0, event.root_x as u32, event.root_y as u32, 0, 0],
         };
         super::window::send_to_root(connection, &message);
         connection.flush();

@@ -47,3 +47,6 @@ pub(in crate::platform::linux) const XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY: u16
 pub(in crate::platform::linux) const XCB_XKB_EVENT_TYPE_MAP_NOTIFY: u16 = 2;
 /// Toutes les parties d'une disposition (`XkbAllMapComponentsMask`).
 pub(in crate::platform::linux) const XCB_XKB_MAP_PART_ALL: u16 = 0xff;
+/// États d'un `PropertyNotify`.
+pub(in crate::platform::linux) const XCB_PROPERTY_NEW_VALUE: u8 = 0;
+pub(in crate::platform::linux) const XCB_PROPERTY_DELETE: u8 = 1;

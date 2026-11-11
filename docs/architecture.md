@@ -395,7 +395,10 @@ embarque. Sonde commune des deux boucles : `probe.rs`.
   saisie Unicode Ctrl+Maj+U (composition soulignée puis « é » validé). XIM n’est pas
   géré (choix du 2026-11-06) ; Fcitx (D-Bus) reste à faire.
 - `KARBON_XINPUT=0` : événements X classiques plutôt que XInput 2.
-- Restent : Fcitx, menu de la fenêtre au clic droit sur la barre, transferts `INCR`.
+- Presse-papiers par morceaux (`INCR`) au-delà de 256 Ko dans les deux sens, comme GTK
+  (vérifié avec un client GTK 3 sur 1 Mo), propriétés lues par tranches de 1 Mo ; menu de
+  la fenêtre au clic droit sur la barre du moteur (`_GTK_SHOW_WINDOW_MENU`).
+- Reste : Fcitx.
 
 #### Boucle Wayland (`linux/wayland/`)
 

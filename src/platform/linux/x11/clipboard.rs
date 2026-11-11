@@ -2,20 +2,38 @@
 //! possède la sélection quand l'application copie (elle survit aux fenêtres de
 //! l'application) et sert les demandes des autres clients (`TARGETS`, `UTF8_STRING`,
 //! `STRING`, `TEXT`) ; une lecture demande la conversion en `UTF8_STRING` et attend la
-//! réponse (une seconde au plus), les autres événements reçus entre-temps étant gardés
-//! pour la boucle. Les transferts par morceaux (`INCR`) ne sont pas lus.
+//! réponse (une seconde au plus par étape), les autres événements reçus entre-temps étant
+//! gardés pour la boucle. Au-delà de 256 Ko, le texte passe par morceaux (`INCR`), dans les
+//! deux sens, comme le fait GTK.
 use super::connection::Connection;
 use crate::platform::linux::ffi::xcb::*;
 use std::time::{Duration, Instant};
 
-/// Attente au plus d'une réponse du propriétaire de la sélection.
+/// Attente au plus d'une réponse du propriétaire de la sélection, ou d'un morceau.
 const READ_TIMEOUT: Duration = Duration::from_secs(1);
+/// Taille d'un morceau, et au-delà de laquelle un texte servi passe par morceaux.
+const CHUNK: usize = 256 * 1024;
+/// Texte lu au plus (ICCCM ne borne pas un transfert par morceaux).
+const MAX_READ: usize = 64 << 20;
+/// Transfert servi abandonné faute de nouvelles du demandeur.
+const TRANSFER_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Texte servi par morceaux : le demandeur supprime la propriété pour recevoir la suite.
+struct Transfer {
+    requestor: u32,
+    property: u32,
+    kind: u32,
+    bytes: Vec<u8>,
+    offset: usize,
+    last: Instant,
+}
 
 pub(super) struct Clipboard {
     /// Fenêtre invisible qui possède la sélection et reçoit les conversions.
     window: u32,
     /// Texte copié par l'application, tant qu'elle possède la sélection.
     text: Option<String>,
+    transfers: Vec<Transfer>,
 }
 impl Clipboard {
     pub fn new(connection: &Connection) -> Self {
@@ -41,7 +59,11 @@ impl Clipboard {
             );
             window
         };
-        Self { window, text: None }
+        Self {
+            window,
+            text: None,
+            transfers: Vec::new(),
+        }
     }
     /// L'application copie `text` (`time` : instant de l'entrée qui l'a demandé). ICCCM :
     /// une demande plus ancienne que le dernier changement de propriétaire est ignorée
@@ -70,7 +92,7 @@ impl Clipboard {
         }
     }
     /// `SelectionRequest` : un client demande le texte copié dans le format `target`.
-    pub fn request(&self, connection: &Connection, event: &xcb_selection_request_event_t) {
+    pub fn request(&mut self, connection: &Connection, event: &xcb_selection_request_event_t) {
         let atoms = connection.atoms;
         let xcb = connection.xcb;
         // Propriété vide (ancien client) : la cible elle-même.
@@ -110,38 +132,19 @@ impl Clipboard {
                 } else {
                     atoms.utf8_string
                 };
-                // Au plus ce qu'une requête peut porter (pas de transfert par morceaux),
-                // sans couper un caractère.
-                // SAFETY : connexion valide.
-                let limit = unsafe { (xcb.xcb_get_maximum_request_length)(connection.raw) };
-                let mut end = text.len().min((limit as usize * 4).saturating_sub(64));
-                while !text.is_char_boundary(end) {
-                    end -= 1;
-                }
                 // `STRING` est du Latin-1 : les caractères hors de ce jeu deviennent « ? ».
-                let latin1: Vec<u8>;
-                let bytes: &[u8] = if kind == XCB_ATOM_STRING {
-                    latin1 = text[..end]
-                        .chars()
+                let bytes: Vec<u8> = if kind == XCB_ATOM_STRING {
+                    text.chars()
                         .map(|c| u8::try_from(u32::from(c)).unwrap_or(b'?'))
-                        .collect();
-                    &latin1
+                        .collect()
                 } else {
-                    &text.as_bytes()[..end]
+                    text.as_bytes().to_vec()
                 };
-                // SAFETY : idem.
-                unsafe {
-                    (xcb.xcb_change_property)(
-                        connection.raw,
-                        XCB_PROP_MODE_REPLACE,
-                        event.requestor,
-                        property,
-                        kind,
-                        8,
-                        bytes.len() as u32,
-                        bytes.as_ptr().cast(),
-                    )
-                };
+                if bytes.len() > CHUNK {
+                    self.start_transfer(connection, event.requestor, property, kind, bytes);
+                } else {
+                    put(connection, event.requestor, property, kind, &bytes);
+                }
                 answered = property;
             }
         }
@@ -168,9 +171,101 @@ impl Clipboard {
         }
         connection.flush();
     }
+    /// Début d'un transfert par morceaux : la propriété annonce `INCR` et la taille ; les
+    /// suppressions de la propriété par le demandeur appellent les morceaux.
+    fn start_transfer(
+        &mut self,
+        connection: &Connection,
+        requestor: u32,
+        property: u32,
+        kind: u32,
+        bytes: Vec<u8>,
+    ) {
+        let now = Instant::now();
+        self.transfers.retain(|t| {
+            now.duration_since(t.last) < TRANSFER_TIMEOUT
+                && (t.requestor, t.property) != (requestor, property)
+        });
+        let xcb = connection.xcb;
+        let size = u32::try_from(bytes.len()).unwrap_or(u32::MAX);
+        let events = XCB_EVENT_MASK_PROPERTY_CHANGE;
+        // SAFETY : requérant donné par le serveur ; valeurs locales lues pendant l'appel.
+        unsafe {
+            (xcb.xcb_change_window_attributes)(
+                connection.raw,
+                requestor,
+                XCB_CW_EVENT_MASK,
+                (&raw const events).cast(),
+            );
+            (xcb.xcb_change_property)(
+                connection.raw,
+                XCB_PROP_MODE_REPLACE,
+                requestor,
+                property,
+                connection.atoms.incr,
+                32,
+                1,
+                (&raw const size).cast(),
+            );
+        }
+        self.transfers.push(Transfer {
+            requestor,
+            property,
+            kind,
+            bytes,
+            offset: 0,
+            last: now,
+        });
+    }
+    /// `PropertyNotify` : une propriété supprimée par un demandeur appelle le morceau
+    /// suivant de son transfert, puis un morceau vide qui le termine.
+    pub fn property_changed(
+        &mut self,
+        connection: &Connection,
+        event: &xcb_property_notify_event_t,
+    ) {
+        if event.state != XCB_PROPERTY_DELETE {
+            return;
+        }
+        let Some(index) = self
+            .transfers
+            .iter()
+            .position(|t| (t.requestor, t.property) == (event.window, event.atom))
+        else {
+            return;
+        };
+        let transfer = &mut self.transfers[index];
+        let end = (transfer.offset + CHUNK).min(transfer.bytes.len());
+        let chunk = &transfer.bytes[transfer.offset..end];
+        put(
+            connection,
+            transfer.requestor,
+            transfer.property,
+            transfer.kind,
+            chunk,
+        );
+        transfer.last = Instant::now();
+        if chunk.is_empty() {
+            let requestor = transfer.requestor;
+            self.transfers.remove(index);
+            let none = 0u32;
+            // SAFETY : fenêtre du demandeur ; ses événements ne nous servent plus.
+            unsafe {
+                (connection.xcb.xcb_change_window_attributes)(
+                    connection.raw,
+                    requestor,
+                    XCB_CW_EVENT_MASK,
+                    (&raw const none).cast(),
+                )
+            };
+        } else {
+            transfer.offset = end;
+        }
+        connection.flush();
+    }
     /// Texte du presse-papiers : celui de l'application si elle le possède, sinon celui
-    /// du propriétaire, converti en `UTF8_STRING`. Les autres événements reçus pendant
-    /// l'attente sont rangés dans `deferred`.
+    /// du propriétaire, converti en `UTF8_STRING`, par morceaux s'il le faut. Les autres
+    /// événements reçus pendant l'attente sont rangés dans `deferred`.
     pub fn read(
         &self,
         connection: &Connection,
@@ -194,51 +289,99 @@ impl Clipboard {
             )
         };
         connection.flush();
-        let deadline = Instant::now() + READ_TIMEOUT;
-        loop {
-            // SAFETY : connexion valide ; événement possédé, libéré ou gardé ci-dessous.
-            let event = unsafe { (xcb.xcb_poll_for_event)(connection.raw) };
-            if event.is_null() {
-                let left = deadline.saturating_duration_since(Instant::now());
-                if left.is_zero() {
-                    return None;
-                }
-                let mut fd = libc::pollfd {
-                    // SAFETY : connexion valide.
-                    fd: unsafe { (xcb.xcb_get_file_descriptor)(connection.raw) },
-                    events: libc::POLLIN,
-                    revents: 0,
-                };
-                // SAFETY : une structure valide pendant l'appel.
-                unsafe { libc::poll(&mut fd, 1, left.as_millis().max(1) as i32) };
-                continue;
-            }
-            // SAFETY : événement valide d'au moins 32 octets.
-            let notify = unsafe {
-                ((*event).response_type & 0x7f == XCB_SELECTION_NOTIFY)
-                    .then(|| &*event.cast::<xcb_selection_notify_event_t>())
-                    .filter(|n| n.requestor == self.window)
-                    .map(|n| n.property)
-            };
-            let Some(property) = notify else {
-                deferred.push_back(event);
-                continue;
-            };
-            // SAFETY : événement possédé, libéré une fois.
-            unsafe { libc::free(event.cast()) };
-            if property == 0 {
-                // Le propriétaire ne peut pas convertir en texte.
-                return None;
-            }
-            let (kind, bytes) = connection.take_property(self.window, property);
-            if kind == atoms.incr {
-                return None;
-            }
+        let window = self.window;
+        // SAFETY : événement valide d'au moins 32 octets, du type testé.
+        let property = wait(connection, deferred, |event| unsafe {
+            ((*event).response_type & 0x7f == XCB_SELECTION_NOTIFY)
+                .then(|| &*event.cast::<xcb_selection_notify_event_t>())
+                .filter(|n| n.requestor == window)
+                .map(|n| n.property)
+        })?;
+        if property == 0 {
+            // Le propriétaire ne peut pas convertir en texte.
+            return None;
+        }
+        // Lue et supprimée : pour `INCR`, la suppression appelle le premier morceau.
+        let (kind, bytes) = connection.take_property(window, property);
+        if kind != atoms.incr {
             return Some(String::from_utf8_lossy(&bytes).into_owned());
+        }
+        let mut text = Vec::new();
+        loop {
+            // SAFETY : idem.
+            wait(connection, deferred, |event| unsafe {
+                ((*event).response_type & 0x7f == XCB_PROPERTY_NOTIFY)
+                    .then(|| &*event.cast::<xcb_property_notify_event_t>())
+                    .filter(|n| {
+                        (n.window, n.atom, n.state) == (window, property, XCB_PROPERTY_NEW_VALUE)
+                    })
+                    .map(drop)
+            })?;
+            let (_, chunk) = connection.take_property(window, property);
+            if chunk.is_empty() {
+                return Some(String::from_utf8_lossy(&text).into_owned());
+            }
+            text.extend_from_slice(&chunk);
+            if text.len() > MAX_READ {
+                return None;
+            }
         }
     }
     pub fn close(&self, connection: &Connection) {
         // SAFETY : fenêtre créée par `new`, détruite une fois.
         unsafe { (connection.xcb.xcb_destroy_window)(connection.raw, self.window) };
+    }
+}
+/// Pose `bytes` (format 8, type `kind`) dans la propriété `property` de `window`.
+fn put(connection: &Connection, window: u32, property: u32, kind: u32, bytes: &[u8]) {
+    // SAFETY : fenêtre d'un client donnée par le serveur ; données lues pendant l'appel.
+    unsafe {
+        (connection.xcb.xcb_change_property)(
+            connection.raw,
+            XCB_PROP_MODE_REPLACE,
+            window,
+            property,
+            kind,
+            8,
+            bytes.len() as u32,
+            bytes.as_ptr().cast(),
+        )
+    };
+}
+/// Attend un événement que `matches` reconnaît (une seconde au plus) ; les autres sont
+/// rangés dans `deferred`, dans l'ordre. `None` après le délai.
+fn wait<T>(
+    connection: &Connection,
+    deferred: &mut std::collections::VecDeque<*mut xcb_generic_event_t>,
+    matches: impl Fn(*mut xcb_generic_event_t) -> Option<T>,
+) -> Option<T> {
+    let xcb = connection.xcb;
+    let deadline = Instant::now() + READ_TIMEOUT;
+    loop {
+        // SAFETY : connexion valide ; événement possédé, libéré ou gardé ci-dessous.
+        let event = unsafe { (xcb.xcb_poll_for_event)(connection.raw) };
+        if event.is_null() {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return None;
+            }
+            let mut fd = libc::pollfd {
+                // SAFETY : connexion valide.
+                fd: unsafe { (xcb.xcb_get_file_descriptor)(connection.raw) },
+                events: libc::POLLIN,
+                revents: 0,
+            };
+            // SAFETY : une structure valide pendant l'appel.
+            unsafe { libc::poll(&mut fd, 1, left.as_millis().max(1) as i32) };
+            continue;
+        }
+        match matches(event) {
+            Some(value) => {
+                // SAFETY : événement possédé, libéré une fois.
+                unsafe { libc::free(event.cast()) };
+                return Some(value);
+            }
+            None => deferred.push_back(event),
+        }
     }
 }
