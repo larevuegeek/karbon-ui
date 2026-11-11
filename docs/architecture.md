@@ -357,7 +357,8 @@ embarque. Sonde commune des deux boucles : `probe.rs`.
   requête). Sous XWayland : RustMusic 1440 × 1040, 4,2 ms par image Vulkan ; images
   Vulkan et Cairo équivalentes (écart moyen 0,17).
 - Entrées (`input.rs`) : pointeur (positions logiques, molette par boutons 4 à 7, Maj
-  pour l’horizontal), barre de titre et bords du moteur et zones de déplacement de
+  pour l’horizontal), barre de titre et bords du moteur (bande intérieure de 8 px, où une
+  barre de défilement l'emporte, sauf dans les coins) et zones de déplacement de
   l’application (`shell/chrome.rs`, commun avec Wayland) confiés au gestionnaire par
   `_NET_WM_MOVERESIZE` ; clavier sans extension XKB ni `xkbcommon-x11` : disposition
   compilée par xkbcommon d’après `_XKB_RULES_NAMES`, modificateurs et groupe lus dans
@@ -420,8 +421,16 @@ embarque. Sonde commune des deux boucles : `probe.rs`.
 - Décorations : avec `xdg-decoration` (KDE…), barre du compositeur pour `title_bar` ; sans
   (GNOME), barre et boutons du moteur (`ChromeState`, mêmes zones que sous Windows :
   `title_bar::hit_test`), déplacement (`xdg_toplevel.move`, double clic : agrandir), menu
-  de la fenêtre au clic droit, redimensionnement par les bords (8 px, curseurs des bords).
-  Une zone `data-drag-region` déplace aussi la fenêtre.
+  de la fenêtre au clic droit, redimensionnement par les bords (curseurs des bords).
+  Une zone `data-drag-region` déplace aussi la fenêtre. Les bords se tirent **hors du
+  contenu**, comme les fenêtres GTK (`window/border.rs`) : une sous-surface transparente
+  (`wl_subsurface` sous la fenêtre, un pixel étiré par `wp_viewport`) déborde de 8 px de
+  chaque côté et reçoit les appuis du pourtour (coins de 20 px le long des bords) ;
+  `xdg_surface.set_window_geometry` garde la géométrie du contenu. Le contenu reçoit
+  ainsi tous ses pixels : une barre de défilement collée au bord droit s'attrape. Masquée
+  pour une fenêtre agrandie, collée, plein écran ou fixe ; sans sous-surfaces ni
+  viewports, la bande intérieure de 8 px reste, où une barre de défilement l'emporte
+  (`UiRuntime::scrollbar_at`), sauf dans les coins.
 - Entrées : position et défilement en unités logiques (cran de molette `axis_value120` =
   48 px comme sous Windows, pavé tactile en pixels, Maj : horizontal) ; clavier par
   xkbcommon (touches du moteur, raccourcis Ctrl+A/C/X/V/Z/Y, Ctrl+←/→, Maj+Inser,

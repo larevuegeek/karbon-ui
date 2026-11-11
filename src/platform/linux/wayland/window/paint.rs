@@ -54,6 +54,8 @@ impl Window {
             }
             return Ok(());
         }
+        // Appliqués par l'envoi qui suit, avec la taille de l'image.
+        self.update_border();
         let start = Instant::now();
         self.session.prepare()?;
         let prepared = start.elapsed();

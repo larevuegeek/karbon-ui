@@ -300,6 +300,8 @@ pub(super) struct Globals {
     pub outputs: Vec<(u32, Ptr, i32)>,
     pub data_manager: Ptr,
     pub viewporter: Ptr,
+    /// Sous-surfaces (bordure de redimensionnement hors du contenu).
+    pub subcompositor: Ptr,
     pub fractional: Ptr,
     pub decoration: Ptr,
     pub text_input: Ptr,
@@ -337,6 +339,7 @@ impl Display {
                 outputs: Vec::new(),
                 data_manager: std::ptr::null_mut(),
                 viewporter: std::ptr::null_mut(),
+                subcompositor: std::ptr::null_mut(),
                 fractional: std::ptr::null_mut(),
                 decoration: std::ptr::null_mut(),
                 text_input: std::ptr::null_mut(),
@@ -439,6 +442,9 @@ impl Display {
                 }
                 "wl_data_device_manager" => {
                     g.data_manager = bind(&w::wl_data_device_manager_interface, 3, Kind::Silent);
+                }
+                "wl_subcompositor" => {
+                    g.subcompositor = bind(&w::wl_subcompositor_interface, 1, Kind::Silent);
                 }
                 "wp_viewporter" => {
                     g.viewporter = bind(&protocol::WP_VIEWPORTER, 1, Kind::Silent);

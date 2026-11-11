@@ -100,6 +100,7 @@ bibliothèque, crates de `tests/`, exemple, compilateur). Restent les points 2 �
 | W16 | lisibilité | Proposé | `wayland/mod.rs` ↔ `x11/mod.rs` | ~150 lignes identiques à la signature près (`record`, `with`, `ids`, `execute`, `action`, `send` hors presse-papiers, corps de `service`, `timeout`) ; lecture d'un tube avec délai en deux exemplaires. Un `shell::Loop` (trait avec `windows()`, `paint`, `clipboard`) éviterait de corriger deux fois chaque bug. À faire sous Linux, où les deux boucles se testent. |
 | W17 | lisibilité | Corrigé | `shell/scroll.rs`, `shell/composition.rs` | Cran de molette et « Maj → horizontal » en trois exemplaires ; séquencement de composition (`Commit`/`Preedit` → événements du moteur) en deux. Réunis dans le socle, avec tests. |
 | W18 | lisibilité | Proposé | `wayland/display.rs`, `events.rs` | Tuples anonymes `(u32, Ptr, i32)` des sorties lus par `.2` : une `struct Output { name, proxy, scale }`. |
+| W19 | important | Corrigé | `shell/chrome.rs`, `wayland/window/border.rs` | Barre de défilement collée au bord droit impossible à attraper (relevé par le propriétaire le 2026-11-11, galerie et RustMusic sous GNOME) : la bande de redimensionnement de 8 px était *dans* le contenu et l'appui y lançait `xdg_toplevel.resize`. Bords tirés hors du contenu par une sous-surface transparente (comme GTK) ; ailleurs (X11, compositeur sans sous-surfaces), la barre l'emporte sur la bande, sauf dans les coins. |
 
 ## Boucle X11 et IBus (`x11/`, `ime/`)
 

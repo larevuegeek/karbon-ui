@@ -6,6 +6,7 @@ use super::{
     display::{Event, request},
     protocol::{wl_keyboard, wl_pointer, xdg_toplevel},
     seat::Scroll,
+    window::MARGIN,
 };
 use crate::platform::linux::shell::{
     chrome::{Edge, Press, cursor_names},
@@ -25,20 +26,42 @@ impl Wayland {
             .find(|w| w.surface == surface)
             .map(|w| w.session.id)
     }
-    pub(super) fn pointer_event(&mut self, event: &Event) {
-        let point = |x: f64, y: f64| PointF {
-            x: x as f32,
-            y: y as f32,
+    /// Fenêtre dont `surface` est la bordure de redimensionnement.
+    fn window_at_border(&self, surface: super::display::Ptr) -> Option<crate::window::WindowId> {
+        self.windows
+            .iter()
+            .find(|w| w.is_border(surface))
+            .map(|w| w.session.id)
+    }
+    /// Position logique dans la fenêtre d'un point de la surface sous le pointeur (la
+    /// bordure commence `MARGIN` unités avant le contenu).
+    fn window_point(&self, x: f64, y: f64) -> PointF {
+        let shift = if self.seat.pointer_border {
+            MARGIN as f32
+        } else {
+            0.
         };
+        PointF {
+            x: x as f32 - shift,
+            y: y as f32 - shift,
+        }
+    }
+    pub(super) fn pointer_event(&mut self, event: &Event) {
         match event.opcode {
             wl_pointer::EV_ENTER => {
                 self.seat.entered(event.uint(0));
-                self.seat.pointer_window = self.window_at_surface(event.object(1));
-                self.seat.position = point(event.fixed(2), event.fixed(3));
+                let surface = event.object(1);
+                let border = self.window_at_border(surface);
+                self.seat.pointer_border = border.is_some();
+                self.seat.pointer_window = border.or_else(|| self.window_at_surface(surface));
+                self.seat.position = self.window_point(event.fixed(2), event.fixed(3));
                 self.moved();
             }
             wl_pointer::EV_LEAVE => {
-                if let Some(id) = self.seat.pointer_window.take() {
+                // Le contenu a déjà reçu sa sortie en passant sur la bordure.
+                if std::mem::take(&mut self.seat.pointer_border) {
+                    self.seat.pointer_window = None;
+                } else if let Some(id) = self.seat.pointer_window.take() {
                     if let Some(w) = self.windows.iter_mut().find(|w| w.session.id == id) {
                         w.session.leave();
                     }
@@ -46,7 +69,7 @@ impl Wayland {
                 }
             }
             wl_pointer::EV_MOTION => {
-                self.seat.position = point(event.fixed(1), event.fixed(2));
+                self.seat.position = self.window_point(event.fixed(1), event.fixed(2));
                 self.moved();
             }
             wl_pointer::EV_BUTTON => {
@@ -77,6 +100,9 @@ impl Wayland {
         let Some(id) = self.seat.pointer_window else {
             return;
         };
+        if self.seat.pointer_border {
+            return;
+        }
         let position = self.seat.position;
         if let Some(w) = self.windows.iter_mut().find(|w| w.session.id == id) {
             w.session.hover(position);
@@ -89,6 +115,18 @@ impl Wayland {
         };
         let position = self.seat.position;
         let (seat, serial) = (self.seat.seat, self.seat.serial);
+        if self.seat.pointer_border {
+            // Bordure : seul le bouton principal sert, à redimensionner.
+            let edge = self
+                .windows
+                .iter()
+                .find(|w| w.session.id == id)
+                .and_then(|w| Some((w.toplevel, w.session.outer_edge(position)?.0)));
+            if let (BUTTON_LEFT, true, Some((toplevel, edge))) = (button, pressed, edge) {
+                request!(toplevel, xdg_toplevel::RESIZE, seat, serial, xdg_edge(edge));
+            }
+            return;
+        }
         match (button, pressed) {
             (BUTTON_LEFT, true) => {
                 let now = Instant::now();
@@ -254,10 +292,15 @@ impl Wayland {
         let Some(w) = self.windows.iter_mut().find(|w| w.session.id == id) else {
             return;
         };
-        let names = w
-            .session
-            .hover(position)
-            .unwrap_or_else(|| cursor_names(w.session.runtime.cursor()));
+        let names = if self.seat.pointer_border {
+            w.session
+                .outer_edge(position)
+                .map_or(&["default"][..], |(_, c)| c)
+        } else {
+            w.session
+                .hover(position)
+                .unwrap_or_else(|| cursor_names(w.session.runtime.cursor()))
+        };
         let scale = w.scale().ceil() as i32;
         let (compositor, shm) = (self.display.globals.compositor, self.display.globals.shm);
         self.seat.show_cursor(compositor, shm, names, scale);

@@ -64,6 +64,11 @@ pub(crate) struct Window {
     pub(super) buffers: Vec<Buffer>,
     /// Taille logique et transparence des régions déjà déclarées.
     pub(super) regions: Option<(i32, i32)>,
+    /// Bordure de redimensionnement hors du contenu (`border.rs`), si le compositeur a
+    /// des sous-surfaces et des viewports.
+    pub(super) border: Option<super::border::Border>,
+    /// Géométrie déclarée (`xdg_surface.set_window_geometry`), taille logique.
+    pub(super) geometry: Option<(i32, i32)>,
 }
 impl Window {
     /// Charge l'application, puis crée sa surface (affichée à la première configuration).
@@ -164,6 +169,7 @@ impl Window {
             );
         }
         let gpu = paint::gpu(&options, gpu.as_ref(), display, surface);
+        let border = super::border::Border::new(globals, surface);
         // Premier envoi sans image : le compositeur répond par la configuration initiale.
         request!(surface, wl_surface::COMMIT);
         let mut session = Session::new(id, options, (runtime, renderer), wake);
@@ -188,7 +194,36 @@ impl Window {
             surface_pixels: None,
             buffers: Vec::new(),
             regions: None,
+            border,
+            geometry: None,
         })
+    }
+    /// Bordure de redimensionnement et géométrie de la fenêtre, à jour de sa taille et de
+    /// ses états : la bordure n'est montrée que si les bords se tirent.
+    pub(super) fn update_border(&mut self) {
+        let Some(border) = &mut self.border else {
+            return;
+        };
+        let s = &self.session;
+        let size = s.logical_size();
+        let edges = !s.server_decorated && !s.tiled && s.facts.resizable && !s.facts.fullscreen;
+        border.update(edges.then_some(size));
+        self.session.edges_outside = border.shown();
+        if self.geometry != Some(size) {
+            self.geometry = Some(size);
+            request!(
+                self.xdg,
+                xdg_surface::SET_WINDOW_GEOMETRY,
+                0i32,
+                0i32,
+                size.0,
+                size.1
+            );
+        }
+    }
+    /// `surface` est la bordure de cette fenêtre.
+    pub fn is_border(&self, surface: Ptr) -> bool {
+        self.border.as_ref().is_some_and(|b| b.surface == surface)
     }
     /// `xdg_toplevel.configure` : taille proposée (0 : au choix de l'application) et états.
     pub fn propose(&mut self, width: i32, height: i32, states: &[u8]) {
@@ -291,6 +326,7 @@ impl Drop for Window {
         destroy!(self.decoration, zxdg_toplevel_decoration_v1::DESTROY);
         destroy!(self.fractional, wp_fractional_scale_v1::DESTROY);
         destroy!(self.viewport, wp_viewport::DESTROY);
+        self.border = None;
         destroy!(self.toplevel, xdg_toplevel::DESTROY);
         destroy!(self.xdg, xdg_surface::DESTROY);
         self.buffers.clear();

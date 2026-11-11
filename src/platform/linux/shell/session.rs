@@ -52,6 +52,8 @@ pub(in crate::platform::linux) struct Session {
     pub tiled: bool,
     /// Le système dessine les décorations (barre de titre du moteur masquée).
     pub server_decorated: bool,
+    /// Les bords se tirent hors du contenu (bordure Wayland) : pas de bande intérieure.
+    pub edges_outside: bool,
     pub hovered: Option<CaptionButton>,
     pub pressed: Option<CaptionButton>,
     /// Dernier appui (instant et position) pour reconnaître un double clic.
@@ -101,6 +103,7 @@ impl Session {
             maximized: false,
             tiled: false,
             server_decorated: false,
+            edges_outside: false,
             hovered: None,
             pressed: None,
             last_press: None,

@@ -142,6 +142,20 @@ pub(in crate::platform::linux) mod wl_output {
     pub const EV_NAME: u32 = 4;
     pub const EV_DESCRIPTION: u32 = 5;
 }
+/// Numéros de `wl_subcompositor` : requêtes, puis événements (`EV_`).
+pub(in crate::platform::linux) mod wl_subcompositor {
+    pub const DESTROY: u32 = 0;
+    pub const GET_SUBSURFACE: u32 = 1;
+}
+/// Numéros de `wl_subsurface` : requêtes, puis événements (`EV_`).
+pub(in crate::platform::linux) mod wl_subsurface {
+    pub const DESTROY: u32 = 0;
+    pub const SET_POSITION: u32 = 1;
+    pub const PLACE_ABOVE: u32 = 2;
+    pub const PLACE_BELOW: u32 = 3;
+    pub const SET_SYNC: u32 = 4;
+    pub const SET_DESYNC: u32 = 5;
+}
 /// Numéros de `wl_region` : requêtes, puis événements (`EV_`).
 pub(in crate::platform::linux) mod wl_region {
     pub const DESTROY: u32 = 0;

@@ -109,6 +109,35 @@ fn nested_wheel_consumes_remaining_delta_in_parent_and_accepts_fractions() {
 }
 
 #[test]
+fn scrollbar_at_finds_the_thumb_and_the_track_but_not_the_content() {
+    let mut ui = view_runtime(|| {
+        Element::scroll(
+            1,
+            Axis::Vertical,
+            box_node(2, Length::Fill(1.), Length::Px(2000.)),
+        )
+    });
+    let mut m = Measure::default();
+    prepare(&mut ui, &mut m);
+    let s = scroll_metrics(&ui, 1);
+    let x = (s.thumb.left + s.thumb.right) / 2.;
+    // Pouce, puis piste sous le pouce : un backend y fait passer la barre avant sa bande
+    // de redimensionnement intérieure.
+    assert!(ui.scrollbar_at(PointF {
+        x,
+        y: s.thumb.top + 1.
+    }));
+    assert!(ui.scrollbar_at(PointF {
+        x,
+        y: s.thumb.bottom + 20.
+    }));
+    assert!(!ui.scrollbar_at(PointF {
+        x: s.viewport.left + 5.,
+        y: s.thumb.top + 1.
+    }));
+}
+
+#[test]
 fn scroll_thumb_track_keyboard_and_cancel_share_the_same_limits() {
     let mut ui = view_runtime(|| {
         Element::scroll(

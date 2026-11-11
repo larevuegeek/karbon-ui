@@ -117,6 +117,8 @@ unsafe extern "C" {
     pub(in crate::platform::linux) static wl_registry_interface: Interface;
     pub(in crate::platform::linux) static wl_compositor_interface: Interface;
     pub(in crate::platform::linux) static wl_surface_interface: Interface;
+    pub(in crate::platform::linux) static wl_subcompositor_interface: Interface;
+    pub(in crate::platform::linux) static wl_subsurface_interface: Interface;
     pub(in crate::platform::linux) static wl_region_interface: Interface;
     pub(in crate::platform::linux) static wl_callback_interface: Interface;
     pub(in crate::platform::linux) static wl_shm_interface: Interface;

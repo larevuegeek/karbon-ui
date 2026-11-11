@@ -18,6 +18,8 @@ use std::time::{Duration, Instant};
 /// Délai et distance d'un double clic.
 const DOUBLE_CLICK: Duration = Duration::from_millis(400);
 const DOUBLE_CLICK_DISTANCE: f32 = 4.;
+/// Longueur des coins de la bordure extérieure, le long de chaque bord.
+const CORNER: f32 = 20.;
 
 /// Bord de redimensionnement.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -90,10 +92,19 @@ impl Session {
             x: point.x.floor() as i32,
             y: point.y.floor() as i32,
         };
-        let fixed = self.tiled || !self.facts.resizable || self.facts.fullscreen;
+        // Bords tirés hors du contenu : le contenu garde ses pixels jusqu'au bord.
+        let fixed =
+            self.edges_outside || self.tiled || !self.facts.resizable || self.facts.fullscreen;
         match hit_test(&self.area(), &at, fixed) {
             // Sans barre du moteur, la bande du haut appartient à l'application.
             HitRegion::Caption if !self.chrome_visible() => HitRegion::Client,
+            // Bande intérieure (X11, compositeur sans sous-surfaces) : une barre de
+            // défilement collée au bord s'attrape ; les coins restent aux bords.
+            HitRegion::Left | HitRegion::Right | HitRegion::Top | HitRegion::Bottom
+                if self.runtime.scrollbar_at(point) =>
+            {
+                HitRegion::Client
+            }
             region => region,
         }
     }
@@ -115,6 +126,32 @@ impl Session {
             self.dirty = true;
         }
         edge(&self.region(point)).map(|(_, cursor)| cursor)
+    }
+    /// Bord sous `point`, hors du contenu (bordure de la fenêtre) ; les coins s'étendent
+    /// sur [`CORNER`] le long de chaque bord.
+    pub fn outer_edge(&self, point: PointF) -> Option<(Edge, &'static [&'static str])> {
+        let (width, height) = self.logical_size();
+        let side = |v: f32, end: i32| {
+            if v < CORNER {
+                Some(false)
+            } else if v >= end as f32 - CORNER {
+                Some(true)
+            } else {
+                None
+            }
+        };
+        let region = match (side(point.x, width), side(point.y, height)) {
+            (Some(false), Some(false)) => HitRegion::TopLeft,
+            (Some(true), Some(false)) => HitRegion::TopRight,
+            (Some(false), Some(true)) => HitRegion::BottomLeft,
+            (Some(true), Some(true)) => HitRegion::BottomRight,
+            (Some(false), None) => HitRegion::Left,
+            (Some(true), None) => HitRegion::Right,
+            (None, Some(false)) => HitRegion::Top,
+            (None, Some(true)) => HitRegion::Bottom,
+            (None, None) => return None,
+        };
+        edge(&region)
     }
     /// Pointeur sorti de la fenêtre.
     pub fn leave(&mut self) {

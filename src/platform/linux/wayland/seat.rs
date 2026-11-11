@@ -32,6 +32,8 @@ pub(super) struct Seat {
     pub keyboard: Ptr,
     /// Fenêtre sous le pointeur et position logique.
     pub pointer_window: Option<WindowId>,
+    /// Le pointeur est sur la bordure de redimensionnement de cette fenêtre.
+    pub pointer_border: bool,
     pub position: PointF,
     /// Numéro de l'entrée du pointeur (changement de curseur).
     enter_serial: u32,
@@ -52,6 +54,7 @@ impl Seat {
             pointer: std::ptr::null_mut(),
             keyboard: std::ptr::null_mut(),
             pointer_window: None,
+            pointer_border: false,
             position: PointF { x: 0., y: 0. },
             enter_serial: 0,
             serial: 0,

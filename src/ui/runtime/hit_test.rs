@@ -222,6 +222,13 @@ impl UiRuntime {
         })
     }
 
+    /// `true` when a scroll bar (thumb or track) is under `p` (window coordinates, logical
+    /// pixels). Backends whose resize band lies inside the window let the scroll bar win
+    /// there, so that a bar along the window edge can still be dragged.
+    pub fn scrollbar_at(&self, p: PointF) -> bool {
+        matches!(self.hit(p), Some(Hit::ScrollThumb(_) | Hit::ScrollTrack(_)))
+    }
+
     /// `true` when pressing at `p` (window coordinates, logical pixels) should move the
     /// window: the point is inside an element marked with
     /// [`drag_region`](crate::ui::element::Element::drag_region) and not in a part excluded
