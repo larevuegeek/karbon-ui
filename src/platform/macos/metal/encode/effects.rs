@@ -134,9 +134,9 @@ impl Builder<'_> {
             return Ok(());
         }
         if area.w * area.h > 16_777_216 {
-            return Err(crate::Error::invalid_input(
-                "filter group exceeds its 16M physical pixel limit",
-            ));
+            // Groupe trop grand pour une couche : dessiné sans ses filtres plutôt que de
+            // faire échouer l'image entière, comme Core Graphics.
+            return self.run(commands);
         }
         // Un grand flou efface les détails : le contenu est dessiné réduit d'un facteur
         // `k`, flouté, puis agrandi à la recomposition.
