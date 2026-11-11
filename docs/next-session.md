@@ -429,6 +429,33 @@ cibles ne tournent ici).
 
 ## Backend macOS (en cours)
 
+### À faire sur le Mac (après la session Linux du 2026-11-11)
+
+Rien de ce qui suit n'a tourné sur macOS : seulement compilé (`cargo clippy --target
+aarch64-apple-darwin`).
+
+1. `git pull`, puis toutes les vérifications de « Vérifications » (dont la suite native
+   `tests/macos`) et les exports de référence.
+2. Moteur commun changé depuis la dernière session Mac, à revérifier à l'usage : molette
+   (glissement raccordé à la position de la courbe à l'instant du cran), contenu sauté
+   (`content-visibility`) immobile pendant un défilement puis replacé en revenant,
+   styles des lignes mémorisées repris malgré une règle `[.a+&]`, ancrage du défilement
+   dès le premier placement. Sous macOS la cadence reste sur demande
+   (`pacing::enabled(false)` dans `macos/window/session/lifecycle.rs`).
+3. Clone RustMusic : copier `~/Developpement/perso/rust/rustmusic-karbon` du poste Linux
+   (sans `target/`) à côté de karbon-ui sur le Mac, puis copier la base du Mac (son
+   README donne la commande, chemins macOS compris).
+4. Mesurer comme sous Linux (« Cadence et thème », point 3) : sonde 30:8, 5 essais
+   alternés sans et avec `KARBON_FRAME_PACING=1` ; appliquer la règle du point 4.
+   macOS n'a que la sonde des envois : pour l'affichage réel, l'équivalent de
+   `wp_presentation` est `MTLDrawable.presentedTime` (`addPresentedHandler`), à brancher
+   sur la sonde comme `wayland/presentation.rs`. Regarder aussi le décodage des
+   pochettes en parallèle (sous Linux, quatre tâches faisaient manquer 7-12 images,
+   une seule 1-4).
+5. Thème système (`ColorScheme::System`) en changeant l'apparence fenêtre ouverte, et
+   rendu du `Drawer` du kit.
+
+
 `src/platform/macos/` (liaisons `objc2-*`, sous `cfg(target_os = "macos")`) est
 `platform::Native` sur macOS. Faits : les services hors écran et une première boucle
 AppKit (`window/`).
