@@ -224,7 +224,7 @@ fn task_completed(&mut self, result: TaskResult) -> bool {
 | --- | --- | --- |
 | Windows | `IFileOpenDialog`, `IFileSaveDialog` | Boucle modale montrée hors des emprunts de l'application ; la fenêtre continue de se dessiner. Extension du premier type ajoutée au nom tapé sans extension. |
 | macOS | `NSOpenPanel`, `NSSavePanel` en feuille | Types par `UTType` (macOS 11 et plus) ; non essayé sur un Mac. |
-| Linux | Portail XDG `org.freedesktop.portal.FileChooser` | Appel et attente sur un thread (libdbus), choix rendu par le réveil des tâches ; parent `x11:<XID>` sous X11, aucun sous Wayland (pas encore `zxdg_foreign_v2`) ; non essayé sous Linux. |
+| Linux | Portail XDG `org.freedesktop.portal.FileChooser` | Appel et attente sur un thread (libdbus), choix rendu par le réveil des tâches ; parent `x11:<XID>` sous X11, `wayland:<poignée>` sous Wayland (`xdg-foreign` v2, sinon v1 comme GNOME 42) ; à essayer à la main (exemple `system_dialogs`). |
 
 ## Choisir quand l’application s’arrête
 

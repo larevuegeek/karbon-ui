@@ -73,6 +73,9 @@ pub(crate) struct Window {
     pub(super) border: Option<super::border::Border>,
     /// Géométrie déclarée (`xdg_surface.set_window_geometry`), taille logique.
     pub(super) geometry: Option<(i32, i32)>,
+    /// Fenêtre exportée (`xdg-foreign`) et sa poignée, parent des dialogues du portail.
+    pub exported: Ptr,
+    pub foreign_handle: Option<String>,
 }
 impl Window {
     /// Charge l'application, puis crée sa surface (affichée à la première configuration).
@@ -178,6 +181,18 @@ impl Window {
         }
         let gpu = paint::gpu(&options, gpu.as_ref(), display, surface);
         let border = super::border::Border::new(globals, surface);
+        let exported = if globals.exporter.is_null() {
+            std::ptr::null_mut()
+        } else {
+            create!(
+                globals.exporter,
+                super::super::protocol::zxdg_exporter::EXPORT_TOPLEVEL,
+                globals.exported,
+                Kind::Exported,
+                NEW,
+                surface
+            )
+        };
         // Premier envoi sans image : le compositeur répond par la configuration initiale.
         request!(surface, wl_surface::COMMIT);
         let mut session = Session::new(id, options, (runtime, renderer), wake);
@@ -206,6 +221,8 @@ impl Window {
             regions: None,
             border,
             geometry: None,
+            exported,
+            foreign_handle: None,
         })
     }
     /// Bordure de redimensionnement et géométrie de la fenêtre, à jour de sa taille et de
@@ -337,6 +354,10 @@ impl Drop for Window {
         destroy!(self.fractional, wp_fractional_scale_v1::DESTROY);
         destroy!(self.viewport, wp_viewport::DESTROY);
         self.border = None;
+        destroy!(
+            self.exported,
+            super::super::protocol::zxdg_exported::DESTROY
+        );
         destroy!(self.toplevel, xdg_toplevel::DESTROY);
         destroy!(self.xdg, xdg_surface::DESTROY);
         self.buffers.clear();

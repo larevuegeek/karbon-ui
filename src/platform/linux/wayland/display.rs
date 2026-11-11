@@ -99,10 +99,12 @@ pub(super) enum Kind {
     Fractional,
     Decoration,
     TextInput,
+    /// Fenêtre exportée (`xdg-foreign`) : sa poignée.
+    Exported,
     /// Objet sans événement utile (région, viewport, pool).
     Silent,
 }
-const KINDS: [Kind; 18] = [
+const KINDS: [Kind; 19] = [
     Kind::Registry,
     Kind::WmBase,
     Kind::XdgSurface,
@@ -120,6 +122,7 @@ const KINDS: [Kind; 18] = [
     Kind::Fractional,
     Kind::Decoration,
     Kind::TextInput,
+    Kind::Exported,
     Kind::Silent,
 ];
 /// Argument décodé d'un événement.
@@ -305,6 +308,10 @@ pub(super) struct Globals {
     pub fractional: Ptr,
     pub decoration: Ptr,
     pub text_input: Ptr,
+    /// Export des fenêtres (`zxdg_exporter_v2`, sinon `v1`) et objet exporté de cette
+    /// version.
+    pub exporter: Ptr,
+    pub exported: &'static crate::platform::linux::ffi::wayland::Interface,
 }
 pub(super) struct Display {
     pub raw: Ptr,
@@ -343,6 +350,8 @@ impl Display {
                 fractional: std::ptr::null_mut(),
                 decoration: std::ptr::null_mut(),
                 text_input: std::ptr::null_mut(),
+                exporter: std::ptr::null_mut(),
+                exported: &protocol::ZXDG_EXPORTED_V2,
             },
         };
         display.roundtrip()?;
@@ -454,6 +463,16 @@ impl Display {
                 }
                 "zxdg_decoration_manager_v1" => {
                     g.decoration = bind(&protocol::ZXDG_DECORATION_MANAGER_V1, 1, Kind::Silent);
+                }
+                // v2 préférée ; v1 seulement si la v2 n'est pas (encore) liée (une v1 liée
+                // avant reste inutilisée, libérée avec la connexion).
+                "zxdg_exporter_v2" => {
+                    g.exporter = bind(&protocol::ZXDG_EXPORTER_V2, 1, Kind::Silent);
+                    g.exported = &protocol::ZXDG_EXPORTED_V2;
+                }
+                "zxdg_exporter_v1" if g.exporter.is_null() => {
+                    g.exporter = bind(&protocol::ZXDG_EXPORTER_V1, 1, Kind::Silent);
+                    g.exported = &protocol::ZXDG_EXPORTED_V1;
                 }
                 "zwp_text_input_manager_v3" => {
                     g.text_input = bind(&protocol::ZWP_TEXT_INPUT_MANAGER_V3, 1, Kind::Silent);

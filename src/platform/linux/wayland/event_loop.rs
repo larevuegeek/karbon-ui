@@ -161,10 +161,14 @@ impl Wayland {
                 }
             }
             WindowCommand::FileDialog(id, task, dialog) => {
-                // Sans `zxdg_foreign_v2`, le portail ne connaît pas la fenêtre parente :
+                // Fenêtre exportée par `xdg-foreign` : dialogue modal à elle ; sinon
                 // identifiant vide (dialogue non rattaché).
                 if let Some(window) = self.windows.iter().find(|w| w.session.id == id) {
-                    window.session.file_dialog(task, dialog, String::new());
+                    let parent = window
+                        .foreign_handle
+                        .as_ref()
+                        .map_or_else(String::new, |h| format!("wayland:{h}"));
+                    window.session.file_dialog(task, dialog, parent);
                 }
             }
             WindowCommand::Exit => self.exit = true,

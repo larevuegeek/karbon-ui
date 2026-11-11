@@ -106,6 +106,12 @@ impl Wayland {
                     w.session.dirty = true;
                 }
             }
+            Kind::Exported if event.opcode == protocol::zxdg_exported::EV_HANDLE => {
+                let handle = event.string(0).to_owned();
+                if let Some(w) = self.window_by(|w| w.exported == target) {
+                    w.foreign_handle = Some(handle);
+                }
+            }
             Kind::Decoration if event.opcode == zxdg_toplevel_decoration_v1::EV_CONFIGURE => {
                 let mode = event.uint(0);
                 if let Some(w) = self.window_by(|w| w.decoration == target) {
