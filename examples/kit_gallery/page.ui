@@ -6,7 +6,7 @@
                 <svg src="../../docs/logo/logo-word.svg" aria-label="Karbon UI" />
             </div>
             <Row slot="actions" gap="sm">
-                <Select style="width: 110px" value={self.accent} options={["Bleu", "Violet", "Rose", "Vert"]} onchange={Msg::Accent} />
+                <Select style="width: 110px" aria-label="Couleur d'accent" value={self.accent} options={["Bleu", "Violet", "Rose", "Vert"]} onchange={Msg::Accent} />
                 <IconButton icon={if self.dark { "sun" } else { "moon" }} label="Changer de thème" pill onclick={Msg::Dark(!self.dark)} />
             </Row>
         </Navbar>

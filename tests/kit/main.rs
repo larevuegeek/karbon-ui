@@ -88,6 +88,7 @@ impl Application for Demo {
                         <Card id="area"><Text>Area</Text></Card>
                         <MenuItem slot="menu" id="copy" onclick={Msg::Pick("copy")}>Copy</MenuItem>
                     </ContextMenu>
+                    <Card onclick={Msg::Click}><Text>Open the shop</Text></Card>
                     <Grid id="cells" min={250.}><Card>A</Card><Card>B</Card><Card>C</Card></Grid>
                     <Badge id="badge" oncontextmenu={|_: ContextMenuRequest| Msg::Pick("badge")}>New</Badge>
                 </Stack>
@@ -219,6 +220,22 @@ fn rich_buttons_are_named_by_their_content() {
     let go = app.accessible("go").expect("button");
     assert_eq!(go.name, "Go");
     assert_eq!(app.accessible("custom").expect("button").name, "Custom");
+    // Onglets, et carte cliquable sans titre : nommés par leur texte.
+    let names: Vec<_> = app
+        .accessibility()
+        .into_iter()
+        .filter(|e| {
+            matches!(
+                e.role,
+                karbon_ui::ui::element::Role::Tab | karbon_ui::ui::element::Role::Button
+            )
+        })
+        .map(|e| e.name)
+        .collect();
+    for name in ["One", "Two", "Open the shop"] {
+        assert!(names.iter().any(|n| n == name), "{name} in {names:?}");
+    }
+    assert!(!names.iter().any(String::is_empty), "{names:?}");
 }
 
 #[test]

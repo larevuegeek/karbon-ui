@@ -49,7 +49,7 @@ Ils sont rangés par type, dans autant de modules (`kit::typography`, `kit::form
 | Mise en page | `Page` (`fixed`), `Container`, `Stack`, `Row` (`wrap`), `Grid` (`cols`, ou `min` : colonnes d'au moins N px, autant que la largeur en permet), `Spacer`, `Divider` |
 | Texte | `Title` (`display`, `h2`, `h3`, `h4`, `gradient`, `center`), `Text` (`muted`, `sm`, `lg`, `bold`, `center`, `mono`), `Code`, `Kbd`, `Link` |
 | Boutons | `Button` (`icon`, `icon_right`, `loading`, `disabled`, `full`), `IconButton` (`icon`, `label`) |
-| Formulaires | `Field`, `Input` (`label`, `hint`, `error`, `icon`, `outline`, `password`, `search`, `required`), `Textarea`, `Select`, `Checkbox`, `Switch`, `RadioGroup`, `Slider` |
+| Formulaires | `Field`, `Input` (`label`, `hint`, `error`, `icon`, `outline`, `password`, `search`, `required`), `Textarea`, `Select` et `Slider` (`aria-label` sans libellé visible), `Checkbox`, `Switch`, `RadioGroup` |
 | Affichage | `Card` (`hover`, `glass`, `onclick`), `User`, `AvatarGroup`, `Snippet`, `Badge` (`solid`, `outline`, `dot`, `onclose`), `Avatar`, `Stat`, `Table`, `TableRow`, `TableCell`, `List`, `ListItem`, `EmptyState`, `Accordion`, `Icon` |
 | Retours d'état | `Alert`, `Progress`, `Spinner`, `Skeleton`, `Toasts`, `Toast` |
 | Navigation | `Tabs` (`underlined`), `Breadcrumb`, `Steps`, `Navbar` (`glass`), `Sidebar` (défile seule si sa rangée porte `clip` ; `responsive` : icônes seules sous 900 px de large), `NavItem`, `NavLabel` |

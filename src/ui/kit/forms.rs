@@ -172,14 +172,16 @@ pub struct Select {
     pub error: Text,
     /// Inactive.
     pub disabled: bool,
+    /// Name for screen readers when there is no visible `label`
+    /// (`aria-label="Accent colour"`).
+    pub aria_label: Text,
 }
 impl<R> Component<R> for Select {
     fn render(self, cx: &TemplateContext<'_, R>, _: Slots) -> Element {
-        let name = if self.label.0.is_empty() {
-            self.placeholder.0.as_str()
-        } else {
-            self.label.0.as_str()
-        };
+        let name = [&self.label.0, &self.aria_label.0, &self.placeholder.0]
+            .into_iter()
+            .find(|n| !n.is_empty())
+            .map_or("", String::as_str);
         let change = self.onchange.emitter();
         let value = self.value;
         kit_ui!(cx;
@@ -298,6 +300,9 @@ pub struct Slider {
     pub label: Text,
     /// Inactive.
     pub disabled: bool,
+    /// Name for screen readers when there is no visible `label`
+    /// (`aria-label="Position"`).
+    pub aria_label: Text,
 }
 impl Default for Slider {
     fn default() -> Self {
@@ -310,12 +315,17 @@ impl Default for Slider {
             onchange: OnChange::default(),
             label: Text::default(),
             disabled: false,
+            aria_label: Text::default(),
         }
     }
 }
 impl<R> Component<R> for Slider {
     fn render(self, cx: &TemplateContext<'_, R>, _: Slots) -> Element {
-        let name = self.label.0.clone();
+        let name = if self.label.0.is_empty() {
+            self.aria_label.0.clone()
+        } else {
+            self.label.0.clone()
+        };
         let input = self.oninput.emitter();
         let change = self.onchange.emitter();
         kit_ui!(cx;

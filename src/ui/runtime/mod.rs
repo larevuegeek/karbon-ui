@@ -30,6 +30,7 @@ mod tooltip;
 mod tree;
 mod virtualization;
 mod wheel;
+pub(crate) use accessibility::content_name;
 pub use accessibility::{AccessibilityAction, AccessibilityError, AccessibleElement};
 pub use events::{Cursor, EventResult, Key, UiEvent};
 pub use wheel::WheelEvent;

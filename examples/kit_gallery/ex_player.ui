@@ -9,7 +9,7 @@
             <IconButton icon="heart" label="Aimer" pill soft danger={self.liked} onclick={Msg::Like} />
         </Row>
         <Stack gap="none">
-            <Slider max={TRACKS[self.track].2 as f64} value={self.position} oninput={Msg::Seek} />
+            <Slider aria-label="Position dans le morceau" max={TRACKS[self.track].2 as f64} value={self.position} oninput={Msg::Seek} />
             <Row between full>
                 <Text sm muted>{clock(self.position as u32)}</Text>
                 <Text sm muted>{clock(TRACKS[self.track].2)}</Text>

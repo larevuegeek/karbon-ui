@@ -40,6 +40,15 @@ impl<R> Component<R> for Card {
         let cover = has_slot(&slots, "cover");
         let clickable = self.onclick.is_set();
         let action = self.onclick.action();
+        // Nom de la zone cliquable : le titre, sinon le texte du contenu (lecteurs d'écran).
+        let label = if clickable && self.title.0.is_empty() {
+            let body = slots.take("");
+            let name = crate::ui::runtime::content_name(&body);
+            slots.extend("", body);
+            name
+        } else {
+            self.title.0.clone()
+        };
         let gap = self.gap.or(12.);
         let padding = self.padding.or(20.);
         let top = self.padding.or(if header { 14. } else { 20. });
@@ -64,7 +73,7 @@ impl<R> Component<R> for Card {
                     <div class="k-card-foot"><slot name="footer" /></div>
                 {/if}
                 {#if clickable}
-                    <button class="k-card-hit" aria-label={self.title.0.as_str()} onclick={action}><div></div></button>
+                    <button class="k-card-hit" aria-label={label.as_str()} onclick={action}><div></div></button>
                 {/if}
             </section>
         )

@@ -39,9 +39,11 @@ impl UiRuntime {
                 // Bouton, lien ou entrée de menu sans nom propre : celui de son contenu,
                 // comme le calcul du nom accessible du web (`<button><svg/>Ouvrir</button>`).
                 let name = if s.name.trim().is_empty()
-                    && matches!(s.role, Role::Button | Role::Link | Role::MenuItem)
-                {
-                    content_name(node)
+                    && matches!(
+                        s.role,
+                        Role::Button | Role::Link | Role::MenuItem | Role::Tab
+                    ) {
+                    content_name(&node.children)
                 } else {
                     s.name.to_owned()
                 };
@@ -211,11 +213,12 @@ pub(super) fn choice(node: &Element) -> Option<ChoiceState> {
         .and_then(|w| w.choice())
         .or_else(|| node.aria.choice())
 }
-/// Nom tiré du contenu : noms des descendants visibles (textes, images nommées), dans
-/// l'ordre, séparés par une espace ; un descendant nommé n'est pas parcouru plus loin.
-fn content_name(node: &Element) -> String {
-    fn collect(node: &Element, out: &mut Vec<String>) {
-        for child in &node.children {
+/// Nom tiré du contenu `nodes` : noms des éléments visibles (textes, images nommées) et
+/// de leurs descendants, dans l'ordre, séparés par une espace ; un élément nommé n'est
+/// pas parcouru plus loin. Sert aussi au kit (carte cliquable sans titre).
+pub(crate) fn content_name(nodes: &[Element]) -> String {
+    fn collect(nodes: &[Element], out: &mut Vec<String>) {
+        for child in nodes {
             if crate::ui::layout::hidden(child) || child.semantics_hidden {
                 continue;
             }
@@ -230,10 +233,10 @@ fn content_name(node: &Element) -> String {
                     continue;
                 }
             }
-            collect(child, out);
+            collect(&child.children, out);
         }
     }
     let mut parts = Vec::new();
-    collect(node, &mut parts);
+    collect(nodes, &mut parts);
     parts.join(" ")
 }
