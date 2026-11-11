@@ -7,6 +7,10 @@ use std::{
 };
 
 fn write(root: &Path, path: &str, contents: &str) {
+    // Les dates des fichiers suivent une horloge grossière (quelques ms) : sans attente, une
+    // réécriture juste après un `cargo check` peut porter la date de ses fichiers de
+    // dépendances, et cargo la croit déjà compilée (échec observé sous forte charge).
+    std::thread::sleep(std::time::Duration::from_millis(50));
     let path = root.join(path);
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(path, contents).unwrap();
