@@ -161,6 +161,8 @@ library! {
 library! {
     XcbXkb("libxcb-xkb.so.1") {
         fn xcb_xkb_select_events(c: *mut xcb_connection_t, device_spec: u16, affect_which: u16, clear: u16, select_all: u16, affect_map: u16, map: u16, details: *const c_void) -> xcb_void_cookie_t;
+        fn xcb_xkb_per_client_flags(c: *mut xcb_connection_t, device_spec: u16, change: u32, value: u32, ctrls_to_change: u32, auto_ctrls: u32, auto_ctrls_values: u32) -> xcb_cookie_t;
+        fn xcb_xkb_per_client_flags_reply(c: *mut xcb_connection_t, cookie: xcb_cookie_t, e: *mut *mut xcb_generic_error_t) -> *mut xcb_xkb_per_client_flags_reply_t;
     }
 }
 /// Événements de l'extension XKB (`libxcb-xkb.so.1`, dépendance de xkbcommon-x11).

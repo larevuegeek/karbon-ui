@@ -365,8 +365,8 @@ embarque. Sonde commune des deux boucles : `probe.rs`.
   `NewKeyboardNotify` ou `MapNotify` (`MappingNotify` sans XKB) ; à défaut, compilée
   d’après `_XKB_RULES_NAMES`, qui sous XWayland reste `us` quelle que soit la disposition
   du bureau ; modificateurs et groupe lus dans
-  chaque événement, répétitions du serveur reconnues (relâchement et appui au même
-  instant) ; curseurs du thème par `libxcb-cursor` (chargée au lancement). Vérifié sous
+  chaque événement, répétition détectable demandée à XKB (à défaut, relâchement et appui
+  au même instant reconnus) ; curseurs du thème par `libxcb-cursor` (chargée au lancement). Vérifié sous
   XWayland par des événements synthétiques (clic dans le champ de recherche de
   RustMusic, frappe).
 - Presse-papiers (`clipboard.rs`, sélection `CLIPBOARD`) : une fenêtre invisible du

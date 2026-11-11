@@ -25,8 +25,9 @@ fn the_keyboard_comes_from_the_server_through_xkb() {
     let keyboard = connection.server_keyboard(&locale).expect("XKB keymap");
     // Touche à droite de Tab (AD01, code XKB 24) : une lettre dans toute disposition.
     let sym = keyboard.keysym(24);
-    eprintln!("karbon-ui: AD01 = {sym:#x}");
     assert!(sym != 0);
+    // Répétition détectable demandée en même temps (accordée par tout serveur XKB).
+    assert!(connection.detectable_repeat.get());
 }
 /// Texte de 1 Mo copié par une connexion et lu par une autre : servi et lu par morceaux
 /// (`INCR`, au-delà de 256 Ko), sur une sélection privée pour ne pas toucher au

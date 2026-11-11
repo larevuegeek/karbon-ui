@@ -107,6 +107,7 @@ impl X11 {
                             w.session.focused = false;
                         }
                         self.keys.reset();
+                        self.down.clear();
                         self.send(id, UiEvent::Cancel);
                     }
                     self.send(id, UiEvent::FocusChanged(focused));
@@ -129,7 +130,18 @@ impl X11 {
                 XCB_BUTTON_RELEASE => self.button(&*event.cast(), false),
                 XCB_ENTER_NOTIFY => self.entered(&*event.cast()),
                 XCB_LEAVE_NOTIFY => self.left(&*event.cast()),
-                XCB_KEY_PRESS => self.key(&*event.cast(), true, false),
+                XCB_KEY_PRESS => {
+                    let e = &*event.cast::<xcb_key_press_event_t>();
+                    // Répétition détectable : l'appui d'une touche déjà enfoncée la répète.
+                    let repeat =
+                        self.connection.detectable_repeat.get() && !self.down.insert(e.detail);
+                    self.key(e, true, repeat);
+                }
+                XCB_KEY_RELEASE if self.connection.detectable_repeat.get() => {
+                    let e = &*event.cast::<xcb_key_press_event_t>();
+                    self.down.remove(&e.detail);
+                    self.key(e, false, false);
+                }
                 XCB_KEY_RELEASE => self.released(&*event.cast()),
                 _ => {}
             }
@@ -141,8 +153,8 @@ impl X11 {
         let keyboard = self.connection.keyboard();
         self.keys.set_keyboard(keyboard, true);
     }
-    /// Touche relâchée : suivie d'un appui de la même touche au même instant, c'est une
-    /// répétition du serveur (l'appui est consommé ici).
+    /// Touche relâchée, sans répétition détectable : suivie d'un appui de la même touche au
+    /// même instant, c'est une répétition du serveur (l'appui est consommé ici).
     fn released(&mut self, event: &xcb_key_press_event_t) {
         // L'appui jumeau est l'événement suivant : d'abord ceux gardés par une lecture du
         // presse-papiers, sinon ceux déjà lus de la connexion (sans attendre).

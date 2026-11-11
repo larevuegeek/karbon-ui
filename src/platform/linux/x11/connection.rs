@@ -60,6 +60,9 @@ pub(super) struct Connection {
     /// Premier numéro des événements XKB, une fois l'extension initialisée et ses
     /// événements de disposition demandés (`server_keyboard`).
     pub xkb_event: std::cell::Cell<Option<u8>>,
+    /// Répétition détectable accordée par le serveur : une touche répétée n'envoie que des
+    /// appuis (sinon, relâchement et appui jumeaux au même instant).
+    pub detectable_repeat: std::cell::Cell<bool>,
 }
 fn unsupported(reason: &'static str) -> crate::Error {
     crate::Error::Unsupported { reason }
@@ -87,6 +90,7 @@ impl Connection {
             atoms: Atoms::default(),
             scale: 1.,
             xkb_event: std::cell::Cell::new(None),
+            detectable_repeat: std::cell::Cell::new(false),
         };
         // SAFETY : connexion valide ; description du serveur possédée par XCB.
         let setup = unsafe { &*(xcb.xcb_get_setup)(raw) };
@@ -329,6 +333,21 @@ impl Connection {
                     std::ptr::null(),
                 );
                 self.xkb_event.set(Some(event));
+                let flag = XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT;
+                let cookie = (events.xcb_xkb_per_client_flags)(
+                    self.raw,
+                    XCB_XKB_ID_USE_CORE_KBD,
+                    flag,
+                    flag,
+                    0,
+                    0,
+                    0,
+                );
+                let reply =
+                    (events.xcb_xkb_per_client_flags_reply)(self.raw, cookie, std::ptr::null_mut());
+                self.detectable_repeat
+                    .set(reply.as_ref().is_some_and(|r| r.value & flag != 0));
+                libc::free(reply.cast());
             }
             crate::platform::linux::ffi::xkb::Keyboard::from_context(locale, |context| {
                 (xkb.xkb_x11_keymap_new_from_device)(context, self.raw, device, 0)

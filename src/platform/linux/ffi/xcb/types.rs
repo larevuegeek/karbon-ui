@@ -94,6 +94,19 @@ pub(in crate::platform::linux) struct xcb_get_property_reply_t {
     pub value_len: u32,
     pub pad0: [u8; 12],
 }
+/// Réponse de `xcb_xkb_per_client_flags` (`xcb/xkb.h`).
+#[repr(C)]
+pub(in crate::platform::linux) struct xcb_xkb_per_client_flags_reply_t {
+    pub response_type: u8,
+    pub device_id: u8,
+    pub sequence: u16,
+    pub length: u32,
+    pub supported: u32,
+    pub value: u32,
+    pub auto_ctrls: u32,
+    pub auto_ctrls_values: u32,
+    pub pad0: [u8; 8],
+}
 #[repr(C)]
 pub(in crate::platform::linux) struct xcb_setup_t {
     pub status: u8,
@@ -178,6 +191,7 @@ const _: () = assert!(size_of::<xcb_generic_error_t>() == 36);
 const _: () = assert!(size_of::<xcb_intern_atom_reply_t>() == 12);
 const _: () = assert!(size_of::<xcb_get_selection_owner_reply_t>() == 12);
 const _: () = assert!(size_of::<xcb_get_property_reply_t>() == 32);
+const _: () = assert!(size_of::<xcb_xkb_per_client_flags_reply_t>() == 32);
 const _: () = assert!(size_of::<xcb_setup_t>() == 40);
 const _: () = assert!(size_of::<xcb_screen_t>() == 40);
 const _: () = assert!(size_of::<xcb_screen_iterator_t>() == 16);

@@ -44,6 +44,8 @@ pub(super) struct X11 {
     pub(super) ime: Option<crate::platform::linux::ime::Ibus>,
     /// Touches en attente de la réponse du moteur (`ime.rs`), dans l'ordre.
     pub(super) held: VecDeque<super::ime::HeldKey>,
+    /// Codes des touches enfoncées (répétition détectable, `events.rs`).
+    pub(super) down: std::collections::HashSet<u8>,
     /// Composition en cours dans le champ qui a le focus.
     pub(super) composition: Composition,
     /// XInput 2.1 (défilement fin), s'il est disponible.
@@ -81,6 +83,7 @@ pub(crate) fn run_windows(windows: Vec<WindowDescriptor>, policy: ExitPolicy) ->
         xinput: xinput::XInput::new(&connection),
         ime: crate::platform::linux::ime::Ibus::connect(),
         held: VecDeque::new(),
+        down: std::collections::HashSet::new(),
         composition: Composition::default(),
         clipboard: Clipboard::new(&connection),
         time: XCB_CURRENT_TIME,

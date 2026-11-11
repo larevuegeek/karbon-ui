@@ -50,3 +50,7 @@ pub(in crate::platform::linux) const XCB_XKB_MAP_PART_ALL: u16 = 0xff;
 /// États d'un `PropertyNotify`.
 pub(in crate::platform::linux) const XCB_PROPERTY_NEW_VALUE: u8 = 0;
 pub(in crate::platform::linux) const XCB_PROPERTY_DELETE: u8 = 1;
+/// Clavier principal (`XCB_XKB_ID_USE_CORE_KBD`) et répétition détectable : le serveur
+/// n'envoie plus de relâchement entre les appuis d'une touche répétée.
+pub(in crate::platform::linux) const XCB_XKB_ID_USE_CORE_KBD: u16 = 0x100;
+pub(in crate::platform::linux) const XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT: u32 = 1;
