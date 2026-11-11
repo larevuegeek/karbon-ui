@@ -7,6 +7,8 @@ use std::{
 };
 
 pub(in crate::platform::linux) const METHOD_CALL: c_int = 1;
+pub(in crate::platform::linux) const METHOD_RETURN: c_int = 2;
+pub(in crate::platform::linux) const ERROR: c_int = 3;
 pub(in crate::platform::linux) const SIGNAL: c_int = 4;
 const SESSION: c_int = 0;
 #[repr(C)]
@@ -86,6 +88,7 @@ unsafe extern "C" {
     fn dbus_message_get_interface(message: *mut RawMessage) -> *const c_char;
     fn dbus_message_get_member(message: *mut RawMessage) -> *const c_char;
     fn dbus_message_get_no_reply(message: *mut RawMessage) -> c_uint;
+    fn dbus_message_get_reply_serial(message: *mut RawMessage) -> u32;
     fn dbus_message_iter_init(message: *mut RawMessage, iter: *mut Iter) -> c_uint;
     fn dbus_message_iter_init_append(message: *mut RawMessage, iter: *mut Iter);
     fn dbus_message_iter_append_basic(iter: *mut Iter, kind: c_int, value: *const c_void)
@@ -212,6 +215,14 @@ impl Connection {
         // SAFETY : connexion et message valides.
         unsafe { dbus_connection_send(self.raw(), message.0.as_ptr(), std::ptr::null_mut()) };
     }
+    /// Envoie sans attendre ; le numéro du message, que porte sa réponse
+    /// (`Message::reply_serial`), lue plus tard par `pop`.
+    pub fn send_serial(&self, message: &Message) -> Option<u32> {
+        let mut serial = 0;
+        // SAFETY : connexion et message valides ; sortie locale.
+        (unsafe { dbus_connection_send(self.raw(), message.0.as_ptr(), &mut serial) } != 0)
+            .then_some(serial)
+    }
     /// Lit et écrit ce qui est prêt, sans attendre.
     pub fn pump(&self) {
         // SAFETY : connexion valide ; délai nul.
@@ -286,6 +297,11 @@ impl Message {
     pub fn kind(&self) -> c_int {
         // SAFETY : message valide.
         unsafe { dbus_message_get_type(self.0.as_ptr()) }
+    }
+    /// Numéro de l'appel auquel ce message répond (0 pour un appel ou un signal).
+    pub fn reply_serial(&self) -> u32 {
+        // SAFETY : message valide.
+        unsafe { dbus_message_get_reply_serial(self.0.as_ptr()) }
     }
     pub fn path(&self) -> String {
         // SAFETY : message valide.

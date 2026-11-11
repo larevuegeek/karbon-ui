@@ -3,22 +3,22 @@
 //! `~/.config/ibus/bus/<machine-id>-<hôte>-<écran>`, comme libibus), à défaut par le
 //! portail IBus du bus de session.
 //!
-//! Les touches sont transmises par `ProcessKeyEvent` (appel bloquant, 200 ms au plus) :
-//! une touche prise par le moteur ne va pas à l'application, qui reçoit ensuite par
-//! signaux le texte validé (`CommitText`), la composition (`UpdatePreeditText`,
+//! Les touches sont transmises par `ProcessKeyEvent` sans attendre, comme le fait GTK :
+//! la réponse (`Request::Answered`) dit si le moteur la prend ; sinon l'application la
+//! traite, dans l'ordre (`x11/ime.rs`). Elle reçoit aussi par signaux le texte validé (`CommitText`), la composition (`UpdatePreeditText`,
 //! `HidePreeditText`) ou une touche à traiter elle-même (`ForwardKeyEvent`). Le contexte
 //! annonce qu'il affiche la composition dans le champ (`PREEDIT_TEXT`) et qu'il suit le
 //! focus (`FOCUS`).
 use super::Request;
-use crate::platform::linux::ffi::dbus::{Connection, Message, Reader, SIGNAL};
+use crate::platform::linux::ffi::dbus::{
+    Connection, ERROR, METHOD_RETURN, Message, Reader, SIGNAL,
+};
 
 const INTERFACE: &str = "org.freedesktop.IBus.InputContext";
 /// Capacités : composition affichée par l'application, focus.
 const CAPABILITIES: u32 = 1 | 1 << 3;
 /// État d'une touche relâchée (`IBUS_RELEASE_MASK`).
 const RELEASE: u32 = 1 << 30;
-/// Attente au plus d'une réponse à une touche.
-const KEY_TIMEOUT: i32 = 200;
 
 /// Adresse du bus privé d'IBus pour l'écran X de `DISPLAY` : un socket Unix seulement
 /// (libdbus accepte aussi `unixexec:`, qui lance un programme ; l'adresse vient de
@@ -159,25 +159,32 @@ impl Ibus {
         self.send("Reset", |_| {});
     }
     /// Transmet une touche (`keyval` : symbole XKB, `keycode` : code evdev, `state` :
-    /// modificateurs X) ; `true` si le moteur la prend.
-    pub fn key(&self, keyval: u32, keycode: u32, state: u32, pressed: bool) -> bool {
-        let Some(mut message) =
-            Message::method_call(self.service, &self.context, INTERFACE, "ProcessKeyEvent")
-        else {
-            return false;
-        };
+    /// modificateurs X) sans attendre ; le numéro de sa réponse (`Request::Answered`), ou
+    /// `None` si elle n'a pas pu partir.
+    pub fn key(&self, keyval: u32, keycode: u32, state: u32, pressed: bool) -> Option<u32> {
+        let mut message =
+            Message::method_call(self.service, &self.context, INTERFACE, "ProcessKeyEvent")?;
         let state = if pressed { state } else { state | RELEASE };
         message.writer().u32(keyval).u32(keycode).u32(state);
-        self.connection
-            .call(&message, KEY_TIMEOUT)
-            .and_then(|reply| reply.reader().bool())
-            .unwrap_or(false)
+        let serial = self.connection.send_serial(&message);
+        self.connection.flush();
+        serial
     }
     /// Demandes reçues du moteur depuis le dernier appel, dans l'ordre.
     pub fn requests(&self) -> Vec<Request> {
         self.connection.pump();
         let mut requests = Vec::new();
         while let Some(message) = self.connection.pop() {
+            // Réponse à une touche : prise (`true`), ou non (`false`, erreur du moteur).
+            if matches!(message.kind(), METHOD_RETURN | ERROR) {
+                let taken =
+                    message.kind() == METHOD_RETURN && message.reader().bool() == Some(true);
+                requests.push(Request::Answered {
+                    serial: message.reply_serial(),
+                    taken,
+                });
+                continue;
+            }
             if message.kind() != SIGNAL
                 || message.interface() != INTERFACE
                 || message.path() != self.context

@@ -387,7 +387,9 @@ embarque. Sonde commune des deux boucles : `probe.rs`.
   de saisie par boucle, sur le bus privé d’IBus (`IBUS_ADDRESS`, sinon le fichier
   `~/.config/ibus/bus/<machine-id>-<hôte>-<écran>` comme libibus), à défaut par le portail
   IBus du bus de session. Quand un champ modifiable a le focus, chaque touche va d’abord
-  au moteur (`ProcessKeyEvent`, 200 ms au plus) ; ses signaux deviennent les événements
+  au moteur (`ProcessKeyEvent`, sans attendre comme GTK : la touche attend sa réponse
+  dans une file et va à l’application dans l’ordre si le moteur la refuse, 1 s au plus) ;
+  ses signaux deviennent les événements
   de composition du moteur (comme sous Wayland) ou du texte, une touche renvoyée
   (`ForwardKeyEvent`) est traitée par l’application. Caret en pixels de l’écran (origine
   de la fenêtre gardée jusqu’au `ConfigureNotify` suivant) ; un clic dans le contenu ou

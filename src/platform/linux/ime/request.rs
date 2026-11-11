@@ -12,6 +12,8 @@ pub(crate) enum Request {
         keycode: u32,
         state: u32,
     },
+    /// Réponse du moteur à la touche envoyée sous ce numéro : prise ou non.
+    Answered { serial: u32, taken: bool },
 }
 #[cfg(test)]
 mod tests {
@@ -34,5 +36,37 @@ mod tests {
             Some("unix:path=/tmp/x,guid=1")
         );
         assert_eq!(bus_address("IBUS_DAEMON_PID=42"), None);
+    }
+
+    /// Touches envoyées sans attendre au vrai démon IBus (sauté sans lui) : chacune reçoit
+    /// sa réponse, sous son numéro, dans l'ordre d'envoi.
+    #[test]
+    fn keys_sent_to_ibus_are_answered_asynchronously_in_order() {
+        use super::super::{Ibus, Request};
+        let Some(mut ibus) = Ibus::connect() else {
+            eprintln!("karbon-ui: no IBus, test skipped");
+            return;
+        };
+        ibus.focus(true);
+        // `a` puis `b`, appui et relâchement (symbole XKB, code evdev, sans modificateur).
+        let serials: Vec<u32> = [(0x61, 30, true), (0x61, 30, false), (0x62, 48, true)]
+            .iter()
+            .map(|&(sym, code, pressed)| ibus.key(sym, code, 0, pressed).expect("sent"))
+            .collect();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        let mut answered = Vec::new();
+        while answered.len() < serials.len() && std::time::Instant::now() < deadline {
+            for request in ibus.requests() {
+                // Les autres appels (`SetCapabilities`, `FocusIn`) ont aussi leur réponse.
+                if let Request::Answered { serial, .. } = request
+                    && serials.contains(&serial)
+                {
+                    answered.push(serial);
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        ibus.focus(false);
+        assert_eq!(answered, serials);
     }
 }

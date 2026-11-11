@@ -42,6 +42,8 @@ pub(super) struct X11 {
     pub(super) cursors: Cursors,
     /// Méthode d'entrée (IBus), si elle tourne.
     pub(super) ime: Option<crate::platform::linux::ime::Ibus>,
+    /// Touches en attente de la réponse du moteur (`ime.rs`), dans l'ordre.
+    pub(super) held: VecDeque<super::ime::HeldKey>,
     /// Composition en cours dans le champ qui a le focus.
     pub(super) composition: Composition,
     /// XInput 2.1 (défilement fin), s'il est disponible.
@@ -78,6 +80,7 @@ pub(crate) fn run_windows(windows: Vec<WindowDescriptor>, policy: ExitPolicy) ->
         cursors: Cursors::new(&connection),
         xinput: xinput::XInput::new(&connection),
         ime: crate::platform::linux::ime::Ibus::connect(),
+        held: VecDeque::new(),
         composition: Composition::default(),
         clipboard: Clipboard::new(&connection),
         time: XCB_CURRENT_TIME,
@@ -311,6 +314,7 @@ impl X11 {
             .iter()
             .filter(|w| w.ready())
             .filter_map(|w| w.session.next_wake())
+            .chain(self.held.front().map(super::ime::HeldKey::deadline))
             .min();
         match wake {
             Some(at) => at

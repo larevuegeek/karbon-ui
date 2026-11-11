@@ -330,7 +330,7 @@ impl X11 {
         let code = u32::from(event.detail).saturating_sub(KEYCODE_OFFSET);
         // Champ de saisie : la méthode d'entrée voit la touche d'abord.
         let keysym = self.keys.keysym(code);
-        if self.ime_key(keysym, code, state & 0xffff, pressed || repeat) {
+        if self.ime_key(id, (keysym, code, state), pressed, repeat) {
             return;
         }
         let events = if repeat {
