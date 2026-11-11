@@ -35,6 +35,11 @@ impl X11 {
     unsafe fn event(&mut self, event: *mut xcb_generic_event_t) {
         // SAFETY : chaque type d'événement a la disposition de sa structure.
         unsafe {
+            // Événement XKB (nouveau clavier, disposition changée) : disposition relue.
+            if self.connection.xkb_event.get() == Some((*event).response_type & 0x7f) {
+                self.reload_keyboard();
+                return;
+            }
             match (*event).response_type & 0x7f {
                 XCB_EXPOSE => {
                     let e = &*event.cast::<xcb_expose_event_t>();
@@ -113,6 +118,9 @@ impl X11 {
                     self.clipboard.request(&self.connection, e);
                 }
                 XCB_SELECTION_CLEAR => self.clipboard.cleared(&*event.cast()),
+                // Disposition changée (réglages du bureau, `setxkbmap`) : relue du serveur,
+                // la répétition en cours est gardée.
+                XCB_MAPPING_NOTIFY => self.reload_keyboard(),
                 XCB_GE_GENERIC => self.generic(event),
                 XCB_MOTION_NOTIFY => self.motion(&*event.cast()),
                 XCB_BUTTON_PRESS => self.button(&*event.cast(), true),
@@ -124,6 +132,12 @@ impl X11 {
                 _ => {}
             }
         }
+    }
+    /// Disposition changée (réglages du bureau, `setxkbmap`) : relue du serveur, la
+    /// répétition en cours gardée.
+    fn reload_keyboard(&mut self) {
+        let keyboard = self.connection.keyboard();
+        self.keys.set_keyboard(keyboard, true);
     }
     /// Touche relâchée : suivie d'un appui de la même touche au même instant, c'est une
     /// répétition du serveur (l'appui est consommé ici).

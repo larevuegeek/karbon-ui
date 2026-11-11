@@ -10,6 +10,24 @@ fn x11_loop_paints_wakes_for_tasks_and_runs_window_commands() {
         "KARBON_REQUIRE_X11",
     );
 }
+/// La disposition est lue du serveur (extension XKB), pas recompilée d'après ses noms :
+/// sous XWayland, ces noms restent `us` quelle que soit la disposition du bureau.
+#[test]
+fn the_keyboard_comes_from_the_server_through_xkb() {
+    if std::env::var_os("DISPLAY").is_none()
+        || crate::platform::linux::ffi::xcb::xkb_x11().is_none()
+    {
+        eprintln!("karbon-ui: no X server or libxkbcommon-x11, test skipped");
+        return;
+    }
+    let connection = super::connection::Connection::connect().expect("X server");
+    let locale = crate::platform::linux::shell::keyboard::locale();
+    let keyboard = connection.server_keyboard(&locale).expect("XKB keymap");
+    // Touche à droite de Tab (AD01, code XKB 24) : une lettre dans toute disposition.
+    let sym = keyboard.keysym(24);
+    eprintln!("karbon-ui: AD01 = {sym:#x}");
+    assert!(sym != 0);
+}
 #[test]
 fn desktop_scale_comes_from_xft_dpi() {
     use super::connection::dpi_scale;

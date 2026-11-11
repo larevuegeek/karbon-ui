@@ -164,6 +164,7 @@ pub(in crate::platform::linux) const XCB_SELECTION_REQUEST: u8 = 30;
 pub(in crate::platform::linux) const XCB_SELECTION_NOTIFY: u8 = 31;
 pub(in crate::platform::linux) const XCB_CLIENT_MESSAGE: u8 = 33;
 /// Événement générique d'une extension (XInput 2).
+pub(in crate::platform::linux) const XCB_MAPPING_NOTIFY: u8 = 34;
 pub(in crate::platform::linux) const XCB_GE_GENERIC: u8 = 35;
 // Mode d'un changement de focus (`xcb_notify_mode_t`) : saisie du clavier par un autre
 // client, et son relâchement.

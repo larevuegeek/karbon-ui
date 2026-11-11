@@ -360,8 +360,11 @@ embarque. Sonde commune des deux boucles : `probe.rs`.
   pour l’horizontal), barre de titre et bords du moteur (bande intérieure de 8 px, où une
   barre de défilement l'emporte, sauf dans les coins) et zones de déplacement de
   l’application (`shell/chrome.rs`, commun avec Wayland) confiés au gestionnaire par
-  `_NET_WM_MOVERESIZE` ; clavier sans extension XKB ni `xkbcommon-x11` : disposition
-  compilée par xkbcommon d’après `_XKB_RULES_NAMES`, modificateurs et groupe lus dans
+  `_NET_WM_MOVERESIZE` ; clavier : disposition lue du serveur par l’extension XKB
+  (`libxkbcommon-x11` et `libxcb-xkb`, chargées au lancement) et relue à chaque
+  `NewKeyboardNotify` ou `MapNotify` (`MappingNotify` sans XKB) ; à défaut, compilée
+  d’après `_XKB_RULES_NAMES`, qui sous XWayland reste `us` quelle que soit la disposition
+  du bureau ; modificateurs et groupe lus dans
   chaque événement, répétitions du serveur reconnues (relâchement et appui au même
   instant) ; curseurs du thème par `libxcb-cursor` (chargée au lancement). Vérifié sous
   XWayland par des événements synthétiques (clic dans le champ de recherche de

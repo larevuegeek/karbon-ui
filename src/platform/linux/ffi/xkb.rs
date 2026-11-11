@@ -1,6 +1,6 @@
-//! xkbcommon : disposition du clavier (envoyée par le compositeur Wayland, ou compilée
-//! d'après les noms du serveur X), état des modificateurs, symboles et texte des touches,
-//! séquences de composition (touches mortes, `Compose`).
+//! xkbcommon : disposition du clavier (envoyée par le compositeur Wayland, lue du serveur
+//! X par xkbcommon-x11, ou compilée d'après ses noms), état des modificateurs, symboles et
+//! texte des touches, séquences de composition (touches mortes, `Compose`).
 use super::required;
 use std::{
     ffi::{CStr, c_char, c_int},
@@ -149,6 +149,14 @@ impl Keyboard {
         Self::build(locale, |context| unsafe {
             xkb_keymap_new_from_names(context, &names, 0)
         })
+    }
+    /// Disposition rendue par `keymap` à partir d'un contexte xkbcommon (pointeur opaque
+    /// `struct xkb_context *`), par exemple `xkb_x11_keymap_new_from_device`.
+    pub fn from_context(
+        locale: &CStr,
+        keymap: impl FnOnce(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
+    ) -> crate::Result<Self> {
+        Self::build(locale, |context| keymap(context.cast()).cast())
     }
     /// Contexte, disposition rendue par `keymap`, état et composition de `locale`.
     fn build(locale: &CStr, keymap: impl FnOnce(*mut Raw) -> *mut Raw) -> crate::Result<Self> {

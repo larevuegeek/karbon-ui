@@ -42,3 +42,8 @@ pub(in crate::platform::linux) const XCB_ATOM_WM_NAME: u32 = 39;
 pub(in crate::platform::linux) const XCB_ATOM_WM_NORMAL_HINTS: u32 = 40;
 pub(in crate::platform::linux) const XCB_ATOM_WM_SIZE_HINTS: u32 = 41;
 pub(in crate::platform::linux) const XCB_ATOM_WM_CLASS: u32 = 67;
+/// Événements XKB (`xcb_xkb_event_type_t`) : nouveau clavier, disposition changée.
+pub(in crate::platform::linux) const XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY: u16 = 1;
+pub(in crate::platform::linux) const XCB_XKB_EVENT_TYPE_MAP_NOTIFY: u16 = 2;
+/// Toutes les parties d'une disposition (`XkbAllMapComponentsMask`).
+pub(in crate::platform::linux) const XCB_XKB_MAP_PART_ALL: u16 = 0xff;

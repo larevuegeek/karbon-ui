@@ -150,3 +150,27 @@ pub(in crate::platform::linux) fn xinput() -> Option<&'static XInputLib> {
         })
         .as_ref()
 }
+
+library! {
+    XkbX11("libxkbcommon-x11.so.0") {
+        fn xkb_x11_setup_xkb_extension(c: *mut xcb_connection_t, major: u16, minor: u16, flags: c_int, major_out: *mut u16, minor_out: *mut u16, base_event_out: *mut u8, base_error_out: *mut u8) -> c_int;
+        fn xkb_x11_get_core_keyboard_device_id(c: *mut xcb_connection_t) -> i32;
+        fn xkb_x11_keymap_new_from_device(context: *mut c_void, c: *mut xcb_connection_t, device_id: i32, flags: c_int) -> *mut c_void;
+    }
+}
+library! {
+    XcbXkb("libxcb-xkb.so.1") {
+        fn xcb_xkb_select_events(c: *mut xcb_connection_t, device_spec: u16, affect_which: u16, clear: u16, select_all: u16, affect_map: u16, map: u16, details: *const c_void) -> xcb_void_cookie_t;
+    }
+}
+/// Événements de l'extension XKB (`libxcb-xkb.so.1`, dépendance de xkbcommon-x11).
+pub(in crate::platform::linux) fn xcb_xkb() -> Option<&'static XcbXkb> {
+    static XKB: OnceLock<Option<XcbXkb>> = OnceLock::new();
+    XKB.get_or_init(XcbXkb::open).as_ref()
+}
+/// Disposition du serveur par l'extension XKB (`libxkbcommon-x11.so.0`), si elle est
+/// installée.
+pub(in crate::platform::linux) fn xkb_x11() -> Option<&'static XkbX11> {
+    static XKB: OnceLock<Option<XkbX11>> = OnceLock::new();
+    XKB.get_or_init(XkbX11::open).as_ref()
+}

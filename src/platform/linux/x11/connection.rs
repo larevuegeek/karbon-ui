@@ -55,6 +55,9 @@ pub(super) struct Connection {
     pub atoms: Atoms,
     /// Échelle du bureau (pixels par unité logique).
     pub scale: f32,
+    /// Premier numéro des événements XKB, une fois l'extension initialisée et ses
+    /// événements de disposition demandés (`server_keyboard`).
+    pub xkb_event: std::cell::Cell<Option<u8>>,
 }
 fn unsupported(reason: &'static str) -> crate::Error {
     crate::Error::Unsupported { reason }
@@ -81,6 +84,7 @@ impl Connection {
             argb: None,
             atoms: Atoms::default(),
             scale: 1.,
+            xkb_event: std::cell::Cell::new(None),
         };
         // SAFETY : connexion valide ; description du serveur possédée par XCB.
         let setup = unsafe { &*(xcb.xcb_get_setup)(raw) };
@@ -260,10 +264,65 @@ impl Connection {
             net_workarea,
         }
     }
-    /// Disposition du clavier du serveur, compilée par xkbcommon d'après ses noms
-    /// (`_XKB_RULES_NAMES` de la racine : règles, modèle, dispositions, variantes,
-    /// options) ; disposition par défaut sans cette propriété.
+    /// Disposition du clavier du serveur : lue telle quelle par l'extension XKB
+    /// (xkbcommon-x11), sinon compilée d'après ses noms (`_XKB_RULES_NAMES` de la racine).
+    /// Sous XWayland, ces noms restent ceux du lancement (`us`) quand le compositeur
+    /// fournit la disposition : seule la lecture par XKB est juste.
     pub fn keyboard(&self) -> Option<crate::platform::linux::ffi::xkb::Keyboard> {
+        let locale = crate::platform::linux::shell::keyboard::locale();
+        self.server_keyboard(&locale)
+            .or_else(|| self.named_keyboard(&locale))
+    }
+    /// Disposition du clavier principal, par l'extension XKB 1.0.
+    pub(super) fn server_keyboard(
+        &self,
+        locale: &std::ffi::CStr,
+    ) -> Option<crate::platform::linux::ffi::xkb::Keyboard> {
+        let xkb = crate::platform::linux::ffi::xcb::xkb_x11()?;
+        // SAFETY : connexion valide ; sorties locales ; disposition rendue à xkbcommon
+        // par `Keyboard` (contexte fourni par lui, vivant pendant l'appel).
+        unsafe {
+            let (mut major, mut minor, mut event, mut error) = (0, 0, 0, 0);
+            if (xkb.xkb_x11_setup_xkb_extension)(
+                self.raw, 1, 0, 0, &mut major, &mut minor, &mut event, &mut error,
+            ) != 1
+            {
+                return None;
+            }
+            let device = (xkb.xkb_x11_get_core_keyboard_device_id)(self.raw);
+            if device < 0 {
+                return None;
+            }
+            // Client XKB : le serveur ne lui envoie plus `MappingNotify` ; les changements
+            // de disposition arrivent par ces événements (tous leurs détails, sans liste).
+            if self.xkb_event.get().is_none()
+                && let Some(events) = xcb_xkb()
+            {
+                let which = XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY | XCB_XKB_EVENT_TYPE_MAP_NOTIFY;
+                (events.xcb_xkb_select_events)(
+                    self.raw,
+                    device as u16,
+                    which,
+                    0,
+                    which,
+                    XCB_XKB_MAP_PART_ALL,
+                    XCB_XKB_MAP_PART_ALL,
+                    std::ptr::null(),
+                );
+                self.xkb_event.set(Some(event));
+            }
+            crate::platform::linux::ffi::xkb::Keyboard::from_context(locale, |context| {
+                (xkb.xkb_x11_keymap_new_from_device)(context, self.raw, device, 0)
+            })
+            .ok()
+        }
+    }
+    /// Disposition compilée d'après les noms du serveur (règles, modèle, dispositions,
+    /// variantes, options) ; disposition par défaut sans cette propriété.
+    fn named_keyboard(
+        &self,
+        locale: &std::ffi::CStr,
+    ) -> Option<crate::platform::linux::ffi::xkb::Keyboard> {
         let names = self.property(self.root, self.atoms.xkb_rules_names);
         let mut parts: Vec<std::ffi::CString> = names
             .split(|b| *b == 0)
@@ -272,8 +331,7 @@ impl Connection {
             .collect();
         parts.resize(5, std::ffi::CString::default());
         let names = std::array::from_fn(|i| parts[i].as_c_str());
-        let locale = crate::platform::linux::shell::keyboard::locale();
-        crate::platform::linux::ffi::xkb::Keyboard::from_names(names, &locale).ok()
+        crate::platform::linux::ffi::xkb::Keyboard::from_names(names, locale).ok()
     }
     /// Valeur de la propriété `property` de `window` (atomes ou octets), au plus 1 Mo.
     pub fn property(&self, window: u32, property: u32) -> Vec<u8> {
