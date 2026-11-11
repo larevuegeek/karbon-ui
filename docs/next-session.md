@@ -233,6 +233,36 @@ Reste à faire à la main :
 
 ## Backend Linux (en cours)
 
+### Session du 2026-11-10/11 (VM Ubuntu 22.04, GNOME 42, llvmpipe, Cairo 1.16)
+
+Recette du propriétaire, puis balayages automatiques (frappe XTEST sous X11, lecture par
+AT-SPI, client GTK 3 pour le presse-papiers). Corrigé, chaque fois avec un test :
+
+- Barre de défilement collée au bord impossible à attraper : bords de fenêtre Wayland
+  hors du contenu (sous-surface, `wayland/window/border.rs`) ; sous X11, la barre
+  l'emporte sur la bande intérieure.
+- Clavier X11 faux sous XWayland (AZERTY tapait en QWERTY) : disposition lue par XKB
+  (xkbcommon-x11), suivie à chaque changement ; répétition détectable (X2).
+- IBus sous X11 sans attente (X5), presse-papiers X11 par morceaux `INCR` (X14) et menu
+  de la fenêtre au clic droit sur la barre, `done.serial` de `zwp_text_input_v3` (W9).
+- Groupe filtré de plus de 16 M pixels dessiné sans filtres au lieu d'échouer (V7, aussi
+  macOS) ; rastérisations Vulkan réutilisées pendant un défilement (V3, 80 → 13).
+- Thème suivi en direct (`SettingChanged`) ; dialogues de fichiers modaux sous Wayland
+  (`xdg-foreign`) ; démarrage AT-SPI sans attente (A9).
+- Accessibilité (moteur commun) : boutons riches, onglets et cartes cliquables nommés
+  par leur contenu (tout s'appelait « Action ») ; frontières de mot AT-SPI ; `aria-label`
+  pour `Select` et `Slider` ; galerie entière balayée, plus aucun contrôle sans nom.
+- Kit : `ContextMenu` (clic droit), `Grid min`, `Sidebar responsive`, galerie adaptée
+  aux fenêtres étroites ; cible du clic droit corrigée dans le moteur.
+- Images de mouvement en demi-résolution sous Wayland (Cairo, échelle 2) : défilement
+  de la VM 3,9 → 5,7 images/s.
+
+Reste sous Linux : Fcitx (absent de la VM), recette à la main du dialogue de fichiers
+modal, de la composition IBus (Ctrl+Maj+U, méthode asiatique), d'Orca à la voix, de la
+disposition russe ; mesure de la cadence sur le poste Radeon. Les remaniements
+« Proposé » de [linux-review.md](linux-review.md) restent à décider.
+
+
 Développement passé sous Linux le 2026-11-05 (Zorin OS 18.1, GNOME 46 sous Wayland,
 XWayland, Mesa 25.2, Radeon 760M). Pile choisie par le propriétaire : Wayland natif puis
 X11, Pango + HarfBuzz + fontconfig pour le texte, Cairo puis Vulkan pour le rendu
