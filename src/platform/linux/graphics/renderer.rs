@@ -20,6 +20,10 @@ pub(crate) struct Renderer {
     pub(super) caches: Caches,
     /// Inventaire de la dernière image peinte par `draw_changes`.
     pub(super) previous: Option<damage::Damage>,
+    /// Inventaire de la dernière scène examinée par `full_change`.
+    pub(super) examined: Option<damage::Damage>,
+    /// `examined` décrit la scène que `draw_changes` va dessiner.
+    pub(super) fresh: bool,
     /// Zones redessinées par le dernier `draw_changes` (`None` : toute la surface).
     pub(crate) last_region: Option<Vec<damage::Pixels>>,
 }
@@ -32,8 +36,29 @@ impl Renderer {
             text: text::Cache::default(),
             caches: Caches::default(),
             previous: None,
+            examined: None,
+            fresh: false,
             last_region: None,
         })
+    }
+    /// `true` si `scene` change toute la surface depuis la scène examinée par l'appel
+    /// précédent (quelle que soit la façon dont celle-ci a été dessinée), comme sous
+    /// macOS : un mouvement de toute la fenêtre peut alors être dessiné réduit.
+    pub(crate) fn full_change(
+        &mut self,
+        scene: &Scene,
+        scale: f32,
+        size: (usize, usize),
+    ) -> crate::Result<bool> {
+        let current = damage::Damage::new(scene, scale, size, &mut self.fonts, &mut self.text)?;
+        let full = self
+            .examined
+            .as_ref()
+            .is_none_or(|e| matches!(current.change(e), damage::Change::Full));
+        // Réutilisé par `draw_changes` pour la même scène.
+        self.examined = Some(current);
+        self.fresh = true;
+        Ok(full)
     }
     /// Fenêtre : `system-ui` et `monospace` désignent les polices du bureau (aperçus et
     /// exports gardent les génériques de fontconfig, reproductibles).
@@ -78,13 +103,20 @@ impl Renderer {
         scale: f32,
     ) -> crate::Result<bool> {
         scene.validate()?;
-        let current = damage::Damage::new(
-            scene,
-            scale,
-            (target.width, target.height),
-            &mut self.fonts,
-            &mut self.text,
-        )?;
+        let current = match self
+            .examined
+            .as_ref()
+            .filter(|_| std::mem::take(&mut self.fresh))
+        {
+            Some(examined) => examined.clone(),
+            None => damage::Damage::new(
+                scene,
+                scale,
+                (target.width, target.height),
+                &mut self.fonts,
+                &mut self.text,
+            )?,
+        };
         let change = match self.previous.take() {
             Some(previous) => current.change(&previous),
             None => damage::Change::Full,

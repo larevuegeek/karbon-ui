@@ -70,6 +70,8 @@ impl Renderer {
     /// surface a été présentée par Vulkan entre-temps).
     pub(in crate::platform::linux) fn forget(&mut self) {
         self.previous = None;
+        self.examined = None;
+        self.fresh = false;
     }
     /// Surface que le dessin Cairo poserait pour `image` affichée sur `width` × `height`
     /// pixels : réduite à cette taille, ou d'origine (même taille, trop grande, ou taille

@@ -421,6 +421,11 @@ embarque. Sonde commune des deux boucles : `probe.rs`.
   suivante attend ce rappel, sauf après une configuration ; une fenêtre cachée n’en
   reçoit pas et ne peint pas.
   Régions opaque (fond du thème) et d’entrée (vide pour `click_through`).
+  Chemin Cairo, à l’échelle 2 ou plus : un mouvement qui change toute la fenêtre
+  (défilement, animation) est dessiné en demi-résolution et étiré par `wp_viewport`, comme
+  sous macOS (`Renderer::full_change`), puis l’image nette suit 120 ms après le mouvement.
+  Dans la VM de développement (llvmpipe, GNOME 42 à 200 %), défilement de RustMusic : 3,9
+  → 5,7 images/s, écart médian 67 → 42 ms (le compositeur logiciel limite le reste).
 - Échelle : `wp_fractional_scale_v1` (tampon à la taille physique, `wp_viewport` à la
   taille logique), sinon échelle entière (`wl_surface.preferred_buffer_scale`, ou la plus
   grande des sorties de la surface).

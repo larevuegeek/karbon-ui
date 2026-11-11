@@ -18,7 +18,10 @@ use crate::{
     },
     window::{FileDialog, WindowId, WindowOptions},
 };
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 pub(in crate::platform::linux) struct Session {
     pub id: WindowId,
@@ -60,6 +63,8 @@ pub(in crate::platform::linux) struct Session {
     pub last_press: Option<(Instant, crate::ui::scene::PointF)>,
     /// Redessin exact attendu après des images approchées (animation).
     pub refine_at: Option<Instant>,
+    /// Défilement en cours jusqu'à cet instant (images réduites possibles, `wayland`).
+    pub scrolling_until: Option<Instant>,
     /// Dernier thème du bureau transmis : un changement demande une image.
     system_dark: bool,
     /// Allègement des ressources GPU attendu (une seconde après la dernière image).
@@ -108,6 +113,7 @@ impl Session {
             pressed: None,
             last_press: None,
             refine_at: None,
+            scrolling_until: None,
             system_dark: false,
             trim_at: None,
             focused: false,
@@ -191,6 +197,9 @@ impl Session {
         // attend la prochaine image (comme sous Windows et macOS).
         if !matches!(event, UiEvent::PointerMove(_) | UiEvent::Timer(_)) {
             self.prepare()?;
+        }
+        if matches!(event, UiEvent::Scroll { .. } | UiEvent::Wheel { .. }) {
+            self.scrolling_until = Some(Instant::now() + Duration::from_millis(150));
         }
         let paints = self.runtime.stats().paints;
         let mut result = self.runtime.event(event);

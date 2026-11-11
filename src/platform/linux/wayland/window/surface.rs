@@ -61,6 +61,10 @@ pub(crate) struct Window {
     /// Sorties où la surface est affichée.
     pub outputs: Vec<Ptr>,
     pub(super) surface_pixels: Option<Bitmap>,
+    /// Image réduite d'un mouvement de toute la fenêtre (Cairo, `paint.rs`).
+    pub(super) motion_pixels: Option<Bitmap>,
+    /// La dernière image envoyée était réduite et étirée par le viewport.
+    pub(super) stretched: bool,
     pub(super) buffers: Vec<Buffer>,
     /// Taille logique et transparence des régions déjà déclarées.
     pub(super) regions: Option<(i32, i32)>,
@@ -149,16 +153,10 @@ impl Window {
             };
             request!(decoration, zxdg_toplevel_decoration_v1::SET_MODE, mode);
         }
+        // Viewport : échelle fractionnaire, et images réduites étirées pendant un mouvement
+        // (`paint.rs`), même sans échelle fractionnaire (GNOME 42).
         let (mut fractional, mut viewport) = (std::ptr::null_mut(), std::ptr::null_mut());
-        if !globals.fractional.is_null() && !globals.viewporter.is_null() {
-            fractional = create!(
-                globals.fractional,
-                wp_fractional_scale_manager_v1::GET_FRACTIONAL_SCALE,
-                &WP_FRACTIONAL_SCALE_V1,
-                Kind::Fractional,
-                NEW,
-                surface
-            );
+        if !globals.viewporter.is_null() {
             viewport = create!(
                 globals.viewporter,
                 wp_viewporter::GET_VIEWPORT,
@@ -167,6 +165,16 @@ impl Window {
                 NEW,
                 surface
             );
+            if !globals.fractional.is_null() {
+                fractional = create!(
+                    globals.fractional,
+                    wp_fractional_scale_manager_v1::GET_FRACTIONAL_SCALE,
+                    &WP_FRACTIONAL_SCALE_V1,
+                    Kind::Fractional,
+                    NEW,
+                    surface
+                );
+            }
         }
         let gpu = paint::gpu(&options, gpu.as_ref(), display, surface);
         let border = super::border::Border::new(globals, surface);
@@ -192,6 +200,8 @@ impl Window {
             integer_scale: 1,
             outputs: Vec::new(),
             surface_pixels: None,
+            motion_pixels: None,
+            stretched: false,
             buffers: Vec::new(),
             regions: None,
             border,

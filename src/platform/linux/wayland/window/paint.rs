@@ -25,6 +25,10 @@ use std::time::{Duration, Instant};
 const BUFFERS: usize = 3;
 /// Délai avant l'image exacte qui suit des images approchées (image animée étirée).
 const REFINE_DELAY: Duration = Duration::from_millis(150);
+/// Réveil du runtime assez proche pour signaler une animation en cours.
+const MOTION_HORIZON: Duration = Duration::from_millis(40);
+/// Délai avant l'image nette qui suit des images de mouvement réduites.
+const MOTION_REFINE_DELAY: Duration = Duration::from_millis(120);
 /// Délai après la dernière image avant d'alléger les ressources GPU (`Trim::Idle`).
 const TRIM_DELAY: Duration = Duration::from_secs(1);
 
@@ -72,35 +76,78 @@ impl Window {
         if self.paint_vulkan(compositor, key, start, prepared)? {
             return Ok(());
         }
-        if self
-            .surface_pixels
-            .as_ref()
-            .is_none_or(|s| (s.width, s.height) != (width, height))
-        {
-            self.surface_pixels = Some(Bitmap::new(width, height)?);
-        }
-        let pixels = self.surface_pixels.as_ref().expect("surface created above");
-        // Seules les zones modifiées depuis l'image précédente sont redessinées.
-        let changed =
+        let now = Instant::now();
+        let low = (scale / 2.).max(1.);
+        // Mouvement qui change toute la fenêtre (défilement, changement de page, repli d'un
+        // panneau) à l'échelle 2 ou plus : image en demi-résolution, étirée par le
+        // compositeur (viewport), comme sous macOS ; l'image nette suit l'arrêt du
+        // mouvement. Les petites zones restent redessinées nettes.
+        let motion = !self.viewport.is_null()
+            && low < scale
+            && (self
+                .session
+                .runtime
+                .next_wake()
+                .is_some_and(|wake| wake <= now + MOTION_HORIZON)
+                || self
+                    .session
+                    .scrolling_until
+                    .is_some_and(|until| until > now))
+            && self.session.renderer.full_change(
+                self.session.runtime.scene(),
+                scale,
+                (width, height),
+            )?;
+        let (pixels, (width, height), zones) = if motion {
+            let reduced = |v: usize| ((v as f32 * low / scale).round() as usize).max(1);
+            let size = (reduced(width), reduced(height));
+            if self
+                .motion_pixels
+                .as_ref()
+                .is_none_or(|s| (s.width, s.height) != size)
+            {
+                self.motion_pixels = Some(Bitmap::new(size.0, size.1)?);
+            }
+            let pixels = self.motion_pixels.as_ref().expect("surface created above");
             self.session
                 .renderer
-                .draw_changes(pixels, self.session.runtime.scene(), scale)?;
-        if self.session.renderer.take_refine() {
-            // Image animée étirée : l'image exacte suit l'arrêt du mouvement.
-            self.session.refine_at = Some(Instant::now() + REFINE_DELAY);
-        }
-        let drawn = start.elapsed();
-        if !changed {
-            self.session.presented = Some(key);
-            if self.acked {
-                // Configuration confirmée sans changement visible : elle est validée
-                // par un envoi sans nouveau tampon.
-                request!(self.surface, wl_surface::COMMIT);
-                self.acked = false;
+                .draw(pixels, self.session.runtime.scene(), low)?;
+            self.session.renderer.take_refine();
+            self.session.refine_at = Some(now + MOTION_REFINE_DELAY);
+            (pixels, size, None)
+        } else {
+            self.motion_pixels = None;
+            if self
+                .surface_pixels
+                .as_ref()
+                .is_none_or(|s| (s.width, s.height) != (width, height))
+            {
+                self.surface_pixels = Some(Bitmap::new(width, height)?);
             }
-            return Ok(());
-        }
-        let zones = self.session.renderer.last_region.clone();
+            let pixels = self.surface_pixels.as_ref().expect("surface created above");
+            // Seules les zones modifiées depuis l'image précédente sont redessinées.
+            let changed =
+                self.session
+                    .renderer
+                    .draw_changes(pixels, self.session.runtime.scene(), scale)?;
+            if self.session.renderer.take_refine() {
+                // Image animée étirée : l'image exacte suit l'arrêt du mouvement.
+                self.session.refine_at = Some(Instant::now() + REFINE_DELAY);
+            }
+            if !changed {
+                self.session.presented = Some(key);
+                if self.acked {
+                    // Configuration confirmée sans changement visible : elle est validée
+                    // par un envoi sans nouveau tampon.
+                    request!(self.surface, wl_surface::COMMIT);
+                    self.acked = false;
+                }
+                return Ok(());
+            }
+            let zones = self.session.renderer.last_region.clone();
+            (pixels, (width, height), zones)
+        };
+        let drawn = start.elapsed();
         for buffer in &mut self.buffers {
             buffer.invalidate(zones.as_deref());
         }
@@ -124,7 +171,7 @@ impl Window {
         buffer.busy = true;
         let raw = buffer.raw;
         self.declare_regions(compositor);
-        if self.scale120.is_some() && !self.viewport.is_null() {
+        if motion || (self.scale120.is_some() && !self.viewport.is_null()) {
             request!(self.surface, wl_surface::SET_BUFFER_SCALE, 1i32);
             request!(
                 self.viewport,
@@ -133,12 +180,17 @@ impl Window {
                 self.session.height
             );
         } else {
+            if self.stretched {
+                // Retour à l'échelle entière après une image étirée.
+                request!(self.viewport, wp_viewport::SET_DESTINATION, -1i32, -1i32);
+            }
             request!(
                 self.surface,
                 wl_surface::SET_BUFFER_SCALE,
                 self.integer_scale.max(1)
             );
         }
+        self.stretched = motion;
         request!(self.surface, wl_surface::ATTACH, raw, 0i32, 0i32);
         let whole = [[0, 0, width as i32, height as i32]];
         for &[left, top, right, bottom] in zones.as_deref().unwrap_or(&whole) {
@@ -164,10 +216,20 @@ impl Window {
         self.acked = false;
         self.session.presented = Some(key);
         if self.session.options.profile {
-            let zone = zones.as_ref().map_or("complète".to_string(), |zones| {
-                let area: i32 = zones.iter().map(|r| (r[2] - r[0]) * (r[3] - r[1])).sum();
-                format!("{} rect., {} kpx", zones.len(), area / 1000)
-            });
+            let zone = zones.as_ref().map_or_else(
+                || {
+                    if motion {
+                        "mouvement (demi-résolution)"
+                    } else {
+                        "complète"
+                    }
+                    .to_string()
+                },
+                |zones| {
+                    let area: i32 = zones.iter().map(|r| (r[2] - r[0]) * (r[3] - r[1])).sum();
+                    format!("{} rect., {} kpx", zones.len(), area / 1000)
+                },
+            );
             eprintln!(
                 "karbon-ui: image {width}×{height}, chemin Cairo (wl_shm), zone {zone} : préparation {:.1} ms, dessin {:.1} ms, copie et envoi {:.1} ms, total {:.1} ms",
                 prepared.as_secs_f64() * 1e3,
@@ -245,6 +307,7 @@ impl Window {
         // ses tampons sont libérés une fois rendus par le compositeur.
         self.session.renderer.forget();
         self.surface_pixels = None;
+        self.motion_pixels = None;
         self.buffers.retain(|b| b.busy);
         if self.session.renderer.take_refine() {
             // Image animée étirée : l'image exacte suit l'arrêt du mouvement.
