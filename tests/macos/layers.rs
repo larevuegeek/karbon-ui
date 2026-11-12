@@ -2,6 +2,19 @@
 use objc2_app_kit::NSWindow;
 use objc2_quartz_core::CAMetalLayer;
 
+/// Largeur en pixels des drawables du calque Metal de la fenêtre.
+pub(crate) fn drawable_width(window: &NSWindow) -> Option<f64> {
+    Some(metal_layer(window)?.drawableSize().width)
+}
+fn metal_layer(window: &NSWindow) -> Option<objc2::rc::Retained<CAMetalLayer>> {
+    let layer = window.contentView()?.layer()?;
+    // SAFETY : lecture des sous-calques, sans modification pendant l'appel.
+    let sublayers = unsafe { layer.sublayers() }?;
+    sublayers
+        .to_vec()
+        .into_iter()
+        .find_map(|l| l.downcast::<CAMetalLayer>().ok())
+}
 /// État du calque Metal de la fenêtre : `Some(true)` s'il est visible, à la taille en
 /// pixels de la vue, sans image Core Graphics sur le calque de la vue ; `Some(false)`
 /// s'il est masqué et que la vue montre une image Core Graphics ; `None` sans calque
@@ -11,12 +24,7 @@ pub(crate) fn metal_shown(window: &NSWindow) -> Option<bool> {
     let layer = view.layer()?;
     let scale = window.backingScaleFactor();
     let bounds = view.bounds();
-    // SAFETY : lecture des sous-calques, sans modification pendant l'appel.
-    let sublayers = unsafe { layer.sublayers() }?;
-    let metal = sublayers
-        .to_vec()
-        .into_iter()
-        .find_map(|l| l.downcast::<CAMetalLayer>().ok())?;
+    let metal = metal_layer(window)?;
     let size = metal.drawableSize();
     // SAFETY : lecture du contenu du calque.
     let contents = unsafe { layer.contents() }.is_some();

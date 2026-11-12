@@ -274,14 +274,25 @@ pub(super) fn hidden(id: WindowId) {
     });
 }
 /// Visibilité changée : entièrement cachée (autres fenêtres, autre bureau), la fenêtre
-/// libère ses ressources de rendu.
+/// libère ses ressources de rendu ; de nouveau visible, elle refait son image.
 pub(super) fn occlusion(id: WindowId) {
     let visible = window_of(id).is_none_or(|w| {
         w.occlusionState()
             .contains(objc2_app_kit::NSWindowOcclusionState::Visible)
     });
-    if !visible {
+    if visible {
+        resized(id);
+    } else {
         hidden(id);
+    }
+}
+/// Pression mémoire du système (`memory.rs`) : chaque fenêtre allège ses ressources.
+fn relieve_memory(critical: bool) {
+    for id in ids() {
+        with(id, |s| {
+            s.relieve_memory(critical);
+            Ok(())
+        });
     }
 }
 /// Battement de l'écran d'une fenêtre (`frame_link.rs`) : la boucle repart pour l'image.
@@ -449,6 +460,8 @@ pub(crate) fn run_windows(windows: Vec<WindowDescriptor>, policy: ExitPolicy) ->
         return Err(crate::Error::AlreadyRunning);
     }
     let _guard = RunGuard;
+    // Détruite avant le garde : plus de rappel une fois les sessions fermées.
+    let _pressure = super::memory::MemoryPressure::watch(relieve_memory);
     ERROR.with(|e| e.borrow_mut().take());
     let app = NSApplication::sharedApplication(mtm);
     app.setActivationPolicy(NSApplicationActivationPolicy::Regular);

@@ -423,13 +423,55 @@ impl Session {
     /// caches Core Graphics libérés (l'image affichée reste celle du calque). La prochaine
     /// image les recrée.
     pub fn hidden(&mut self) {
-        if let Some((gpu, _)) = &mut self.gpu {
+        if let Some((gpu, surface)) = &mut self.gpu {
             gpu.trim(metal::Trim::Hidden);
+            surface.release();
         }
+        // L'image suivante est refaite en entier, sur des drawables à la bonne taille.
+        self.presented = None;
         self.trim_at = None;
         self.renderer.release();
         self.surface = None;
         self.motion = None;
+    }
+    /// Pression mémoire du système (`window/memory.rs`). Avertissement : ressources GPU
+    /// allégées comme au repos. Critique : tout ce qui se recrée, drawables compris pour
+    /// une fenêtre que l'on ne voit pas ; une fenêtre visible garde son image affichée.
+    pub fn relieve_memory(&mut self, critical: bool) {
+        if self.options.profile {
+            eprintln!(
+                "karbon-ui: pression mémoire du système : {}",
+                if critical {
+                    "critique"
+                } else {
+                    "avertissement"
+                }
+            );
+        }
+        let visible = self.window.isVisible()
+            && !self.window.isMiniaturized()
+            && self
+                .window
+                .occlusionState()
+                .contains(objc2_app_kit::NSWindowOcclusionState::Visible);
+        if critical && !visible {
+            self.hidden();
+            return;
+        }
+        if let Some((gpu, _)) = &mut self.gpu {
+            gpu.trim(if critical {
+                metal::Trim::Hidden
+            } else {
+                metal::Trim::Idle
+            });
+        }
+        if critical {
+            // Surfaces et caches de Core Graphics : la prochaine image est dessinée en
+            // entier (l'image affichée reste celle du calque).
+            self.renderer.release();
+            self.surface = None;
+            self.motion = None;
+        }
     }
     pub fn take_window_commands(&mut self) -> Vec<crate::window::WindowCommand> {
         self.runtime.take_window_commands()

@@ -754,9 +754,20 @@ AppKit (repos 5 s, 120 survols, 120 crans de défilement, quatre menus, barre la
 Reste :
 
 - Mesurer sur un vrai Mac Intel (GPU intégré Intel et dédié AMD, commutation, temps).
-- Libérer les drawables (53 Mo) dans le Dock : retirer le `CAMetalLayer` et le recréer à
-  la sortie demande de vérifier l’animation de retour du Dock.
-- Pression mémoire système (source `DISPATCH_SOURCE_TYPE_MEMORYPRESSURE`) : non branchée.
+- Fait le 2026-11-12 : drawables abandonnés dans le Dock et pour une fenêtre entièrement
+  cachée (taille ramenée à 1 × 1, le calque reste ; image refaite en entier au retour,
+  et à la fin d’une occlusion). Fenêtre de 1440 × 900 : la réduction libère 44 Mo au
+  lieu de 8. Vérifié par la sonde native (drawables d’un pixel dans le Dock, calque à la
+  taille de la vue au retour). À regarder à l’œil : l’animation de retour du Dock (pas
+  de capture d’écran autorisée ici).
+- Fait le 2026-11-12 : pression mémoire du système (`window/memory.rs`, source
+  `DISPATCH_SOURCE_TYPE_MEMORYPRESSURE`, liaisons libdispatch écrites à la main).
+  Avertissement : ressources GPU allégées comme au repos ; critique : textures, atlas et
+  caches Core Graphics, plus les drawables d’une fenêtre que l’on ne voit pas. Source
+  vérifiée par un test ; déclenchement réel à essayer une fois (droits
+  d’administrateur) : `sudo memory_pressure -S -l warn` (puis `critical`, puis
+  `normal`) pendant que le clone tourne avec `--profile`, qui écrit « pression mémoire
+  du système ».
 - Barre latérale et redimensionnement : voir « Préparation du moteur » ci-dessous.
 - Décalage d’un pixel du titre de RustMusic pendant le défilement (cause dans Core
   Graphics non trouvée) et position verticale des émojis.

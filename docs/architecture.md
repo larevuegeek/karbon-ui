@@ -663,6 +663,11 @@ quatre battements sans image ni animation proche. Avant macOS 14, les images sui
 échéances du runtime (`next_wake`). Pendant la sonde de défilement, chaque drawable relève
 son instant d’affichage (`metal/presentation.rs`, `MTLDrawable.presentedTime`).
 
+**Mémoire** : une fenêtre réduite dans le Dock ou entièrement cachée libère ses textures,
+ses caches et ses drawables (taille ramenée à 1 × 1 ; l’image est refaite en entier à son
+retour). La pression mémoire du système (`window/memory.rs`, libdispatch) allège les
+ressources GPU à l’avertissement et libère le reste en pression critique.
+
 Le passage d’un chemin à l’autre se fait dans une seule transaction : le calque Metal est
 montré et le contenu de la vue vidé, ou l’inverse. Une image Metal libère ce qui ne sert
 qu’à Core Graphics (surface de la fenêtre, surface de mouvement, images converties et

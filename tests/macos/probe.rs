@@ -1,6 +1,6 @@
 //! Application de sonde et scénario.
 use crate::appkit::{appearance, ax_text, click, collect, key};
-use crate::layers::metal_shown;
+use crate::layers::{drawable_width, metal_shown};
 use karbon_ui::{
     Error,
     application::{Application, ViewContext},
@@ -50,6 +50,10 @@ struct Log {
     ax_pressed: bool,
     /// Thème vu par la vue (`color_scheme`, `ColorScheme::System`), à chaque changement.
     dark: Vec<bool>,
+    /// Largeur des drawables Metal pendant que la fenêtre est dans le Dock.
+    docked: Option<f64>,
+    /// Calque Metal visible et à la taille de la vue après le retour du Dock.
+    restored: Option<bool>,
 }
 #[derive(Clone)]
 enum Msg {
@@ -248,7 +252,16 @@ impl Application for Probe {
                 // puis claire (`viewDidChangeEffectiveAppearance`).
                 deferred(move || appearance(&window, step == 9));
             }
-            11 => {
+            // Dans le Dock, puis de retour : drawables abandonnés, puis image refaite.
+            11 => deferred(move || window.miniaturize(None)),
+            12 => {
+                self.log.lock().unwrap().docked = Some(window.isMiniaturized())
+                    .filter(|m| *m)
+                    .and(drawable_width(&window));
+                deferred(move || window.deminiaturize(None));
+            }
+            13 => {
+                self.log.lock().unwrap().restored = metal_shown(&window);
                 let nested = platform::run_windows(
                     vec![WindowDescriptor::new(WindowId(9), options("x"), Second)],
                     ExitPolicy::LastWindowClosed,
@@ -259,7 +272,8 @@ impl Application for Probe {
             }
             _ => return true,
         }
-        self.next(Duration::from_millis(250));
+        // L'animation du Dock dure ~0,5 s.
+        self.next(Duration::from_millis(if step >= 11 { 900 } else { 250 }));
         true
     }
 }
@@ -426,6 +440,8 @@ pub fn run() {
             [Some(true), Some(false), Some(true)],
             "Metal (vue filtrée), puis Core Graphics (repli forcé), puis Metal (émoji rempli compris)"
         );
+        assert_eq!(log.docked, Some(1.), "drawables abandonnés dans le Dock");
+        assert_eq!(log.restored, Some(true), "image refaite au retour du Dock");
         assert_eq!(
             log.backends,
             ["GPU · Metal", "CPU · Core Graphics", "GPU · Metal"],

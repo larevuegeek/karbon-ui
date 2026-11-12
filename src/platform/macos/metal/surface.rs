@@ -67,6 +67,12 @@ impl Surface {
             presentation.watch(ProtocolObject::from_ref(&**drawable));
         }
     }
+    /// Fenêtre réduite ou cachée : les drawables à la taille de la fenêtre sont abandonnés
+    /// (drawables d'un pixel) ; la prochaine image (`fit`) leur rend leur taille.
+    pub(in crate::platform::macos) fn release(&mut self) {
+        self.layer.setDrawableSize(CGSize::new(1., 1.));
+        self.size = (0, 0);
+    }
     pub(in crate::platform::macos) fn show(&self, visible: bool) {
         self.layer.setHidden(!visible);
     }

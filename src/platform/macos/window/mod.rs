@@ -14,6 +14,7 @@ mod change;
 mod dialog;
 mod event_loop;
 mod events;
+mod memory;
 mod menu;
 mod session;
 mod text;
