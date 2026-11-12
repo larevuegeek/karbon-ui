@@ -75,6 +75,12 @@ impl Reader {
                 span,
             )
         })?;
+        // Marque d'ordre des octets (fichier enregistré « UTF-8 avec BOM ») et fins de ligne
+        // Windows : le même fichier se compile de la même façon quel que soit l'éditeur.
+        let text = text
+            .strip_prefix('\u{feff}')
+            .unwrap_or(&text)
+            .replace("\r\n", "\n");
         self.bytes += text.len();
         if self.bytes > 2 * 1024 * 1024 {
             return Err(Error::new("Templates exceed the 2 MiB source limit", span));

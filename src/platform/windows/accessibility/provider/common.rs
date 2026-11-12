@@ -85,7 +85,7 @@ impl Core {
             30017 => Variant::boolean(n.control_type != 50022),
             30019 => Variant::boolean(false),
             30022 => Variant::boolean(n.offscreen),
-            30024 => Variant::string("WindowEngine")?,
+            30024 => Variant::string("karbon-ui")?,
             30174 => Variant::boolean(n.is_dialog),
             30031 => Variant::boolean(n.invokable),
             30043 => Variant::boolean(n.value.is_some()),
@@ -98,7 +98,7 @@ impl Core {
             30040 => Variant::boolean(n.text.is_some()),
             30045 if n.value.is_some() => Variant::string(n.value.as_deref().unwrap())?,
             30046 if n.value.is_some() => Variant::boolean(n.read_only),
-            30107 => Variant::string("Window Engine native UI Automation provider")?,
+            30107 => Variant::string("Karbon UI native UI Automation provider")?,
             // AriaProperties : `aria-current`, comme les navigateurs.
             30102 if n.current.is_some() => {
                 Variant::string(&format!("current={}", n.current.unwrap()))?

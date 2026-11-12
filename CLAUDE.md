@@ -48,10 +48,12 @@ cargo doc --no-deps --workspace
 - Carte du code et contrat des backends : [docs/architecture.md](docs/architecture.md),
   [src/platform/backend.rs](src/platform/backend.rs).
 - Tests et contrat qu'un nouveau backend doit passer : [docs/tests.md](docs/tests.md).
-- Compilateur des templates et du CSS : [crates/ui-macros/README.md](crates/ui-macros/README.md).
+- Compilateur des templates et du CSS : [docs/compiler.md](docs/compiler.md).
 - Point de reprise : [docs/next-session.md](docs/next-session.md).
 - Suivi de la revue du backend Linux (constats, états, remaniements proposés) :
   [docs/linux-review.md](docs/linux-review.md).
+- Revue de tout le dépôt avant la publication 0.1.0 (constats corrigés, à faire, à
+  valider sur macOS) : [docs/release-review.md](docs/release-review.md).
 
 ## Backend macOS (en cours)
 

@@ -125,3 +125,24 @@ fn select_validation_and_empty_lists_are_explicit() {
     assert!(!f.info().expanded);
     assert!(f.ui.scene().validate().is_ok());
 }
+
+/// Fenêtre sans barre du moteur (toujours sous macOS, `title_bar: false` ailleurs) : la
+/// liste ouverte le reste d'une préparation à l'autre.
+#[test]
+fn an_open_list_stays_open_in_a_window_without_the_engine_title_bar() {
+    let mut f = Fixture::new();
+    let chrome = || ChromeState {
+        visible: false,
+        ..ChromeState::default()
+    };
+    f.ui.prepare(context(), chrome(), &mut f.measure).unwrap();
+    f.ui.accessibility_action(AccessibilityAction::ExpandSelect {
+        id: ElementId(10),
+        expanded: true,
+    })
+    .unwrap();
+    f.ui.prepare(context(), chrome(), &mut f.measure).unwrap();
+    assert!(f.info().expanded);
+    f.ui.prepare(context(), chrome(), &mut f.measure).unwrap();
+    assert!(f.info().expanded);
+}

@@ -111,7 +111,7 @@ impl UiRuntime {
                     id: node.id,
                     parent,
                     role: Role::Separator,
-                    name: "Séparateur redimensionnable".into(),
+                    name: "Resizable separator".into(),
                     enabled: true,
                     focused: focused == Some(node.id),
                     bounds,
@@ -142,8 +142,8 @@ impl UiRuntime {
                         Role::ScrollArea
                     },
                     name: node.virtual_list.as_ref().map_or_else(
-                        || "Zone de défilement".into(),
-                        |list| format!("Liste de {} éléments", list.metrics().item_count),
+                        || "Scroll area".into(),
+                        |list| format!("List of {} items", list.metrics().item_count),
                     ),
                     enabled: true,
                     focused: focused == Some(node.id),

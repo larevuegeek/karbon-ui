@@ -73,7 +73,7 @@ impl TextInput {
         Self {
             value: value.into(),
             placeholder: "".into(),
-            label: "Champ de saisie".into(),
+            label: "Text field".into(),
             on_change: Handler::new(on_change),
             on_submit: None,
             on_key: None,

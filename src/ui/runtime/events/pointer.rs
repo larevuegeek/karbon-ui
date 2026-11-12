@@ -81,7 +81,9 @@ impl UiRuntime {
             }
             Some(Hit::Input(id)) => {
                 self.interaction.focused = Some(id);
-                let now = self.motions.time();
+                // L'horloge des animations n'avance que pendant une animation : sans
+                // l'heure réelle, deux clics éloignés compteraient pour un double clic.
+                let now = Instant::now().max(self.motions.time());
                 self.components.inputs.pointer_down(id, p, extend, now);
                 result.capture = true;
                 result.handled = true;

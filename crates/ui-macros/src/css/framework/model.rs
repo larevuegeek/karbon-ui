@@ -72,7 +72,11 @@ pub fn load(path: &str) -> Result<Rc<Sheet>, String> {
     if text.len() > 8 * 1024 * 1024 {
         return Err("Framework stylesheets are limited to 8 MiB".into());
     }
-    let sheet = Rc::new(Sheet::compile(&text));
+    // Sans la marque d'ordre des octets, qui deviendrait le nom de balise du premier
+    // sélecteur (`:root` n'y serait plus reconnu).
+    let sheet = Rc::new(Sheet::compile(
+        text.strip_prefix('\u{feff}').unwrap_or(&text),
+    ));
     SHEETS.with(|s| {
         s.borrow_mut()
             .insert(path.to_owned(), (len, modified, sheet.clone()))

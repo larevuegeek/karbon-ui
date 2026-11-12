@@ -364,7 +364,17 @@ impl Widget for RichText {
                     bottom: a.bottom.max(b.bottom),
                 })
                 .unwrap_or(RectF::new(area.left, area.top, 0., 0.));
-            *links.next().unwrap().borrow_mut() = fragments;
+            // Fragments gardés relatifs à la boîte du lien : un défilement déplace la boîte
+            // sans repasser par ici, et le survol comme l'anneau de focus doivent suivre.
+            *links.next().unwrap().borrow_mut() = fragments
+                .iter()
+                .map(|r| RectF {
+                    left: r.left - union.left,
+                    top: r.top - union.top,
+                    right: r.right - union.left,
+                    bottom: r.bottom - union.top,
+                })
+                .collect();
             boxes.push(union);
         }
         Ok(boxes)
@@ -398,7 +408,8 @@ impl crate::ui::template::typography::TextWeight for RichText {
 }
 
 /// Lien d'un texte enrichi : enfant en ligne focalisable dont les fragments
-/// (une boîte par ligne) sont fournis par le paragraphe au layout.
+/// (une boîte par ligne, relative à la boîte du lien) sont fournis par le paragraphe au
+/// layout.
 struct LinkTarget {
     action: Action,
     name: Arc<str>,
@@ -410,13 +421,14 @@ impl Widget for LinkTarget {
     }
     fn paint(&self, ctx: &PaintContext, scene: &mut Scene) {
         if ctx.state.focused {
+            let (x, y) = (ctx.rect.left, ctx.rect.top);
             for r in self.fragments.borrow().iter() {
                 scene.commands.push(DrawCommand::Stroke {
                     rect: RectF {
-                        left: r.left - 2.,
-                        top: r.top - 1.,
-                        right: r.right + 2.,
-                        bottom: r.bottom + 1.,
+                        left: x + r.left - 2.,
+                        top: y + r.top - 1.,
+                        right: x + r.right + 2.,
+                        bottom: y + r.bottom + 1.,
                     },
                     radius: 3.,
                     width: 2.,
@@ -435,11 +447,12 @@ impl Widget for LinkTarget {
             enabled: true,
         }
     }
-    fn hit_test(&self, _: RectF, point: PointF) -> bool {
+    fn hit_test(&self, rect: RectF, point: PointF) -> bool {
         let fragments = self.fragments.borrow();
+        let (x, y) = (point.x - rect.left, point.y - rect.top);
         fragments.is_empty()
             || fragments
                 .iter()
-                .any(|r| crate::ui::layout::contains(*r, point.x, point.y))
+                .any(|r| crate::ui::layout::contains(*r, x, y))
     }
 }

@@ -98,7 +98,12 @@ pub(super) fn calc(value: &str) -> Option<String> {
     let ((x, ux), (y, uy)) = (unit(a)?, unit(b)?);
     let (n, u) = match *op {
         "+" | "-" if ux == uy || x == 0. || y == 0. => {
-            let u = if ux.is_empty() { uy } else { ux };
+            // Un zéro prend l'unité de l'autre terme : `calc(0px + 50%)` vaut 50 %.
+            let u = if ux.is_empty() || (x == 0. && !uy.is_empty()) {
+                uy
+            } else {
+                ux
+            };
             (if *op == "+" { x + y } else { x - y }, u)
         }
         "*" if ux.is_empty() || uy.is_empty() => (x * y, if ux.is_empty() { uy } else { ux }),

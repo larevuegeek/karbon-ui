@@ -1,5 +1,8 @@
 # Point de reprise
 
+Revue avant publication du 2026-11-12 : [release-review.md](release-review.md) liste
+chaque constat et son état ; commencer par les lignes « À faire » et « à valider » (macOS).
+
 Le projet s’appelle `karbon-ui` (crate Cargo du même nom) ; sa publication en dépôt
 public séparé est décidée (voir « Publication » ci-dessous). Dépendances : le
 compilateur proc-macro local `crates/ui-macros` ; sous Windows, les liaisons
@@ -64,7 +67,7 @@ non redimensionnable.
   `UpdateTarget` de Chromium, au lieu d'un nouvel élan à chaque cran) ; un ancrage du
   défilement (lignes retirées au-dessus par une liste chargée par pages) déplace aussi
   la cible du glissement, qui ramenait sinon le contenu vers l'ancienne position et
-  relançait le chargement. Tests dans `tests/layout/anchoring.rs`.
+  relançait le chargement. Tests dans `src/ui/tests/layout/anchoring.rs`.
 - **Passes par image proportionnelles au contenu animé** : la synchronisation des
   animations ne parcourt plus que les branches qui mènent à un élément animé
   (`animation/timeline/paths.rs`, relevées quand l'arbre ou les styles changent) ; les

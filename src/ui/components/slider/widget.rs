@@ -35,7 +35,7 @@ impl Slider {
             min: 0.,
             max: 100.,
             step: 1.,
-            label: "Réglage".into(),
+            label: "Slider".into(),
             on_change: Handler::new(on_change),
             on_commit: None,
             axis: Axis::Horizontal,
@@ -123,7 +123,17 @@ impl Slider {
 
     /// Clamp `value` to the range and snap it to the nearest step from `min`;
     /// `max` is always reachable even when the range is not a multiple of `step`.
+    ///
+    /// An invalid range (`min > max`, or a bound that is not a number) returns `value`
+    /// unchanged.
     pub fn snapped(&self, value: f64) -> f64 {
+        if self
+            .min
+            .partial_cmp(&self.max)
+            .is_none_or(|order| order.is_gt())
+        {
+            return value;
+        }
         let value = value.clamp(self.min, self.max);
         if value == self.max || value == self.min {
             return value;

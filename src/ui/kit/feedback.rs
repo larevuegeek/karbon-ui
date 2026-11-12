@@ -91,7 +91,14 @@ impl<R> Component<R> for Progress {
         );
         let t = tone(variant, CustomColor::default());
         let max = self.max.filter(|m| *m > 0.).unwrap_or(100.);
-        let share = (self.value.0 / max * 100.).clamp(0., 100.);
+        // Une valeur non numérique (0 / 0) traverserait `clamp` jusqu'à la mise en page,
+        // qui refuse l'arbre : barre vide.
+        let share = self.value.0 / max * 100.;
+        let share = if share.is_nan() {
+            0.
+        } else {
+            share.clamp(0., 100.)
+        };
         kit_ui!(cx;
             <div class="k-progress">
                 <div class="k-progress-bar" style:background={t.fill} style:width={Length::Percent(share)}></div>

@@ -2,9 +2,10 @@
 //! desktop presentation (composition and display).
 //!
 //! [`render_benchmark`] and [`render_preview`] run an application without opening a
-//! window; [`write_png`] saves a rendered image. The Windows backend renders with
-//! Direct2D; on other targets the [headless](crate::platform::headless) software
-//! rasteriser is used (shapes, lines and images; glyphs drawn as boxes).
+//! window; [`write_png`] saves a rendered image. Each native backend renders with its
+//! own stack (Direct2D on Windows, Core Graphics on macOS, Cairo or Vulkan on Linux); on
+//! any other target the [headless](crate::platform::headless) software rasteriser is used
+//! (shapes, lines and images; glyphs drawn as boxes).
 use crate::{
     platform::{Backend, Native},
     window::RenderMode,
@@ -206,9 +207,9 @@ pub(crate) fn validate(options: BenchmarkOptions) -> crate::Result<()> {
 }
 /// Encode `image` as a PNG file at `path`, leaving its pixels unchanged.
 ///
-/// The Windows backend uses the system PNG encoder (GDI+); other targets use the
-/// headless backend's small built-in encoder (uncompressed deflate blocks, larger
-/// files).
+/// Native backends use the system PNG encoder (GDI+ on Windows, ImageIO on macOS, Cairo
+/// on Linux); any other target uses the headless backend's small built-in encoder
+/// (uncompressed deflate blocks, larger files).
 ///
 /// # Errors
 ///
@@ -223,9 +224,10 @@ pub fn write_png(image: &crate::ui::scene::Image, path: &std::path::Path) -> cra
 }
 /// Render one frame of the application to pixels, without opening a window.
 ///
-/// Background tasks requested while loading are run to completion first. On Windows the
-/// frame is drawn by Direct2D (GPU or WARP); on other targets by the headless software
-/// rasteriser, which draws shapes, lines and images but replaces glyphs with boxes (see
+/// Background tasks requested while loading are run to completion first. The frame is
+/// drawn by the native backend (Direct2D on Windows, Core Graphics on macOS, Cairo or
+/// Vulkan on Linux); on any other target by the headless software rasteriser, which
+/// draws shapes, lines and images but replaces glyphs with boxes (see
 /// [`platform::headless`](crate::platform::headless)).
 ///
 /// # Errors

@@ -121,7 +121,7 @@ par sa clé reste à gérer côté application. Changer l’ID de la liste corre
 `element.virtual_metrics()` donne le nombre logique d’éléments, l’intervalle
 matérialisé avec sa marge, le nombre de lignes détenues, l’index actif et les
 appels à la fabrique depuis la création de cette vue. Les compteurs sont remis
-à zéro lors d’une reconstruction. `RuntimeStats::virtual_rows`, affiché avec F8,
+à zéro lors d’une reconstruction. `RuntimeStats::virtual_rows`, affiché avec F8 (option `profile`),
 donne le nombre courant de lignes matérialisées dans toute l’interface.
 
 ```sh

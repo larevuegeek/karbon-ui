@@ -254,8 +254,15 @@ impl Cache {
         }
         let key = RichKey::new(paragraph, width, true);
         let entry = self.ensure_rich(factory, native, fonts, paragraph, key)?;
-        let start = entry.utf16[range.start];
-        let length = entry.utf16[range.end] - start;
+        // Après une ellipse de début, la mise en page porte le paragraphe coupé : les
+        // octets du paragraphe d'origine sont décalés derrière le signe « … ».
+        let limit = entry.utf16.len() - 1;
+        let shift = entry.cut.as_ref().map_or(0, |cut| {
+            paragraph.text.len() as isize - cut.text.len() as isize
+        });
+        let local = |byte: usize| ((byte as isize - shift).max(0) as usize).min(limit);
+        let start = entry.utf16[local(range.start)];
+        let length = entry.utf16[local(range.end)].saturating_sub(start);
         if length == 0 {
             return Ok(Vec::new());
         }

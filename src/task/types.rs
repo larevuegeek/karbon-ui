@@ -71,7 +71,8 @@ pub enum TaskCommand {
 /// Reason a task produced no value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TaskError {
-    /// The window already has the maximum number of tasks (64) in flight.
+    /// The window already has the maximum number of tasks (64) in flight, or the queue
+    /// shared by all windows is full.
     QueueFull,
     /// The executor is shutting down and no longer accepts work.
     ExecutorClosed,

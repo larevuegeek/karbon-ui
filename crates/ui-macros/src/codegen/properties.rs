@@ -71,7 +71,7 @@ pub fn property(a: &StyleProp, out: &mut Output, cx: &str, node: &str) -> Result
         | "margin_right" | "margin_bottom" | "margin_left" => {
             let (kind, edge) = name.split_once('_').unwrap();
             format!(
-                ".inset_edge({},{edge:?},({expr} as f32)*{cx}.scale)",
+                ".inset_edge({},{edge:?},(({expr}) as f32)*{cx}.scale)",
                 kind == "margin"
             )
         }
@@ -84,12 +84,12 @@ pub fn property(a: &StyleProp, out: &mut Output, cx: &str, node: &str) -> Result
                 "corner_bottom_right" => 2,
                 _ => 3,
             };
-            format!(".corner_radius({index},({expr} as f32)*{cx}.scale)")
+            format!(".corner_radius({index},(({expr}) as f32)*{cx}.scale)")
         }
         "flex_direction" => format!(".flex_direction({})", axis(Some(a), out)?),
         "gap" | "radius" | "min_width" | "min_height" | "max_width" | "max_height"
         | "font_size" | "border_width" | "row_gap" | "column_gap" => {
-            format!(".{name}(({expr} as f32)*{cx}.scale)")
+            format!(".{name}((({expr}) as f32)*{cx}.scale)")
         }
         "align" | "justify" => {
             let value = if let Some(k) = keyword(&a.value) {
@@ -119,7 +119,7 @@ pub fn property(a: &StyleProp, out: &mut Output, cx: &str, node: &str) -> Result
         }
         "weight" => format!(".weight({expr})"),
         "span" | "row" | "column" => format!(".{name}({expr})"),
-        "opacity" | "rotate" | "scale" => format!(".{name}({expr} as f32)"),
+        "opacity" | "rotate" | "scale" => format!(".{name}(({expr}) as f32)"),
         "translate" => format!(".translate({cx}.translation({expr}))"),
         "effect" | "hover" | "pressed" | "transform" => format!(".{name}({cx}.effect({expr}))"),
         "animate" => format!(".animate({cx}.animation({expr}))"),

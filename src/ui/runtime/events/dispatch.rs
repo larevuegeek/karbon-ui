@@ -1,5 +1,4 @@
 pub(super) use super::super::*;
-use super::*;
 impl UiRuntime {
     /// Dispatch an input event to the UI and report what the backend must do next.
     ///

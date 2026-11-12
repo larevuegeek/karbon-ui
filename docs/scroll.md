@@ -90,7 +90,7 @@ Les gestes tactiles et l’inertie ne sont pas encore implémentés.
 L’offset reste dans le runtime sous l’identifiant stable du viewport. Il est
 restauré après une reconstruction, puis borné aux nouvelles limites si la
 fenêtre ou le contenu change. Supprimer le viewport retire son état conservé.
-Le scroll incrémente `RuntimeStats::scrolls`, visible avec F8, sans augmenter
+Le scroll incrémente `RuntimeStats::scrolls`, visible avec F8 (option `profile`), sans augmenter
 `views` ni `layouts`. Un changement de taille demande encore un layout.
 
 ## Performances et mémoire : limites actuelles

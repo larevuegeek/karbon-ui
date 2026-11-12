@@ -467,11 +467,15 @@ pub(crate) fn run_windows(windows: Vec<WindowDescriptor>, policy: ExitPolicy) ->
     app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
     menu::install(&app, mtm);
     app.finishLaunching();
+    // Des fenêtres toutes ouvertes sans activation ne prennent pas le premier plan.
+    let activate = windows.iter().any(|window| window.options.activate);
     for descriptor in windows {
         open(descriptor, mtm)?;
     }
-    #[allow(deprecated)]
-    app.activateIgnoringOtherApps(true);
+    if activate {
+        #[allow(deprecated)]
+        app.activateIgnoringOtherApps(true);
+    }
     // SAFETY : constante de Foundation.
     let mode = unsafe { NSDefaultRunLoopMode };
     while autoreleasepool(|_| {

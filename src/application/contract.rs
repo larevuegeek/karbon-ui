@@ -195,7 +195,7 @@ pub trait Application: 'static {
     /// impl Application for Player {
     ///     type Message = ();
     ///     fn window_changed(&mut self, state: WindowState) -> bool {
-    ///         // Une poignée de redimensionnement relâchée : la taille est retenue.
+    ///         // A resize handle was released: the size is kept.
     ///         let released = self.window.dragging && !state.dragging;
     ///         self.window = state;
     ///         released

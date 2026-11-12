@@ -1,7 +1,7 @@
 //! Galerie du kit : écrans d'exemple complets et composants par type.
 //! `cargo run --release --example kit_gallery`.
-//! Aperçu sans fenêtre : `-- --export galerie.png [--size 1320x860] [--section 0] [--dark]`
-//! (logiciel, sauf `--renderer=gpu|auto`). Les autres options sont celles de
+//! Aperçu sans fenêtre : `-- --export galerie.png [--size 1320x860] [--scale 2] [--section 0]
+//! [--dark]` (logiciel, sauf `--renderer=gpu|auto`). Les autres options sont celles de
 //! [`WindowOptions::from_args`] (`--profile`, `--renderer=…`).
 #[path = "kit_gallery/data.rs"]
 mod data;
@@ -285,7 +285,7 @@ impl Application for Gallery {
 
 fn main() -> karbon_ui::Result<()> {
     let mut app = Gallery::new();
-    let (mut export, mut size) = (None, (1320, 860));
+    let (mut export, mut size, mut scale) = (None, (1320, 860), 1.);
     let mut native = Vec::new();
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -311,6 +311,13 @@ fn main() -> karbon_ui::Result<()> {
                     h.parse().map_err(Error::application)?,
                 );
             }
+            "--scale" => {
+                scale = args
+                    .next()
+                    .and_then(|n| n.parse().ok())
+                    .filter(|n: &f32| n.is_finite() && *n > 0.)
+                    .ok_or_else(|| Error::application("--scale expects a factor, e.g. 2"))?;
+            }
             _ => native.push(arg),
         }
     }
@@ -321,7 +328,7 @@ fn main() -> karbon_ui::Result<()> {
             BenchmarkOptions {
                 width: size.0,
                 height: size.1,
-                scale: 1.,
+                scale,
                 title_bar: false,
                 reduced_motion: true,
                 renderer: if chosen {

@@ -169,7 +169,11 @@ fn validate_row(node: &Element) -> crate::Result<()> {
     Ok(())
 }
 fn refresh(node: &mut Element, text: &mut dyn TextMeasurer, force: bool) -> crate::Result<bool> {
-    let s = node.scroll.unwrap();
+    // Liste jamais placée (dans un conteneur `display: none`, un onglet inactif) : rien à
+    // matérialiser tant qu'elle n'a pas de zone de défilement.
+    let Some(s) = node.scroll else {
+        return Ok(false);
+    };
     let context = node
         .rules
         .as_ref()

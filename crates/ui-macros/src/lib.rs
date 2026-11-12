@@ -1,12 +1,14 @@
-//! Compilateur des templates natifs, volontairement limité à `proc_macro` et `std`.
+//! Compiler of the `karbon-ui` templates and stylesheets, deliberately limited to
+//! `proc_macro` and `std`.
 //!
-//! Détail d'implémentation de `karbon-ui` : utiliser ses macros `ui!`, `ui_file!`,
-//! `styles!` et `css_file!` plutôt que cette crate. Chaque macro attend en tête le
-//! chemin de la crate `karbon_ui` entre parenthèses, fourni par ces enveloppes.
-//!
-//! Organisation (voir `README.md`) : `input` (arguments et fichiers), `codegen`
-//! (assemblage du code produit), `template` (`ui!`, `ui_file!`), `styles` (`styles!`),
-//! `css` (`css_file!`), `classes` (`__karbon_classes!`), `tailwind`, `bootstrap`, `svg`.
+//! This crate is an implementation detail of
+//! [`karbon-ui`](https://crates.io/crates/karbon-ui): use its `ui!`, `ui_file!`,
+//! `styles!` and `css_file!` macros instead of the entry points below. Each of them
+//! expects the path of the `karbon_ui` crate between parentheses as its first token,
+//! which those wrappers provide; their arguments may change in any release.
+// Organisation (voir `docs/compiler.md`) : `input` (arguments et fichiers), `codegen`
+// (assemblage du code produit), `template` (`ui!`, `ui_file!`), `styles` (`styles!`),
+// `css` (`css_file!`), `classes` (`__karbon_classes!`), `tailwind`, `bootstrap`, `svg`.
 extern crate proc_macro;
 mod bootstrap;
 mod classes;
@@ -30,46 +32,45 @@ fn root(input: TokenStream) -> Result<(TokenStream, TokenStream)> {
             Ok((g.stream(), tokens.collect()))
         }
         _ => Err(Error::new(
-            "Use the public ui!, ui_file! or styles! macro",
+            "Use the public ui!, ui_file!, styles! or css_file! macro",
             Span::call_site(),
         )),
     }
 }
-/// Moteur de `karbon_ui::ui!` : compile le balisage écrit dans l'appel en constructeurs
-/// d'`Element`.
+/// Engine of `karbon_ui::ui!`: compiles the markup written in the call into `Element`
+/// constructors.
 #[proc_macro]
 pub fn compile_ui(input: TokenStream) -> TokenStream {
     root(input)
         .and_then(|(root, input)| template::compile_inline(root, input))
         .unwrap_or_else(Error::tokens)
 }
-/// Moteur de `karbon_ui::ui_file!` : lit un fichier `.ui` relatif au fichier source de
-/// l'appel et le compile comme `ui!`.
+/// Engine of `karbon_ui::ui_file!`: reads a `.ui` file relative to the calling source
+/// file and compiles it like `ui!`.
 #[proc_macro]
 pub fn compile_ui_file(input: TokenStream) -> TokenStream {
     root(input)
         .and_then(|(root, input)| template::compile_file(root, input))
         .unwrap_or_else(Error::tokens)
 }
-/// Moteur de `karbon_ui::styles!` : compile des recettes de styles en fonctions de
-/// style typées.
+/// Engine of `karbon_ui::styles!`: compiles style recipes into typed style functions.
 #[proc_macro]
 pub fn compile_styles(input: TokenStream) -> TokenStream {
     root(input)
         .and_then(|(root, input)| styles::compile(root, input))
         .unwrap_or_else(Error::tokens)
 }
-/// Moteur de `karbon_ui::css_file!` : compile une feuille locale en module de fonctions
-/// de style typées.
+/// Engine of `karbon_ui::css_file!`: compiles a local stylesheet into a module of typed
+/// style functions.
 #[proc_macro]
 pub fn compile_css_file(input: TokenStream) -> TokenStream {
     root(input)
         .and_then(|(root, input)| css::compile(root, input))
         .unwrap_or_else(Error::tokens)
 }
-/// Moteur de la macro `__karbon_classes!` générée dans chaque module `css_file!` :
-/// résout les listes de classes littérales d'un template contre la feuille, puis
-/// contre les utilitaires Tailwind quand la feuille importe `tailwindcss`.
+/// Engine of the `__karbon_classes!` macro generated in every `css_file!` module:
+/// resolves the literal class lists of a template against the stylesheet, then against
+/// the Tailwind utilities when the stylesheet imports `tailwindcss`.
 #[proc_macro]
 pub fn compile_classes(input: TokenStream) -> TokenStream {
     classes::compile(input).unwrap_or_else(Error::tokens)

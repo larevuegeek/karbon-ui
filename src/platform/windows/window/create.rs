@@ -58,7 +58,7 @@ pub(super) fn create_presented_window(
 }
 
 fn create_window(options: WindowOptions, path: Path) -> crate::Result<Hwnd> {
-    let class_name: Vec<u16> = "MonMoteur\0".encode_utf16().collect();
+    let class_name: Vec<u16> = "KarbonUiWindow\0".encode_utf16().collect();
     // SAFETY : un nom nul désigne le module de l'exécutable courant.
     let instance = unsafe { GetModuleHandleW(null()) };
     if instance.is_null() {

@@ -25,7 +25,7 @@ pub(super) use windows::Win32::{
         },
     },
 };
-pub(super) use windows::core::{HSTRING, Interface, w};
+pub(super) use windows::core::{HSTRING, Interface};
 pub(super) use windows_numerics::{Matrix3x2, Vector2};
 
 /// Convertit un échec COM en [`crate::Error::Platform`] (opération et HRESULT).

@@ -200,7 +200,8 @@ impl Session {
             fullscreen: style.contains(NSWindowStyleMask::FullScreen),
             topmost: self.options.topmost,
             resizable: style.contains(NSWindowStyleMask::Resizable),
-            dragging: window.inLiveResize() || GRIP.with(Cell::get).is_some(),
+            dragging: window.inLiveResize()
+                || GRIP.with(Cell::get).is_some_and(|grip| grip.id == self.id),
         }
     }
     /// Remet l'état à l'application s'il a changé depuis le dernier envoi.

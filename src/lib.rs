@@ -18,11 +18,13 @@
 //! - [`resources`]: bounded image loading and caching.
 //! - [`diagnostics`]: offscreen benchmarks and previews.
 //! - [`platform::headless`]: windowless test harness with deterministic text metrics.
-//!
 //! - [`Error`] and [`Result`]: the error type returned by every fallible API.
 //!
-//! Only a Windows interactive backend exists today; on other targets the window entry
-//! points return [`Error::Unsupported`]. The
+//! # Platforms
+//!
+//! Interactive backends exist for Windows (Win32, Direct2D, DirectWrite), macOS (AppKit,
+//! Metal, Core Text) and Linux (Wayland or X11, Vulkan or Cairo, Pango); on any other
+//! target the window entry points return [`Error::Unsupported`]. The
 //! [`platform::headless`] backend runs everywhere: it drives applications without a
 //! window for tests ([`HeadlessApp`](platform::headless::HeadlessApp)) and renders
 //! previews with a software rasteriser.

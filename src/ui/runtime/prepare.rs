@@ -277,6 +277,7 @@ impl UiRuntime {
             self.move_tab(shift);
         }
         if self.invalidation.repaint {
+            let viewport = self.layer_viewport();
             let root = self.root.as_mut().unwrap();
             // Sans liste virtuelle, rien à matérialiser : pas de parcours de l'arbre.
             let refreshed = self.invalidation.virtual_lists
@@ -302,16 +303,6 @@ impl UiRuntime {
                 self.invalidation.stats.virtual_rows = count(root);
                 self.invalidation.dynamic_styles = has_dynamic_styles(root);
             }
-            let viewport = RectF::new(
-                4.,
-                if self.chrome.visible {
-                    TITLE_BAR_HEIGHT as f32 + 4.
-                } else {
-                    4.
-                },
-                (context.width - 8.).max(0.),
-                (context.height - 8.).max(0.),
-            );
             let outcome = self.components.reconcile(&mut SyncContext {
                 root,
                 focused: self.interaction.focused,

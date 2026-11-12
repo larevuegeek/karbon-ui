@@ -39,7 +39,6 @@ pub(crate) fn update_frame(window: Hwnd) -> bool {
 }
 
 pub(crate) fn apply_style(window: Hwnd) {
-    let mut available = true;
     for (attribute, value, effect) in [
         (
             DWMWA_NCRENDERING_POLICY,
@@ -68,12 +67,9 @@ pub(crate) fn apply_style(window: Hwnd) {
                 "karbon-ui: DWM effect `{effect}` unavailable (HRESULT 0x{:08X})",
                 result as u32
             );
-            available = false;
         }
     }
-    if update_frame(window) && available {
-        println!("karbon-ui: DWM style applied: rounded corners");
-    }
+    update_frame(window);
 }
 
 /// Coins arrondis (`true`) ou droits (plein écran) ; sans effet avant Windows 11.

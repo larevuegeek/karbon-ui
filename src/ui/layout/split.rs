@@ -61,6 +61,10 @@ pub fn split_extent(available: f32, fraction: f32, min_first: f32, min_second: f
             0.
         }
     } else {
-        (available * fraction).clamp(min_first, available - min_second)
+        // `max` puis `min` plutôt que `clamp`, qui refuse des bornes inversées par un
+        // arrondi ou non numériques.
+        (available * fraction)
+            .max(min_first)
+            .min((available - min_second).max(min_first))
     }
 }

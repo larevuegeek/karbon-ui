@@ -106,7 +106,7 @@ impl UiRuntime {
         if self.components.retain_rebuilt(&root, &live) {
             self.interaction.release_pending = true;
         }
-        self.interaction.retain_focusable();
+        self.interaction.retain_focusable(&live);
         if let Some(mut old) = self.root.take() {
             carry_caches(&mut old, &mut root, &live);
             // Grand arbre (liste de morceaux : ~10 000 éléments, 4 à 8 ms) : libéré plus

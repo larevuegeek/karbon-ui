@@ -45,7 +45,11 @@ fn native_windows_isolate_runtime_theme_decoder_and_reentrant_callbacks() {
     let second = app();
     let count_b = Rc::clone(&second.count);
     let a = session.open(descriptor(1, first), false).unwrap();
-    let b = session.open(descriptor(2, second), false).unwrap();
+    // F5 (bascule du thème, envoyée à B depuis un rappel de A) est une touche de diagnostic :
+    // elle ne répond qu'avec l'option `profile`.
+    let mut second = descriptor(2, second);
+    second.options.profile = true;
+    let b = session.open(second, false).unwrap();
     nested.set(b);
     let a_scope = state::enter(a);
     assert_eq!(

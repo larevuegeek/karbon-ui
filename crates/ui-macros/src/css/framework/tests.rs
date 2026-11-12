@@ -89,3 +89,14 @@ fn supports_media_and_keyframes() {
     assert!(sheet.animations().contains_key("spin"));
     assert_eq!(sheet.report.skipped.len(), 1);
 }
+
+/// Entrées mal formées ou non ASCII d'une feuille existante : une erreur ou une valeur
+/// intacte, jamais une panique de la macro.
+#[test]
+fn malformed_and_non_ascii_input_never_panics() {
+    assert!(selectors::parse("a[href^]").is_err());
+    assert!(selectors::parse("a[lang|]").is_err());
+    assert!(selectors::parse("a[href^=\"https\"]").is_ok());
+    assert!(super::values::rem_to_px("\"Hélvetica Neue\", 1rem").contains("\"Hélvetica Neue\""));
+    let _ = super::values::tokenize("rgba(0, 0, 0, var(--opacité))");
+}

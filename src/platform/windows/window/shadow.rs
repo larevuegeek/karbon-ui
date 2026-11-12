@@ -90,7 +90,7 @@ unsafe extern "system" fn shadow_proc(
 fn create(position: &Rect) -> crate::Result<ShadowWindow> {
     // SAFETY : un nom nul désigne le module de l'exécutable courant.
     let instance = unsafe { GetModuleHandleW(null()) };
-    let name: Vec<u16> = "MonMoteurOmbre\0".encode_utf16().collect();
+    let name: Vec<u16> = "KarbonUiShadow\0".encode_utf16().collect();
     let ready = CLASS_READY.get_or_init(|| {
         let class = WNDCLASSW {
             style: 0,

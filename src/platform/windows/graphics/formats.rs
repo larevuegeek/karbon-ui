@@ -1,6 +1,29 @@
 //! Formats de texte DirectWrite par taille et police, et polices embarquées.
 use super::*;
 
+/// Nom de la locale de l'utilisateur (« fr-FR », « ja-JP »…), terminé par zéro, lu une
+/// fois : DirectWrite s'en sert pour le repli de polices (variantes Han) et les formes
+/// propres à une langue.
+fn user_locale() -> windows::core::PCWSTR {
+    static NAME: std::sync::OnceLock<Vec<u16>> = std::sync::OnceLock::new();
+    let name = NAME.get_or_init(|| {
+        // LOCALE_NAME_MAX_LENGTH.
+        let mut buffer = [0u16; 85];
+        // SAFETY : tampon local de la taille annoncée ; la longueur rendue compte le zéro.
+        let length = unsafe {
+            windows_sys::Win32::Globalization::GetUserDefaultLocaleName(
+                buffer.as_mut_ptr(),
+                buffer.len() as i32,
+            )
+        };
+        match usize::try_from(length) {
+            Ok(length) if length > 0 => buffer[..length].to_vec(),
+            _ => "en-US".encode_utf16().chain([0]).collect(),
+        }
+    });
+    windows::core::PCWSTR(name.as_ptr())
+}
+
 impl Renderer {
     pub(super) fn format(&mut self, size: f32, bold: bool) -> crate::Result<()> {
         self.font_format(size, Font::system(bold))
@@ -37,7 +60,7 @@ impl Renderer {
         }
         let resolved = fonts::resolve(&self.text_factory, self.fonts.as_ref(), font.family)?;
         let family = HSTRING::from(resolved);
-        let locale = w!("fr-FR");
+        let locale = user_locale();
         if let Some(fonts) = &self.fonts
             && fonts.contains(resolved)?
         {

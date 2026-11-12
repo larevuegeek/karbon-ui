@@ -116,9 +116,9 @@ pub(crate) fn initialize(
     Prepared { runtime, at }: Prepared,
     id: crate::window::WindowId,
 ) -> crate::Result<()> {
-    println!("karbon-ui: renderer: {}", renderer.label());
-    println!("karbon-ui: presentation: {}", presenter.path().label());
     let profile = state::options().profile.then(|| {
+        println!("karbon-ui: renderer: {}", renderer.label());
+        println!("karbon-ui: presentation: {}", presenter.path().label());
         let mut profile = recorder::Recorder::new(id, presenter.path());
         // La chaîne d'échange a été créée à l'ouverture pour valider la composition.
         profile.surface_creations = u64::from(presenter.path() == composition::Path::Composition);
@@ -153,7 +153,9 @@ pub(crate) fn switch_renderer() -> crate::Result<()> {
                 // Ne pas mélanger GPU et WARP dans les mêmes percentiles.
                 *profile = profile.restart();
             }
-            println!("karbon-ui: renderer: {}", renderer.label());
+            if state.profile.is_some() {
+                println!("karbon-ui: renderer: {}", renderer.label());
+            }
             state.renderer = renderer;
             state.mode = mode;
             state.runtime.invalidate();

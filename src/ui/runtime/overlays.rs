@@ -147,11 +147,18 @@ impl UiRuntime {
         self.menu_response(response)
     }
 
+    /// Zone où se placent les couches (listes, menus, aides) : la fenêtre moins une marge,
+    /// sous la barre de titre du moteur quand elle est affichée.
     pub(super) fn layer_viewport(&self) -> RectF {
         self.context.map_or(RectF::new(0., 0., 0., 0.), |c| {
+            let top = if self.chrome.visible {
+                TITLE_BAR_HEIGHT as f32
+            } else {
+                0.
+            };
             RectF::new(
                 4.,
-                TITLE_BAR_HEIGHT as f32 + 4.,
+                top + 4.,
                 (c.width - 8.).max(0.),
                 (c.height - 8.).max(0.),
             )

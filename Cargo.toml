@@ -2,7 +2,7 @@
 name = "karbon-ui"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.89"
 description = "Native desktop UI library for Rust: HTML templates and CSS compiled to native widgets, no webview (Windows, macOS, Linux)"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/larevuegeek/karbon-ui"

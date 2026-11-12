@@ -3,7 +3,7 @@
 
 /// Taille de police racine supposée pour `rem` (celle des navigateurs).
 const ROOT_FONT: f32 = 16.;
-/// Remplace les nombres en `rem` par des px (hors chaînes) ; `None` si rien ne change.
+/// Remplace les nombres en `rem` par des px (hors chaînes).
 pub fn rem_to_px(value: &str) -> String {
     let bytes = value.as_bytes();
     let mut out = String::with_capacity(value.len());
@@ -12,11 +12,14 @@ pub fn rem_to_px(value: &str) -> String {
     while i < bytes.len() {
         let c = bytes[i];
         if let Some(q) = quote {
-            out.push(c as char);
+            // Caractère entier : une chaîne (`font-family: "Hélvetica"`) n'est pas que de
+            // l'ASCII, et un octet recopié seul en ferait un autre caractère.
+            let whole = value[i..].chars().next().unwrap_or(c as char);
+            out.push(whole);
             if c == q {
                 quote = None;
             }
-            i += 1;
+            i += whole.len_utf8();
             continue;
         }
         if c == b'"' || c == b'\'' {

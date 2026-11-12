@@ -47,7 +47,7 @@ interactions. Seuls les fichiers utiles au composant sont présents.
   `mod.rs`, puis une famille de propriétés par fichier : `cascade.rs`,
   `sizing.rs`, `container.rs`, `surface.rs`, `motion.rs`, `text.rs`).
   Le compilateur est séparé dans `crates/ui-macros/` (sa carte :
-  [README](../../crates/ui-macros/README.md) ; arguments et fichiers dans `input/`,
+  [compiler.md](../../docs/compiler.md) ; arguments et fichiers dans `input/`,
   templates dans `template/`, CSS dans `css/`). Voir
   [templates](../../docs/templates.md) et [couverture CSS](../../docs/css.md).
 - `animation/` : `effect.rs` définit les effets, `spec.rs` les préréglages et

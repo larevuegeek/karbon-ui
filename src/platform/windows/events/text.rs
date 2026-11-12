@@ -269,7 +269,10 @@ pub(super) fn unicode_character(window: Hwnd, wparam: usize) -> isize {
     if wparam == UNICODE_NOCHAR as usize {
         1
     } else if let Some(c) = char::from_u32(wparam as u32) {
-        send_ui(window, UiEvent::Text(c.to_string().into()));
+        // Mêmes caractères de commande écartés que pour WM_CHAR.
+        if !c.is_control() {
+            send_ui(window, UiEvent::Text(c.to_string().into()));
+        }
         0
     } else {
         0

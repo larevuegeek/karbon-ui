@@ -124,6 +124,12 @@ impl UiRuntime {
         let to = (base + delta).clamp(0., s.max_offset());
         let consumed = to - base;
         if consumed != 0. {
+            // Un seul glissement à la fois : celui d'un autre conteneur (conteneur intérieur
+            // dont ce cran dépasse le bout, ou conteneur quitté par le pointeur) arrive tout
+            // de suite à sa cible au lieu d'être abandonné en chemin.
+            if let Some(other) = self.components.scrolls.smooth.filter(|m| m.id != id) {
+                self.scroll_to(other.id, other.to);
+            }
             // Raccord à l'instant du cran : position et vitesse de la courbe en cours
             // (`UpdateTarget` de Chromium). Repartir du dernier décalage affiché perdait le
             // chemin parcouru depuis la dernière image : l'image suivante ne bougeait pas.

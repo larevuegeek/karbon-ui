@@ -196,13 +196,13 @@ fn sync_now(window: Hwnd, version: (u64, u64, u64, u64, Option<crate::ui::elemen
     client.bottom = (client.bottom as f32 / scale) as i32;
     use crate::ui::title_bar::{CaptionButton, button_rect};
     for (id, button, name) in [
-        (0, CaptionButton::Minimize, "Réduire"),
+        (0, CaptionButton::Minimize, "Minimize"),
         (
             1,
             CaptionButton::Maximize,
-            if maximized { "Restaurer" } else { "Agrandir" },
+            if maximized { "Restore" } else { "Maximize" },
         ),
-        (2, CaptionButton::Close, "Fermer"),
+        (2, CaptionButton::Close, "Close"),
     ]
     .into_iter()
     .filter(|_| state::options().title_bar)

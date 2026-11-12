@@ -21,7 +21,7 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 /// #     fn view(&self, _: &ViewContext) -> Element { text("t", "") }
 /// #     fn update(&mut self, _: ()) -> bool { false }
 /// # }
-/// fn main() -> crate::Result<()> {
+/// fn main() -> std::io::Result<()> {
 ///     let options = WindowOptions::from_args(std::env::args().skip(1))?;
 ///     platform::run(options, App)?;
 ///     Ok(())

@@ -115,7 +115,10 @@ pub struct WindowOptions {
     pub topmost: bool,
     /// Use the light theme instead of the dark one.
     pub light: bool,
-    /// Record bounded measurements of native painting; reported on F8 and on close.
+    /// Record bounded measurements of native painting; reported on close, with the
+    /// renderer and presentation path chosen at opening. On Windows it also enables the
+    /// diagnostic keys: F2 switches the renderer, F3 the transparency, F5 the theme and F8
+    /// prints the counters.
     pub profile: bool,
     /// Disable animations and transitions, as for the system "reduce motion" setting.
     pub reduced_motion: bool,
@@ -127,7 +130,7 @@ impl WindowOptions {
     /// Default options: a 1040x800 activated window with the dark theme, the built-in
     /// title bar and automatic renderer selection.
     pub const DEFAULT: Self = Self {
-        title: "Native UI - J2",
+        title: "Karbon UI",
         x: 180,
         y: 120,
         width: 1040,

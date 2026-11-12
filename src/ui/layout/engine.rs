@@ -275,7 +275,11 @@ pub(super) fn limits(node: &Element, row: bool) -> (f32, f32) {
     } else {
         0.
     };
-    ((min + extra).max(floor), (max + extra).max(floor))
+    // Comme en CSS, le minimum l'emporte sur un maximum plus petit : une règle d'état
+    // (`md:max-w-…`) peut poser l'un après la validation de l'arbre, et les appelants
+    // bornent par `clamp`, qui refuse des bornes inversées.
+    let min = (min + extra).max(floor);
+    (min, (max + extra).max(min))
 }
 pub(super) use super::arrange::arrange_in;
 pub(super) use super::grid::placements;

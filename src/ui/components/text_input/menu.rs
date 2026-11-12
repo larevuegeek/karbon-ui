@@ -13,10 +13,9 @@ use crate::ui::{
     runtime::{Cursor, Key, UiEvent},
 };
 
-/// Libellés du menu contextuel d'un champ, dans l'ordre : couper, copier, coller, tout
-/// sélectionner.
+/// Labels of a text field's context menu, in order: cut, copy, paste, select all.
 pub type EditMenuLabels = [&'static str; 4];
-/// Libellés par défaut (anglais, comme l'API) ; `TextInput::menu_labels` les remplace.
+/// Default labels (English, like the API); `TextInput::menu_labels` replaces them.
 pub const DEFAULT_MENU_LABELS: EditMenuLabels = ["Cut", "Copy", "Paste", "Select all"];
 
 const ITEM_HEIGHT: f32 = 30.;

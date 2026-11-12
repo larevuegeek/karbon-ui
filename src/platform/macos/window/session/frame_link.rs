@@ -81,6 +81,18 @@ impl FrameLink {
         self.awaiting.map(|since| since + TICK_TIMEOUT)
     }
 
+    /// Abandonne l'attente d'un battement qui n'est pas venu dans le délai (fenêtre
+    /// couverte, écran en veille) ; `true` si elle vient d'être abandonnée.
+    pub fn expire(&mut self, now: Instant) -> bool {
+        let expired = self
+            .awaiting
+            .is_some_and(|since| now >= since + TICK_TIMEOUT);
+        if expired {
+            self.awaiting = None;
+        }
+        expired
+    }
+
     /// Battement de l'écran ; `busy` : la fenêtre a une image à faire ou une animation
     /// imminente. Après quelques battements sans rien, le lien se met en pause.
     pub fn tick(&mut self, busy: bool) {

@@ -1,8 +1,9 @@
-//! Clavier : touches et raccourcis d'édition traduits en `UiEvent`, touches de
-//! développement (F2 renderer, F3 transparence, F5 thème, F8 statistiques), Échap.
+//! Clavier : touches et raccourcis d'édition traduits en `UiEvent` ; avec l'option
+//! `profile` seulement, touches de diagnostic (F2 renderer, F3 transparence, F5 thème,
+//! F8 statistiques).
 use super::{
     super::{
-        ffi::{Hwnd, invalidate, last_error},
+        ffi::{Hwnd, invalidate},
         present::{self, runtime},
         window::{dwm::apply_style, shadow},
     },
@@ -18,7 +19,7 @@ use windows_sys::Win32::UI::{
         VK_F3, VK_F5, VK_F8, VK_HOME, VK_LEFT, VK_MENU, VK_NEXT, VK_PRIOR, VK_RETURN, VK_RIGHT,
         VK_SHIFT, VK_SPACE, VK_TAB, VK_UP, VK_V, VK_X, VK_Y, VK_Z,
     },
-    WindowsAndMessaging::{DestroyWindow, KF_REPEAT},
+    WindowsAndMessaging::KF_REPEAT,
 };
 
 // Bit 30 de lparam (KF_REPEAT dans le mot haut) : la touche était déjà enfoncée.
@@ -60,7 +61,9 @@ pub(super) fn key_down(
     lparam: isize,
     default_proc: impl FnOnce() -> isize,
 ) -> isize {
-    let first = lparam & REPEATED == 0;
+    // Touches de diagnostic : jamais dans une application ordinaire, où F2, F3, F5 et F8
+    // appartiennent à l'application ou à Windows.
+    let first = lparam & REPEATED == 0 && state::options().profile;
     match virtual_key(wparam) {
         Some(VK_F2) if first => {
             // F2, ignorer la répétition.
@@ -94,27 +97,6 @@ pub(super) fn key_down(
                 slot.set(value);
             });
             invalidate(window);
-            0
-        }
-        // Échap fonctionne lorsque notre fenêtre reçoit le clavier.
-        Some(VK_ESCAPE) => {
-            if send_ui(
-                window,
-                UiEvent::KeyDown {
-                    key: Key::Escape,
-                    shift: false,
-                    repeat: !first,
-                },
-            ) {
-                return 0;
-            }
-            // SAFETY : la fenêtre est valide pendant le traitement de son message.
-            if unsafe { DestroyWindow(window) } == 0 {
-                eprintln!(
-                    "karbon-ui: closing the window failed: {}",
-                    last_error("DestroyWindow")
-                );
-            }
             0
         }
         Some(VK_F8) if first => {

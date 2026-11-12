@@ -216,8 +216,11 @@ pub fn tokenize(value: &str) -> Result<Vec<String>, String> {
             if matches!(
                 lower.as_str(),
                 "rgb" | "rgba" | "hsl" | "hsla" | "oklch" | "oklab" | "color-mix"
-            ) && let Some(len) = group_len(&chars[i + 1..].iter().collect::<String>())
-            {
+            ) && let Some(len) = {
+                // `group_len` compte des octets, `chars` est indexé par caractères.
+                let rest = chars[i + 1..].iter().collect::<String>();
+                group_len(&rest).map(|bytes| rest[..bytes].chars().count())
+            } {
                 let text = chars[start..i + 1 + len + 1].iter().collect::<String>();
                 if !text.contains("var(")
                     && let Ok(Some(rgba)) = constant_color(&text)

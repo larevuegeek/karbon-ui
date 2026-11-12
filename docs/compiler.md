@@ -1,12 +1,14 @@
-# karbon-ui-macros
+# Le compilateur des templates et du CSS (`karbon-ui-macros`)
 
 Macros procédurales de `karbon-ui` (`ui!`, `ui_file!`, `styles!`, `css_file!` et la macro
-cachée `__karbon_classes!`). Tout est compilé pendant la construction, avec `proc_macro`
-et `std` seulement. Les macros publiques sont les enveloppes de `src/lib.rs` de
-`karbon-ui` : elles passent en tête le chemin de la crate, que le code généré utilise
-sous le nom `__ui_root`.
+cachée `__karbon_classes!`), dans `crates/ui-macros/`. Tout est compilé pendant la
+construction, avec `proc_macro` et `std` seulement. Les macros publiques sont les
+enveloppes de `src/lib.rs` de `karbon-ui` : elles passent en tête le chemin de la crate,
+que le code généré utilise sous le nom `__ui_root`.
 
 ## Carte
+
+Chemins relatifs à `crates/ui-macros/src/`.
 
 | Dossier / fichier | Rôle |
 | --- | --- |
@@ -55,5 +57,5 @@ directives Tailwind) pour `classes.rs`.
   `cargo test -p karbon-ui-macros --lib`.
 - Outils de mesure, tests ignorés qui régénèrent les chiffres de la documentation :
   `tailwind/tools/` (couverture RustMusic, relevé complet de l'oracle,
-  [docs/tailwind.md](../../docs/tailwind.md)) et `css/framework/tools.rs` (scores de
-  compatibilité, [docs/css-frameworks.md](../../docs/css-frameworks.md)).
+  [docs/tailwind.md](tailwind.md)) et `css/framework/tools.rs` (scores de
+  compatibilité, [docs/css-frameworks.md](css-frameworks.md)).

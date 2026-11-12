@@ -162,8 +162,10 @@ impl Interaction {
         Ok(live)
     }
 
-    /// Après reconstruction : oublier le focus et l'appui d'éléments devenus inaccessibles.
-    pub(super) fn retain_focusable(&mut self) {
+    /// Après reconstruction : oublier le focus d'un élément devenu inaccessible et l'appui
+    /// d'un élément disparu. Un bouton hors de l'ordre de tabulation (`tabindex="-1"`)
+    /// garde son appui : le relâchement revérifie de toute façon la cible touchée.
+    pub(super) fn retain_focusable(&mut self, live: &FastSet<ElementId>) {
         if self
             .focused
             .is_some_and(|id| !self.focus_order.contains(&id))
@@ -171,10 +173,7 @@ impl Interaction {
             self.focused = None;
             self.keyboard_pressed = None;
         }
-        if self
-            .pressed
-            .is_some_and(|id| !self.focus_order.contains(&id))
-        {
+        if self.pressed.is_some_and(|id| !live.contains(&id)) {
             self.pressed = None;
             self.release_pending = true;
         }

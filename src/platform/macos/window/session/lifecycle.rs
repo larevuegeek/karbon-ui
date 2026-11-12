@@ -392,6 +392,11 @@ impl Session {
     /// Échéances atteintes : réveil du runtime (animations, infobulles) et redessin
     /// exact après une animation.
     pub fn tick(&mut self, now: Instant) -> crate::Result<()> {
+        // Battement attendu jamais venu : sans cet abandon, son échéance resterait dans le
+        // passé et `next_wake` empêcherait la boucle de dormir tant que rien n'est à peindre.
+        if self.link.as_mut().is_some_and(|link| link.expire(now)) {
+            self.frame_wait_over(now);
+        }
         if self.refine_at.is_some_and(|at| at <= now) {
             self.refine_at = None;
             // Mouvement terminé : la surface en demi-résolution n'est plus utile.

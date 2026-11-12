@@ -388,6 +388,10 @@ fn attribute(inner: &str) -> Result<AttrSel, String> {
         '*' => AttrOp::Substring,
         _ => return Err("invalid attribute operator".into()),
     };
+    // `[href^]` : un opérateur à deux caractères sans son `=`.
+    if op != AttrOp::Equals && chars.get(at + 1) != Some(&'=') {
+        return Err("invalid attribute operator".into());
+    }
     at += if op == AttrOp::Equals { 1 } else { 2 };
     let rest = chars[at..].iter().collect::<String>();
     let rest = rest.trim();
