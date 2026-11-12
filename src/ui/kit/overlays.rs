@@ -1,4 +1,4 @@
-//! Overlays: dialog, drop-down menu, context menu, tooltip.
+//! Overlays: dialog, drawer, drop-down menu, context menu, tooltip.
 use super::{
     buttons::{Button, IconButton},
     css,
@@ -63,6 +63,76 @@ impl<R> Component<R> for Dialog {
                 {#if footer}<div class="k-dialog-foot"><slot name="footer" /></div>{/if}
             </dialog>
         )
+    }
+}
+
+/// Side panel against the left edge of the window (`right`: the right edge), the whole
+/// height, modal like [`Dialog`]. Slots: default (scrolls), `footer`.
+///
+/// ```ignore
+/// {#if self.filters}
+///     <Drawer title="Filters" right onclose={Msg::CloseFilters}>
+///         <Switch label="Hi-Res only" checked={self.hires} onchange={Msg::HiRes} />
+///         <Button slot="footer" primary onclick={Msg::CloseFilters}>Apply</Button>
+///     </Drawer>
+/// {/if}
+/// ```
+#[derive(Default)]
+pub struct Drawer {
+    /// Title and accessible name.
+    pub title: Text,
+    /// Sent by Escape, the close button and a click outside.
+    pub onclose: OnClick,
+    /// Hides the drawer when `false`, for `open={self.visible}`.
+    pub open: Option<bool>,
+    /// Against the right edge instead of the left one.
+    pub right: bool,
+    /// Narrow width.
+    pub sm: bool,
+    /// Wide width.
+    pub lg: bool,
+    /// Liquid glass: blurs what lies behind it.
+    pub glass: bool,
+    /// Distance between the children of the body.
+    pub gap: Space,
+}
+impl<R> Component<R> for Drawer {
+    fn render(self, cx: &TemplateContext<'_, R>, mut slots: Slots) -> Element {
+        let footer = has_slot(&slots, "footer");
+        let close = self.onclose.action();
+        let dismiss = close.clone();
+        let gap = self.gap.or(12.);
+        if !self.open.unwrap_or(true) {
+            return kit_ui!(cx; <div class="k-none"></div>);
+        }
+        // `placement` est un littéral du gabarit : une branche par bord.
+        if self.right {
+            kit_ui!(cx, slots;
+                <dialog class="k-drawer k-drawer-right" class:k-drawer-sm={self.sm} class:k-drawer-lg={self.lg}
+                    class:k-surface-glass={self.glass} placement="right"
+                    aria-label={self.title.0.as_str()} onclose={dismiss} backdrop="rgba(0,0,0,0.35)">
+                    <div class="k-dialog-head">
+                        <h2 class="k-title k-title-3 k-fill">{self.title.0}</h2>
+                        <IconButton icon="x" label="Close" sm onclick={close} />
+                    </div>
+                    <div class="k-flex k-drawer-body" style:gap={gap}><slot /></div>
+                    {#if footer}<div class="k-dialog-foot k-drawer-foot"><slot name="footer" /></div>{/if}
+                </dialog>
+            )
+        } else {
+            kit_ui!(cx, slots;
+                <dialog class="k-drawer k-drawer-left" class:k-drawer-sm={self.sm} class:k-drawer-lg={self.lg}
+                    class:k-surface-glass={self.glass} placement="left"
+                    aria-label={self.title.0.as_str()} onclose={dismiss} backdrop="rgba(0,0,0,0.35)">
+                    <div class="k-dialog-head">
+                        <h2 class="k-title k-title-3 k-fill">{self.title.0}</h2>
+                        <IconButton icon="x" label="Close" sm onclick={close} />
+                    </div>
+                    <div class="k-flex k-drawer-body" style:gap={gap}><slot /></div>
+                    {#if footer}<div class="k-dialog-foot k-drawer-foot"><slot name="footer" /></div>{/if}
+                </dialog>
+            )
+        }
     }
 }
 

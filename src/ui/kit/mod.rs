@@ -54,7 +54,7 @@ pub use forms::{Checkbox, Field, Input, RadioGroup, Select, Slider, Switch, Text
 pub use icons::{ICON_NAMES, Icon};
 pub use layout::{Container, Divider, Grid, Page, Row, Spacer, Stack};
 pub use navigation::{Breadcrumb, NavItem, NavLabel, Navbar, Sidebar, Steps, Tabs};
-pub use overlays::{ContextMenu, Dialog, Dropdown, MenuItem, Tooltip};
+pub use overlays::{ContextMenu, Dialog, Drawer, Dropdown, MenuItem, Tooltip};
 pub use pagination::Pagination;
 pub use props::{Number, Options, Text as TextValue, Texts};
 pub use space::Space;
@@ -68,9 +68,9 @@ pub use typography::{Code, Kbd, Link, Text, Title};
 pub mod prelude {
     pub use super::{
         Accordion, Alert, Animate, Aurora, Avatar, AvatarGroup, Badge, Breadcrumb, Button, Card,
-        Carousel, Checkbox, Code, Container, ContextMenu, CustomColor, Dialog, Divider, Dropdown,
-        EmptyState, Field, Glass, Grid, Icon, IconButton, Input, Kbd, KitTheme, Link, List,
-        ListItem, MenuItem, NavItem, NavLabel, Navbar, Page, Pagination, Palette, Progress,
+        Carousel, Checkbox, Code, Container, ContextMenu, CustomColor, Dialog, Divider, Drawer,
+        Dropdown, EmptyState, Field, Glass, Grid, Icon, IconButton, Input, Kbd, KitTheme, Link,
+        List, ListItem, MenuItem, NavItem, NavLabel, Navbar, Page, Pagination, Palette, Progress,
         RadioGroup, Row, Select, Sidebar, Skeleton, Slider, Snippet, Spacer, Spinner, Stack, Stat,
         Steps, Switch, Table, TableCell, TableRow, Tabs, Text, Textarea, Title, Toast, Toasts,
         Tooltip, User, Variant, set_theme,

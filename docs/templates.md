@@ -146,7 +146,7 @@ Les balises en minuscules sont du HTML et correspondent aux composants natifs.
 | `input type="range"` | Curseur ; `min`, `max`, `step`, `orient="vertical"`, `readonly` |
 | `select` + `option value="…"` | Liste déroulante ; valeurs d’options `u64`, `value={…}` (`u64` ou `Option<u64>`), `option selected` |
 | `img` | Image ; `src={Arc<Image>}`, `alt` (nom accessible) ; `object-fit` en CSS |
-| `dialog` | Modale (focus piégé, Échap) ; nom accessible = `aria-label` ou premier titre ; `backdrop="rgba(…)"` (voile constant), `placement="top"` (contre le haut de la fenêtre, centrée par défaut), `autofocus` (le dialogue lui-même reçoit le focus au lieu de son premier contrôle) |
+| `dialog` | Modale (focus piégé, Échap) ; nom accessible = `aria-label` ou premier titre ; `backdrop="rgba(…)"` (voile constant), `placement="top"` (contre le haut de la fenêtre, centrée par défaut), `"left"` ou `"right"` (tiroir contre ce bord, sur toute la hauteur ; son contenu remplit cette hauteur), `autofocus` (le dialogue lui-même reçoit le focus au lieu de son premier contrôle) |
 | `hr` | Séparateur |
 | `k-split` | Deux panneaux redimensionnables : `axis`, `fraction`, `min-first`, `min-second`, `resizable` |
 | `k-popover` | Popover ancré : `anchor="id"`, `aria-label`, `onclose`, `menu`, `listbox`, `placement="bottom-end"`, `offset="8"`, `match-width` ([menus](html-syntax.md#11-menus-listes-de-choix-et-infobulles)) |

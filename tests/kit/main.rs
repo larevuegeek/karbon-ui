@@ -436,3 +436,54 @@ fn a_tall_sidebar_stays_in_the_window_and_scrolls() -> karbon_ui::Result<()> {
     assert!(after < before, "{before} -> {after}");
     Ok(())
 }
+
+/// Tiroir à gauche ou à droite, avec un pied.
+struct Drawers {
+    right: bool,
+}
+impl Application for Drawers {
+    type Message = ();
+    fn update(&mut self, _: ()) -> bool {
+        false
+    }
+    fn view(&self, _: &ViewContext) -> Element {
+        ui! {
+            <Page>
+                <Text>Page</Text>
+                <Drawer id="drawer" title="Filters" right={self.right} onclose={()}>
+                    <Text>Body</Text>
+                    <Button id="apply" slot="footer" onclick={()}>Apply</Button>
+                </Drawer>
+            </Page>
+        }
+    }
+}
+
+#[test]
+fn a_drawer_takes_the_whole_height_against_its_edge() -> karbon_ui::Result<()> {
+    for right in [false, true] {
+        let app = HeadlessApp::with_options(
+            Drawers { right },
+            HeadlessOptions {
+                width: 600.,
+                height: 800.,
+                ..Default::default()
+            },
+        )?;
+        let drawer = app.bounds("drawer").expect("drawer");
+        assert_eq!((drawer.top, drawer.bottom), (0., 800.), "whole height");
+        assert_eq!(drawer.right - drawer.left, 380., "default width");
+        if right {
+            assert_eq!(drawer.right, 600.);
+        } else {
+            assert_eq!(drawer.left, 0.);
+        }
+        // Le corps prend la place : le pied est en bas (marge basse de 20).
+        let apply = app.bounds("apply").expect("footer button");
+        assert!(
+            (apply.bottom - 780.).abs() < 1.,
+            "footer at the bottom: {apply:?}"
+        );
+    }
+    Ok(())
+}

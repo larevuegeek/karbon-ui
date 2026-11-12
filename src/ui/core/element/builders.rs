@@ -122,7 +122,22 @@ impl Element {
     }
 
     /// Modal dialog wrapping `content` (480 px wide, 24 px padding, 14 px radius by default).
+    /// A drawer (placement `Left` or `Right`) is as tall as the window and its content
+    /// fills it, so that a growing child pushes a footer to the bottom.
     pub fn modal(id: u64, options: crate::ui::modal::Modal, content: Self) -> Self {
+        use crate::ui::modal::ModalPlacement;
+        let content = if matches!(
+            options.placement,
+            ModalPlacement::Left | ModalPlacement::Right
+        ) {
+            // `Fill` pour une colonne du moteur, `flex-grow` quand le dialogue est en
+            // `display: flex` (classes de l'application).
+            let mut content = content.height(Length::Fill(1.));
+            content.layout_rules().flex_grow = Some(1.);
+            content
+        } else {
+            content
+        };
         let mut node = Self::new(id, Layout::Column, vec![content], Some(Box::new(options)))
             .width(Length::Px(480.))
             .padding(24.);

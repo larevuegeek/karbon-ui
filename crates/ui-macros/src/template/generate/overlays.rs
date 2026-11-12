@@ -56,12 +56,17 @@ impl Generator {
                 q(alpha)
             );
         }
-        // `placement="top"` : contre le haut de la fenêtre (marges du contenu).
+        // `placement="top"` : contre le haut de la fenêtre (marges du contenu) ; `left` et
+        // `right` : tiroir contre un bord, sur toute la hauteur.
         if let Some(a) = e.attr("placement") {
             dismiss += match Self::literal(a)? {
                 "top" => ".placement(__ui_root::ui::modal::ModalPlacement::Top)",
+                "left" => ".placement(__ui_root::ui::modal::ModalPlacement::Left)",
+                "right" => ".placement(__ui_root::ui::modal::ModalPlacement::Right)",
                 "center" => "",
-                _ => return Err(a.loc.error("placement expects top or center")),
+                _ => {
+                    return Err(a.loc.error("placement expects center, top, left or right"));
+                }
             };
         }
         // `autofocus` sur le dialogue : le dialogue lui-même reçoit le focus.

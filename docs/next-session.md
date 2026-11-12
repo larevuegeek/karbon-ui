@@ -209,7 +209,9 @@ garde sur demande (`=1`) jusqu'à sa mesure. X11 sous XWayland, sans cadence : 5
 `tests/kit/` et des exports clair et sombre sous Windows ; sous Linux (2026-11-10), les
 19 sections en clair et en sombre par Cairo, et par Vulkan (`--renderer=gpu`, options de
 fenêtre désormais acceptées par la galerie) : écarts limités au placement des glyphes.
-Reste : `Drawer` (placement latéral des dialogues), rendu à regarder sur macOS.
+`Drawer` fait le 2026-11-12 (`ModalPlacement::Left`/`Right`, `placement="left|right"`
+sur `<dialog>`, entrée glissée, test `tests/kit`, galerie `--drawer`). Rendu sous macOS :
+voir « Backend macOS ».
 
 ## Publication (décidée le 2026-11-06)
 

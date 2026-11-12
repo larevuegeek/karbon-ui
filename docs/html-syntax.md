@@ -78,7 +78,7 @@ Une balise inconnue ou non prise en charge est une erreur de compilation.
 | `input type="range"` | Slider ; `min`, `max`, `step`, `orient="vertical"` |
 | `select` + `option value=…` | Liste déroulante ; `value` des options = identifiant `u64` |
 | `img` | Image ; `src={Arc<Image>}` ou `src={ImageSlot}` (image qui arrive plus tard : repeinte sans reconstruire la vue, voir [les performances](performance.md#défilement-à-la-molette-dans-la-fenêtre-windows-gpu)), `alt` (nom accessible), `object-fit` en CSS |
-| `dialog` | Modale (focus piégé, Échap) ; `placement="top"`, `autofocus`, `backdrop="rgba(…)"` |
+| `dialog` | Modale (focus piégé, Échap) ; `placement="top"`, `"left"` ou `"right"` (tiroir contre un bord, sur toute la hauteur), `autofocus`, `backdrop="rgba(…)"` |
 | `hr` | Séparateur |
 
 Éléments propres au moteur, sans équivalent HTML : nom avec tiret, à la

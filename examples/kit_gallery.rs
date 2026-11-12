@@ -27,6 +27,8 @@ enum Msg {
     Dark(bool),
     Accent(u64),
     Dialog(bool),
+    /// Tiroir latéral : `Some(true)` à droite, `Some(false)` à gauche, `None` fermé.
+    Drawer(Option<bool>),
     Menu,
     // Clic droit : demande du contenu, fermeture, entrée choisie.
     OpenContext(ContextMenuRequest),
@@ -87,6 +89,7 @@ struct Gallery {
     dark: bool,
     accent: u64,
     dialog: bool,
+    drawer: Option<bool>,
     menu: bool,
     /// Position du menu contextuel ouvert.
     context_at: Option<PointF>,
@@ -207,6 +210,7 @@ impl Application for Gallery {
                 set_theme(KitTheme::default().primary(Color::hex(ACCENTS[v as usize])));
             }
             Msg::Dialog(v) => self.dialog = v,
+            Msg::Drawer(v) => self.drawer = v,
             Msg::Menu => self.menu = !self.menu,
             Msg::OpenContext(request) => self.context_at = Some(request.position),
             Msg::CloseContext => self.context_at = None,
@@ -289,6 +293,7 @@ fn main() -> karbon_ui::Result<()> {
             "--export" => export = args.next(),
             "--dark" => app.dark = true,
             "--dialog" => app.dialog = true,
+            "--drawer" => app.drawer = Some(true),
             "--section" => {
                 app.section = args
                     .next()

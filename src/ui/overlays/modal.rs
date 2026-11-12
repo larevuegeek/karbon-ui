@@ -21,10 +21,10 @@ pub struct Modal {
     pub initial_focus: Option<ElementId>,
     /// Colour drawn over the page behind the dialog (translucent black by default).
     pub backdrop: Color,
-    /// Vertical placement of the dialog in the window.
+    /// Placement of the dialog in the window.
     pub placement: ModalPlacement,
 }
-/// Vertical placement of a [`Modal`] dialog.
+/// Placement of a [`Modal`] dialog in the window.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ModalPlacement {
     /// Centred in the window (the default).
@@ -33,6 +33,10 @@ pub enum ModalPlacement {
     /// Against the top of the window, centred horizontally; the dialog's own margins
     /// set the gap (Bootstrap's `.modal-dialog`, `margin: 1.75rem auto`).
     Top,
+    /// Against the left edge, the whole height of the window (a drawer).
+    Left,
+    /// Against the right edge, the whole height of the window (a drawer).
+    Right,
 }
 impl Modal {
     /// Dialog named `label`, closable with Escape once [`Modal::on_dismiss`] is set.
@@ -47,7 +51,7 @@ impl Modal {
             placement: ModalPlacement::Center,
         }
     }
-    /// Choose the vertical placement of the dialog.
+    /// Choose where the dialog sits in the window.
     pub fn placement(mut self, placement: ModalPlacement) -> Self {
         self.placement = placement;
         self

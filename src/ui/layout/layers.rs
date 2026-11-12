@@ -69,18 +69,29 @@ pub(super) fn place(
                     .bounds
                 })
             } else {
-                let top = crate::ui::modal::config(child)
-                    .is_some_and(|m| m.placement == crate::ui::modal::ModalPlacement::Top);
-                RectF::new(
-                    area.left + (size.width - width) / 2.,
-                    if top {
-                        area.top
-                    } else {
-                        area.top + (size.height - height) / 2.
-                    },
-                    width,
-                    height,
-                )
+                use crate::ui::modal::ModalPlacement;
+                let placement = crate::ui::modal::config(child).map(|m| m.placement);
+                match placement {
+                    // Tiroir : contre un bord, sur toute la hauteur de la fenêtre.
+                    Some(ModalPlacement::Left) => {
+                        RectF::new(area.left, area.top, width, size.height)
+                    }
+                    Some(ModalPlacement::Right) => {
+                        RectF::new(area.left + size.width - width, area.top, width, size.height)
+                    }
+                    Some(ModalPlacement::Top) => RectF::new(
+                        area.left + (size.width - width) / 2.,
+                        area.top,
+                        width,
+                        height,
+                    ),
+                    _ => RectF::new(
+                        area.left + (size.width - width) / 2.,
+                        area.top + (size.height - height) / 2.,
+                        width,
+                        height,
+                    ),
+                }
             }
         };
         arrange_in(child, bounds, node.clip, text, context)?;

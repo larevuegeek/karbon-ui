@@ -57,13 +57,13 @@ Ils sont rangés par type, dans autant de modules (`kit::typography`, `kit::form
 | Carrousel | `Carousel` (`per_view`, `loop_around`, `no_arrows`, `no_dots`) |
 | Animation | `Animate` : entrées `fade`, `up`, `down`, `left`, `right`, `zoom`, `bounce`, `shake` ; boucles `pulse`, `float`, `spin` ; `delay`, `duration`, `replay` |
 | Effets | `Glass` (`strong`, `pill`, `tint`), `Aurora` (`full`, `flat`, `animated`), `Title gradient`, `Card glass`, `Dialog glass` |
-| Couches | `Dialog`, `Dropdown`, `ContextMenu` (clic droit), `MenuItem`, `Tooltip` |
+| Couches | `Dialog`, `Drawer` (`right`, `sm`, `lg`, `glass` : panneau latéral sur toute la hauteur), `Dropdown`, `ContextMenu` (clic droit), `MenuItem`, `Tooltip` |
 
 Icônes : `ICON_NAMES` donne la liste ; `<Icon name="plus" size={20} />`, à la couleur du
 texte. L'état reste dans l'application, comme pour tout contrôle : `<Tabs value={self.tab}
 onchange={Msg::Tab} />`, `<Dialog>` dans un `{#if}` ou avec `open={self.visible}`.
 
-Slots : `Card` (`cover`, `actions`, `footer`), `Input` (`end`), `Dialog` (`footer`), `ContextMenu` (`menu`), `Navbar` (`actions`), `ListItem`
+Slots : `Card` (`cover`, `actions`, `footer`), `Input` (`end`), `Dialog` (`footer`), `Drawer` (`footer`), `ContextMenu` (`menu`), `Navbar` (`actions`), `ListItem`
 (`leading`, `trailing`).
 
 ## Effets
@@ -179,6 +179,5 @@ une balise native, ses classes dans `css/`, l'export dans `mod.rs` et son `prelu
 - `Carousel` et les boucles d'`Animate` ne peuvent pas contenir de champ, de liste ni de
   zone de défilement : le moteur refuse ces contrôles sous un déplacement durable.
 - Le défilement automatique d'un carrousel reste à la charge de l'application (`value`).
-- Pas encore de `Drawer` : les dialogues du moteur se placent au centre ou en haut.
 - `justify-content: space-around` et `space-evenly` ne sont pas pris en charge par le moteur.
 - `Select` ne gère que des valeurs `u64`, comme la balise native.

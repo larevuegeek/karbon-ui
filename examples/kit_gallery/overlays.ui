@@ -2,6 +2,12 @@
     <Card title="Dialogue">
         <Button primary onclick={Msg::Dialog(true)}>Ouvrir un dialogue</Button>
     </Card>
+    <Card title="Tiroir" subtitle="Panneau latéral sur toute la hauteur">
+        <Row gap="sm">
+            <Button onclick={Msg::Drawer(Some(false))}>À gauche</Button>
+            <Button primary onclick={Msg::Drawer(Some(true))}>À droite</Button>
+        </Row>
+    </Card>
     <Card title="Menu">
         <Dropdown label="Options" open={self.menu} ontoggle={Msg::Menu}>
             <MenuItem icon="edit" onclick={Msg::Menu}>Renommer</MenuItem>

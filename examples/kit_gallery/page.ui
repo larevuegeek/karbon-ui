@@ -66,6 +66,15 @@
             <Button slot="footer" danger shadow onclick={Msg::Dialog(false)}>Supprimer</Button>
         </Dialog>
     {/if}
+    {#if self.drawer.is_some()}
+        <Drawer title="Filtres" right={self.drawer == Some(true)} onclose={Msg::Drawer(None)}>
+            <Select label="Genre" value={self.genre} options={["Jazz", "Rock", "Classique"]} onchange={Msg::Genre} />
+            <Switch label="Notifications" checked={self.notify} onchange={Msg::Notify} />
+            <Text sm muted>Le contenu défile si le tiroir est plus haut que la fenêtre.</Text>
+            <Button slot="footer" ghost onclick={Msg::Drawer(None)}>Annuler</Button>
+            <Button slot="footer" primary onclick={Msg::Drawer(None)}>Appliquer</Button>
+        </Drawer>
+    {/if}
     {#if self.toast}
         <Toasts>
             <Toast success title="Enregistré" onclose={Msg::Toast}>Vos modifications sont prises en compte.</Toast>
