@@ -432,6 +432,26 @@ cibles ne tournent ici).
 
 ## Backend macOS (en cours)
 
+### Session du 2026-11-12 (MacBook Air M1, macOS 27)
+
+Fait, un commit chacun : vérifications et exports sur le Mac ; affichage réel sous la
+sonde (`MTLDrawable.presentedTime`) ; **images cadencées par un lien d'affichage**
+(~165 → 0 à 2 rafraîchissements manqués par 30 s de défilement) ; reconstructions
+pendant l'attente de l'écran sous `--profile` ; thème système vérifié par la sonde
+native ; essais sous Rosetta 2 (point 6) ; **`Drawer`** du kit (`placement="left|right"`)
+et rendu du kit vérifié en clair et en sombre ; drawables libérés dans le Dock et
+**pression mémoire** du système ; lecteur CSS : valeur à plusieurs `var()` ;
+**`position: sticky`**. Clone RustMusic recréé sur le Mac (`../rustmusic-karbon`, pas un
+dépôt git) : page Morceaux sur la vraie base, barre d'outils (recherche, filtres, tri),
+en-tête collant.
+
+Restent sur le Mac, à la main : l'animation de retour du Dock (pas de capture d'écran
+autorisée pour l'assistant), `sudo memory_pressure -S -l warn` puis `critical` pendant
+que le clone tourne avec `--profile`, le réglage réel de l'apparence (le chemin est
+vérifié par la sonde). Moteur : `repeating-linear-gradient` (arrêts en fractions de la
+boîte : dépliage du motif à la peinture), mesure sur un vrai Mac Intel (GPU Intel et
+AMD), et la liste « Reste » ci-dessous.
+
 ### À faire sur le Mac (après la session Linux du 2026-11-11)
 
 Rien de ce qui suit n'a tourné sur macOS : seulement compilé (`cargo clippy --target
