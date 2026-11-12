@@ -501,8 +501,19 @@ aarch64-apple-darwin`).
    viendrait de moins de mémoire touchée par élément (`Styles` : 3,8 Ko).
    Regarder aussi le décodage des pochettes en parallèle (sous Linux, quatre tâches
    faisaient manquer 7-12 images, une seule 1-4).
-5. Thème système (`ColorScheme::System`) en changeant l'apparence fenêtre ouverte, et
-   rendu du `Drawer` du kit.
+5. Thème système (`ColorScheme::System`) : fait le 2026-11-12, vérifié par la sonde
+   native (`tests/macos`, apparence sombre puis claire imposée à la fenêtre ouverte, la
+   vue voit `[clair, sombre, clair]`). Le réglage réel du système n'a pas été basculé
+   (autorisation d'automatisation) : même chemin AppKit (`effectiveAppearance`).
+6. Mac Intel, faute de machine : tout sous Rosetta 2 le 2026-11-12 (`--target
+   x86_64-apple-darwin`, processeur émulé, GPU du M1). Tests du socle (348, ignorés
+   compris), d'intégration et sonde native : tout passe. Exports de référence : écart de
+   1 à 3 niveaux sur ~11 % des pixels face à arm64 (Core Graphics et mathématiques du
+   système propres à chaque architecture ; même écart en `--renderer=gpu`, le hors
+   écran passant par Core Graphics). Stockage `Managed` : image identique au partagé.
+   Clone RustMusic x86_64, sonde 30:8 : 60 images/s, 1 et 3 rafraîchissements manqués.
+   Restent sur un vrai Mac Intel : GPU Intel et AMD (`hasUnifiedMemory` faux), leur
+   commutation, et les temps sans émulation.
 
 
 `src/platform/macos/` (liaisons `objc2-*`, sous `cfg(target_os = "macos")`) est

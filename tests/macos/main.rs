@@ -9,8 +9,11 @@
 //!
 //! Couvert : erreurs de validation, chargement, rendu et présentation, clic et capture,
 //! saisie de texte et composition, tâches et réveil, ouverture et fermeture d'une seconde
-//! fenêtre, boucle déjà en cours, sortie.
+//! fenêtre, thème système suivi (apparence de la fenêtre changée), boucle déjà en cours,
+//! sortie.
 
+#[cfg(target_os = "macos")]
+mod appkit;
 #[cfg(target_os = "macos")]
 mod layers;
 #[cfg(target_os = "macos")]

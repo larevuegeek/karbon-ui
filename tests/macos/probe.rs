@@ -1,4 +1,5 @@
 //! Application de sonde et scénario.
+use crate::appkit::{appearance, ax_text, click, collect, key};
 use crate::layers::metal_shown;
 use karbon_ui::{
     Error,
@@ -15,9 +16,9 @@ use karbon_ui::{
     },
     window::{ExitPolicy, RenderMode, WindowCommand, WindowDescriptor, WindowId, WindowOptions},
 };
-use objc2::{MainThreadMarker, Message, msg_send, rc::Retained, runtime::AnyObject, sel};
-use objc2_app_kit::{NSApplication, NSEvent, NSEventModifierFlags, NSEventType, NSWindow};
-use objc2_foundation::{NSObjectNSDelayedPerforming, NSPoint, NSString};
+use objc2::{MainThreadMarker, msg_send, rc::Retained, runtime::AnyObject, sel};
+use objc2_app_kit::{NSApplication, NSWindow};
+use objc2_foundation::{NSObjectNSDelayedPerforming, NSString};
 use std::{
     sync::{Arc, Mutex},
     time::Duration,
@@ -47,6 +48,8 @@ struct Log {
     ax_button: bool,
     ax_value: String,
     ax_pressed: bool,
+    /// Thème vu par la vue (`color_scheme`, `ColorScheme::System`), à chaque changement.
+    dark: Vec<bool>,
 }
 #[derive(Clone)]
 enum Msg {
@@ -114,6 +117,10 @@ impl Application for Probe {
         log.painted = true;
         if log.backends.last() != Some(&context.backend) {
             log.backends.push(context.backend);
+        }
+        let dark = color_scheme().0;
+        if log.dark.last() != Some(&dark) {
+            log.dark.push(dark);
         }
         // Un filtre CSS couvre la vue, et l'émoji sous `background-clip: text` : ils
         // restent au chemin Metal.
@@ -233,8 +240,15 @@ impl Application for Probe {
                 // SAFETY : idem.
                 unsafe { std::env::remove_var("KARBON_METAL_FALLBACK") };
             }
-            9 => {
-                self.log.lock().unwrap().metal[2] = metal_shown(&window);
+            9 | 10 => {
+                if step == 9 {
+                    self.log.lock().unwrap().metal[2] = metal_shown(&window);
+                }
+                // Apparence de la fenêtre changée, comme par le réglage du système : sombre,
+                // puis claire (`viewDidChangeEffectiveAppearance`).
+                deferred(move || appearance(&window, step == 9));
+            }
+            11 => {
                 let nested = platform::run_windows(
                     vec![WindowDescriptor::new(WindowId(9), options("x"), Second)],
                     ExitPolicy::LastWindowClosed,
@@ -319,73 +333,10 @@ impl Timer {
 }
 /// Exécute `job` au prochain tour de la boucle AppKit, hors du rappel en cours (la
 /// session de la fenêtre y est libre), comme un événement du système.
-fn deferred(job: impl FnOnce() + 'static) {
+pub(crate) fn deferred(job: impl FnOnce() + 'static) {
     QUEUE.with(|q| q.borrow_mut().push(Box::new(job)));
     // SAFETY : `fire:` est défini ci-dessus ; aucun argument.
     TIMER.with(|t| unsafe { t.performSelector_withObject_afterDelay(sel!(fire:), None, 0.) });
-}
-/// Éléments accessibles sous `node`, en profondeur.
-fn collect(node: &AnyObject, out: &mut Vec<Retained<AnyObject>>) {
-    // SAFETY : `accessibilityChildren` renvoie un NSArray ou nil.
-    let children: Option<Retained<objc2_foundation::NSArray<AnyObject>>> =
-        unsafe { msg_send![node, accessibilityChildren] };
-    for child in children.map(|c| c.to_vec()).unwrap_or_default() {
-        collect(&child, out);
-        out.push(child);
-    }
-}
-/// Texte d'un accesseur NSAccessibility (`NSString` ou rien).
-fn ax_text(node: &AnyObject, selector: objc2::runtime::Sel) -> String {
-    // SAFETY : accesseur sans argument renvoyant un objet ou nil.
-    let value: Option<Retained<AnyObject>> = unsafe { msg_send![node, performSelector: selector] };
-    value
-        .and_then(|v| v.downcast::<NSString>().ok())
-        .map(|s| s.to_string())
-        .unwrap_or_default()
-}
-fn send(window: &NSWindow, event: Retained<NSEvent>) {
-    let window = window.retain();
-    deferred(move || window.sendEvent(&event));
-}
-fn point(window: &NSWindow, (x, y): (f32, f32)) -> NSPoint {
-    let height = window.contentView().map_or(0., |v| v.bounds().size.height);
-    NSPoint::new(f64::from(x), height - f64::from(y))
-}
-fn click(window: &NSWindow, at: (f32, f32)) {
-    for kind in [NSEventType::LeftMouseDown, NSEventType::LeftMouseUp] {
-        let event = NSEvent::mouseEventWithType_location_modifierFlags_timestamp_windowNumber_context_eventNumber_clickCount_pressure(
-            kind,
-            point(window, at),
-            NSEventModifierFlags(0),
-            0.,
-            window.windowNumber(),
-            None,
-            0,
-            1,
-            1.,
-        )
-        .expect("événement souris");
-        send(window, event);
-    }
-}
-fn key(window: &NSWindow, characters: &str, code: u16) {
-    for kind in [NSEventType::KeyDown, NSEventType::KeyUp] {
-        let c = NSString::from_str(characters);
-        let event = NSEvent::keyEventWithType_location_modifierFlags_timestamp_windowNumber_context_characters_charactersIgnoringModifiers_isARepeat_keyCode(
-            kind,
-            NSPoint::new(0., 0.),
-            NSEventModifierFlags(0),
-            0.,
-            window.windowNumber(),
-            None,
-            &c,
-            &c,
-            false,
-            code,
-        )
-        .expect("événement clavier");
-        send(window, event);
-    }
 }
 fn options(title: &'static str) -> WindowOptions {
     WindowOptions {
@@ -454,6 +405,11 @@ pub fn run() {
     assert_eq!(log.name, "ab\u{e9}", "frappes puis composition validée");
     assert!(log.composing_seen, "texte marqué pendant la composition");
     assert!(log.second_opened && log.second_closed, "seconde fenêtre");
+    assert!(
+        log.dark.ends_with(&[true, false]),
+        "thème système suivi : sombre puis clair ({:?})",
+        log.dark
+    );
     assert!(
         log.nested
             .as_deref()
