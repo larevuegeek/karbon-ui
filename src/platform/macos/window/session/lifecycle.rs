@@ -361,10 +361,24 @@ impl Session {
             link.presented(now);
         }
         if crate::platform::shared::pacing::enabled(self.link.is_some()) {
+            let before = self.runtime.stats();
             self.runtime.begin_frame_work(now);
+            let work = now.elapsed();
             if self.runtime.rebuild_pending() {
                 self.prepare()?;
                 self.dirty = true;
+            }
+            let after = self.runtime.stats();
+            if self.options.profile && after.views != before.views {
+                let ms = |d: std::time::Duration| d.as_secs_f64() * 1e3;
+                eprintln!(
+                    "karbon-ui: reconstruction pendant l'attente de l'écran : {:.1} ms (travail étalé {:.1}, vue {:.1}, styles {:.1}, layout {:.1})",
+                    ms(now.elapsed()),
+                    ms(work),
+                    ms(after.view_time - before.view_time),
+                    ms(after.style_time - before.style_time),
+                    ms(after.layout_time - before.layout_time),
+                );
             }
         }
         Ok(())
