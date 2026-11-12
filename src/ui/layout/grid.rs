@@ -228,12 +228,22 @@ pub(super) fn auto_columns(node: &mut Element, width: f32, columns: usize) -> us
     count
 }
 /// Style d'un enfant dont l'étendue « jusqu'à la dernière colonne » (`1 / -1`,
-/// [`Style::SPAN_FULL`]) est résolue pour `columns` colonnes.
-fn resolved_span(mut s: Style, columns: usize) -> Style {
+/// [`Style::SPAN_FULL`]) est résolue pour `columns` colonnes. Dans une grille `fitted`
+/// (`auto-fill`, `auto-fit`), le nombre de colonnes suit la largeur : l'étendue y est
+/// bornée, et une colonne explicite qui n'y tient plus revient au placement automatique.
+fn resolved_span(mut s: Style, columns: usize, fitted: bool) -> Style {
     if s.span == Style::SPAN_FULL {
         s.span = columns
             .saturating_sub(s.column.map_or(0, |c| c.saturating_sub(1)))
             .max(1);
+    }
+    if fitted {
+        s.span = s.span.min(columns);
+        if s.column
+            .is_some_and(|c| c > 0 && (c - 1).saturating_add(s.span) > columns)
+        {
+            s.column = None;
+        }
     }
     s
 }
@@ -244,6 +254,10 @@ pub(super) fn placements(
     if columns == 0 || columns > 128 {
         return Err(invalid("a grid must have between 1 and 128 columns"));
     }
+    let fitted = node
+        .rules
+        .as_ref()
+        .is_some_and(|r| r.grid_auto_repeat.is_some());
     let mut occupied = HashSet::new();
     let mut result = Vec::with_capacity(node.children.len());
     // Réserver d'abord les positions explicites pour que l'auto-placement ne les occupe pas.
@@ -252,10 +266,11 @@ pub(super) fn placements(
         .iter()
         .filter(|c| !super::position::out_of_flow(c))
     {
-        let s = resolved_span(child.style, columns);
+        let s = resolved_span(child.style, columns, fitted);
         if s.span == 0
             || s.span > columns
-            || s.column.is_some_and(|c| c == 0 || c - 1 + s.span > columns)
+            || s.column
+                .is_some_and(|c| c == 0 || (c - 1).saturating_add(s.span) > columns)
             || s.row.is_some_and(|r| r == 0 || r > 4096)
         {
             return Err(invalid("invalid grid position or span"));
@@ -273,30 +288,26 @@ pub(super) fn placements(
         .iter()
         .filter(|c| !super::position::out_of_flow(c))
     {
-        let s = resolved_span(child.style, columns);
+        let s = resolved_span(child.style, columns, fitted);
         if let (Some(r), Some(c)) = (s.row, s.column) {
             result.push((r - 1, c - 1, s.span));
             continue;
         }
-        let mut found = None;
-        for row in 0..4096 {
-            if s.row.is_some_and(|r| r - 1 != row) {
-                continue;
-            }
-            for column in 0..=columns - s.span {
-                if s.column.is_some_and(|c| c - 1 != column) {
-                    continue;
-                }
-                if (column..column + s.span).all(|c| !occupied.contains(&(row, c))) {
-                    found = Some((row, column, s.span));
-                    break;
-                }
-            }
-            if found.is_some() {
-                break;
-            }
-        }
-        let position = found.ok_or_else(|| invalid("grid too large"))?;
+        // Première place libre de l'étendue, dans la ligne ou la colonne imposée.
+        let free = |row: Option<usize>, column: Option<usize>| {
+            row.map_or(0..4096, |r| r - 1..r).find_map(|row| {
+                column
+                    .map_or(0..=columns - s.span, |c| c - 1..=c - 1)
+                    .find(|&column| {
+                        (column..column + s.span).all(|c| !occupied.contains(&(row, c)))
+                    })
+                    .map(|column| (row, column, s.span))
+            })
+        };
+        // Grille ajustée : une ligne imposée que la largeur a remplie n'est pas une erreur.
+        let position = free(s.row, s.column)
+            .or_else(|| fitted.then(|| free(None, None)).flatten())
+            .ok_or_else(|| invalid("grid too large"))?;
         for c in position.1..position.1 + s.span {
             occupied.insert((position.0, c));
         }

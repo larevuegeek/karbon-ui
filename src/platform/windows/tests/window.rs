@@ -3,7 +3,7 @@
 use super::super::{
     events::text,
     present::runtime,
-    window::{state, take_error},
+    window::{shadow, state, take_error},
 };
 use super::*;
 use crate::{
@@ -171,6 +171,11 @@ fn application_panic_closes_its_window_and_is_returned_as_an_error() {
     };
     let window = session.open(panicking, false).unwrap();
     let other = session.open(descriptor(2, app()), false).unwrap();
+    // L'ombre n'a pas de fenêtre propriétaire : seul le démontage la détruit.
+    let shade = {
+        let _scope = state::enter(window);
+        shadow::create_hidden()
+    };
     armed.set(true);
     // SAFETY : fenêtre de test de ce thread ; aucun pointeur dans wparam/lparam.
     unsafe {
@@ -178,6 +183,8 @@ fn application_panic_closes_its_window_and_is_returned_as_an_error() {
     }
     // SAFETY : simple test de validité d'un handle.
     assert_eq!(unsafe { IsWindow(window) }, 0);
+    // SAFETY : simple test de validité d'un handle.
+    assert_eq!(unsafe { IsWindow(shade) }, 0);
     // SAFETY : simple test de validité d'un handle.
     assert_ne!(unsafe { IsWindow(other) }, 0);
     let error = session

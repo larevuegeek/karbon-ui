@@ -6,10 +6,13 @@ pub(super) struct LayoutContext {
     pub parent: RectF,
 }
 pub(crate) fn out_of_flow(node: &Element) -> bool {
-    node.rules.as_ref().is_some_and(|r| {
-        (r.hidden && r.reveal.is_none())
-            || matches!(r.position, Position::Absolute | Position::Fixed)
-    })
+    hidden(node) || positioned(node)
+}
+/// `position: absolute` ou `fixed` : placé par rapport à son bloc conteneur.
+pub(super) fn positioned(node: &Element) -> bool {
+    node.rules
+        .as_ref()
+        .is_some_and(|r| matches!(r.position, Position::Absolute | Position::Fixed))
 }
 /// `display: none` : l'élément et son sous-arbre ne sont ni placés ni dessinés. Un
 /// élément masqué dont la révélation se referme reste affiché jusqu'à sa fin.

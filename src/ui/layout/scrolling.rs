@@ -32,19 +32,24 @@ pub(super) fn place(
     let mut thickness = bar.thickness();
     let mut viewport = crate::ui::scroll::viewport(area, axis, thickness);
     let mut available = size(viewport);
+    // Un contenu masqué ou positionné est hors flux (`position::take`) : rien à défiler.
+    let mut content = |available: SizeF| match node.children.first_mut() {
+        Some(content) => measure(content, available, text),
+        None => Ok(SizeF::default()),
+    };
     let desired = if bar.width == ScrollbarWidth::Thin && !bar.gutter_stable {
         let full = crate::ui::scroll::viewport(area, axis, 0.);
-        let content = measure(&mut node.children[0], size(full), text)?;
-        if overflows(content, size(full)) {
-            measure(&mut node.children[0], available, text)?
+        let natural = content(size(full))?;
+        if overflows(natural, size(full)) {
+            content(available)?
         } else {
             thickness = 0.;
             viewport = full;
             available = size(full);
-            content
+            natural
         }
     } else {
-        measure(&mut node.children[0], available, text)?
+        content(available)?
     };
     let extent = match axis {
         Axis::Horizontal => desired.width.max(available.width) + pad.horizontal(),
@@ -67,13 +72,10 @@ pub(super) fn place(
             extent - pad.vertical(),
         ),
     };
-    arrange_in(
-        &mut node.children[0],
-        bounds,
-        intersect(viewport, node.clip),
-        text,
-        context,
-    )?;
+    let clip = intersect(viewport, node.clip);
+    if let Some(content) = node.children.first_mut() {
+        arrange_in(content, bounds, clip, text, context)?;
+    }
 
     Ok(())
 }

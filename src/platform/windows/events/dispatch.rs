@@ -4,9 +4,9 @@ use super::{
     super::{
         ffi::Hwnd,
         present::{self, paint, runtime},
-        window::{change, shadow, timer},
+        window::{change, timer},
     },
-    accessibility, keyboard, nonclient, pointer, send_ui, tasks, text,
+    accessibility, keyboard, nonclient, pointer, send_ui, tasks, teardown, text,
 };
 use crate::ui::runtime::UiEvent;
 use windows_sys::Win32::UI::{
@@ -130,12 +130,7 @@ pub(super) unsafe fn window_message(
             0
         }
         WM_DESTROY => {
-            runtime::finish_profile();
-            tasks::close();
-            timer::shutdown(window);
-            text::shutdown(window);
-            accessibility::shutdown();
-            shadow::destroy();
+            teardown(window, |step| step());
             0
         }
         // Windows gère les autres messages, dont la fermeture et le fond.

@@ -324,6 +324,22 @@ pub(crate) fn update(main_window: Hwnd) {
     });
 }
 
+/// Crée l'ombre de la fenêtre courante sans l'afficher (les fenêtres de test sont
+/// cachées, donc sans ombre) et renvoie sa fenêtre.
+#[cfg(test)]
+pub(crate) fn create_hidden() -> Hwnd {
+    let shadow = create(&Rect {
+        left: 0,
+        top: 0,
+        right: 1,
+        bottom: 1,
+    })
+    .unwrap();
+    let window = shadow.window;
+    SHADOW.with(|state| *state.borrow_mut() = Some(shadow));
+    window
+}
+
 pub(crate) fn destroy() {
     let shadow = SHADOW.with(|state| state.borrow_mut().take());
     if let Some(shadow) = shadow {

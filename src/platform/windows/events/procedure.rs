@@ -2,7 +2,7 @@ pub(super) use super::super::{
     accessibility,
     ffi::{Hwnd, invalidate},
     present::runtime,
-    window::{self, state, tasks, timer},
+    window::{self, shadow, state, tasks, timer},
 };
 use super::*;
 pub(super) use crate::ui::runtime::UiEvent;
@@ -25,7 +25,9 @@ pub(crate) unsafe extern "system" fn window_proc(
     let _scope = state::enter(window);
     if POISONED.with(Cell::get) {
         // Après une panique, l'état applicatif n'est plus fiable : seul Windows traite la fenêtre.
-        if message == WM_NCDESTROY {
+        if message == WM_DESTROY {
+            teardown_guarded(window);
+        } else if message == WM_NCDESTROY {
             state::remove(window);
             window::wake();
         }
@@ -52,12 +54,35 @@ pub(crate) unsafe extern "system" fn window_proc(
         if message == WM_NCDESTROY {
             state::remove(window);
             window::wake();
-        } else if message != WM_DESTROY {
+        } else if message == WM_DESTROY {
+            // Panique pendant le démontage : ses étapes restantes, chacune une seule fois.
+            teardown_guarded(window);
+        } else {
             // SAFETY : la fenêtre est valide pendant le traitement de son message.
             unsafe { DestroyWindow(window) };
         }
         0
     })
+}
+
+/// Démontage de `WM_DESTROY` : ce que la fenêtre possède hors de son état et que Windows
+/// ne libère pas avec elle (ombre sans propriétaire, fournisseur d'accessibilité, tâches).
+/// `run` exécute chaque étape ; toutes sont sans effet la seconde fois.
+pub(super) fn teardown(window: Hwnd, run: impl Fn(&dyn Fn())) {
+    run(&runtime::finish_profile);
+    run(&tasks::close);
+    run(&|| timer::shutdown(window));
+    run(&|| text::shutdown(window));
+    run(&accessibility::shutdown);
+    run(&shadow::destroy);
+}
+
+/// Le même démontage après une panique : le message interrompu peut encore emprunter un
+/// état, donc chaque étape est isolée pour que son échec n'empêche pas les suivantes.
+fn teardown_guarded(window: Hwnd) {
+    teardown(window, |step| {
+        let _ = catch_unwind(AssertUnwindSafe(step));
+    });
 }
 
 pub(super) fn panic_error(payload: &(dyn std::any::Any + Send)) -> crate::Error {

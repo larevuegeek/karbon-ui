@@ -239,12 +239,15 @@ fn measure_box(
         // a parent flex column shrinks it, a scroll ancestor sees its real extent.
         // The content is only measured when that height is used (`Auto`), so a sized
         // scroller stays a cheap cut in the measure recursion.
+        // Un contenu masqué ou positionné est hors flux (`position::take`) : hauteur nulle.
         Layout::Scroll(axis) => SizeF {
             width: local.width,
-            height: if matches!(node.style.height, Length::Auto) {
-                scroll_content_height(&mut node.children[0], local, axis, text)?
-            } else {
+            height: if !matches!(node.style.height, Length::Auto) {
                 local.height
+            } else if let Some(content) = node.children.first_mut() {
+                scroll_content_height(content, local, axis, text)?
+            } else {
+                0.
             },
         },
         Layout::VirtualList => local,
@@ -356,21 +359,27 @@ fn measure_box(
                     + node.style.vertical_gap() * rows.saturating_sub(1) as f32,
             }
         }
-        Layout::Split(split) => {
-            let a = measure(&mut node.children[0], local, text)?;
-            let b = measure(&mut node.children[1], local, text)?;
-            if split.axis == Axis::Horizontal {
-                SizeF {
-                    width: a.width + b.width + DIVIDER_SIZE,
-                    height: a.height.max(b.height),
-                }
-            } else {
-                SizeF {
-                    width: a.width.max(b.width),
-                    height: a.height + b.height + DIVIDER_SIZE,
+        Layout::Split(split) => match node.children.as_mut_slice() {
+            [first, second] => {
+                let a = measure(first, local, text)?;
+                let b = measure(second, local, text)?;
+                if split.axis == Axis::Horizontal {
+                    SizeF {
+                        width: a.width + b.width + DIVIDER_SIZE,
+                        height: a.height.max(b.height),
+                    }
+                } else {
+                    SizeF {
+                        width: a.width.max(b.width),
+                        height: a.height + b.height + DIVIDER_SIZE,
+                    }
                 }
             }
-        }
+            // Un volet masqué ou positionné est hors flux (`position::take`) : l'autre
+            // occupe toute la place, sans séparateur.
+            [pane] => measure(pane, local, text)?,
+            _ => SizeF::default(),
+        },
     };
     node.intrinsic = natural;
     Ok(SizeF {

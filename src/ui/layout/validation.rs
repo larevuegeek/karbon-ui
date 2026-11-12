@@ -274,11 +274,15 @@ pub fn validate(root: &Element) -> crate::Result<()> {
         if matches!(node.layout, Layout::Scroll(_)) && node.children.len() != 1 {
             return Err(invalid("a scroll viewport must have exactly one child"));
         }
-        if matches!(
-            node.layout,
-            Layout::Layers | Layout::Split(_) | Layout::Scroll(_)
-        ) && node.children.iter().any(super::position::out_of_flow)
-        {
+        // Un volet ou un contenu de défilement masqué est permis (l'autre volet prend la
+        // place) ; une couche masquée ne l'est pas : la suivante passerait pour la page.
+        if match node.layout {
+            Layout::Layers => node.children.iter().any(super::position::out_of_flow),
+            Layout::Split(_) | Layout::Scroll(_) => {
+                node.children.iter().any(super::position::positioned)
+            }
+            _ => false,
+        } {
             return Err(invalid(
                 "positioned elements must be placed inside the content of a scroll viewport, split pane or layer",
             ));

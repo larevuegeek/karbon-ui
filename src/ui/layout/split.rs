@@ -8,6 +8,14 @@ pub(super) fn place(
     context: LayoutContext,
 ) -> crate::Result<()> {
     let clip = child_clip(node, area);
+    // Un volet masqué ou positionné est hors flux (`position::take`) : l'autre occupe
+    // toute la place, sans séparateur.
+    if node.children.len() != 2 {
+        if let Some(pane) = node.children.first_mut() {
+            arrange_in(pane, area, clip, text, context)?;
+        }
+        return Ok(());
+    }
     let horizontal = split.axis == Axis::Horizontal;
     let available = (if horizontal { size.width } else { size.height } - DIVIDER_SIZE).max(0.);
     let first = split_extent(available, split.fraction, split.min_first, split.min_second);

@@ -78,6 +78,8 @@ pub enum Axis {
     Vertical,
 }
 /// Options of a two-pane [`Layout::Split`].
+///
+/// A hidden pane leaves the whole space to the other one, without a divider.
 #[derive(Debug, Clone, Copy)]
 pub struct Split {
     /// Direction along which the two panes are placed.
