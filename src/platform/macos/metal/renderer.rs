@@ -214,6 +214,7 @@ impl Renderer {
         // transaction de l'appelant.
         let wait = std::time::Instant::now();
         cb.waitUntilScheduled();
+        surface.watch(&drawable);
         drawable.present();
         self.timings[2] += ms(wait);
         Ok(Presented::Shown)

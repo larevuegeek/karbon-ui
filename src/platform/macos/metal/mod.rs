@@ -26,12 +26,14 @@
 //! | `resources.rs` | textures gardées d'une image à l'autre |
 //! | `submit.rs` | étapes de l'image, anneau de tampons, relecture |
 //! | `surface.rs` | `CAMetalLayer` de la fenêtre |
+//! | `presentation.rs` | instants d'affichage pendant la sonde de défilement |
 mod atlas;
 mod compare;
 mod device;
 mod encode;
 mod filter;
 mod instance;
+mod presentation;
 mod resources;
 mod submit;
 mod surface;

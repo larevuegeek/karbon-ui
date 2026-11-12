@@ -4,6 +4,7 @@
 //! (`presentsWithTransaction`) pour que le passage entre Metal et Core Graphics change de
 //! calque visible et de contenu dans la même image.
 use super::device::{Device, FORMAT};
+use super::presentation::Presentation;
 use objc2::{rc::Retained, runtime::ProtocolObject};
 use objc2_core_foundation::{CGRect, CGSize};
 use objc2_quartz_core::{CALayer, CAMetalDrawable, CAMetalLayer};
@@ -11,6 +12,8 @@ use objc2_quartz_core::{CALayer, CAMetalDrawable, CAMetalLayer};
 pub(in crate::platform::macos) struct Surface {
     pub layer: Retained<CAMetalLayer>,
     size: (usize, usize),
+    /// Instants d'affichage relevés pendant la sonde de défilement.
+    presentation: Option<Presentation>,
 }
 pub(super) type Drawable = Retained<ProtocolObject<dyn CAMetalDrawable>>;
 impl Surface {
@@ -36,6 +39,7 @@ impl Surface {
         Ok(Self {
             layer,
             size: (0, 0),
+            presentation: Presentation::from_env(),
         })
     }
     /// Suit la vue : cadre `bounds` (points), `scale` pixels par point, drawable de
@@ -56,6 +60,12 @@ impl Surface {
     }
     pub(super) fn next(&self) -> Option<Drawable> {
         self.layer.nextDrawable()
+    }
+    /// À appeler avant de présenter `drawable` : relève son affichage pendant la sonde.
+    pub(super) fn watch(&self, drawable: &Drawable) {
+        if let Some(presentation) = &self.presentation {
+            presentation.watch(ProtocolObject::from_ref(&**drawable));
+        }
     }
     pub(in crate::platform::macos) fn show(&self, visible: bool) {
         self.layer.setHidden(!visible);

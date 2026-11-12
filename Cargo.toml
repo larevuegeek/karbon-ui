@@ -146,9 +146,11 @@ objc2-quartz-core = { version = "0.3.2", default-features = false, features = [
     "CAMetalLayer",
     "CALayer",
     "CATransaction",
+    "CADisplayLink",
 ] }
 objc2-metal = { version = "0.3.2", default-features = false, features = [
     "std",
+    "block2",
     "objc2-core-foundation",
     "MTLAllocation",
     "MTLBlitCommandEncoder",

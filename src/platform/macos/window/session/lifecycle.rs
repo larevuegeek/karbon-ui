@@ -21,6 +21,7 @@ pub(super) use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 pub(super) use objc2_quartz_core::kCAGravityTopLeft;
 pub(super) use std::time::Instant;
 
+pub(super) use super::frame_link::FrameLink;
 pub(super) use super::paint::{Path, gpu};
 
 pub(crate) struct Session {
@@ -62,7 +63,16 @@ pub(crate) struct Session {
     pub(super) trim_at: Option<Instant>,
     /// Dernier état remis à `Application::window_changed` (`change.rs`).
     pub(crate) reported: Option<crate::window::WindowState>,
+    /// Horloge de l'écran (`frame_link.rs`) ; absente avant macOS 14.
+    pub(super) link: Option<FrameLink>,
+    /// Un battement de l'écran vient d'arriver : la prochaine image part de lui.
+    pub(super) frame_clock: bool,
 }
+/// Après un battement de l'écran, un réveil dû dans la période qui vient part de lui : les
+/// animations demandent « dernier échantillon + 16,67 ms » (comme sous Wayland).
+const FRAME_CLOCK_HORIZON: std::time::Duration = std::time::Duration::from_nanos(16_666_667);
+/// Réveil du runtime assez proche pour garder l'horloge de l'écran en marche.
+const MOTION_HORIZON: std::time::Duration = std::time::Duration::from_millis(40);
 impl Session {
     /// Charge l'application, puis ouvre sa fenêtre (au centre de l'écran).
     pub fn open(descriptor: WindowDescriptor, mtm: MainThreadMarker) -> crate::Result<Self> {
@@ -147,6 +157,7 @@ impl Session {
             layer.setContentsGravity(unsafe { kCAGravityTopLeft });
         }
         let gpu = gpu(&options, &view);
+        let link = FrameLink::new(&view);
         Ok(Self {
             id,
             window,
@@ -171,6 +182,8 @@ impl Session {
             marked: None,
             access: Default::default(),
             reported: None,
+            link,
+            frame_clock: false,
         })
     }
     pub fn show(&self) {
@@ -311,17 +324,43 @@ impl Session {
         if self.window.isMiniaturized() || !self.window.isVisible() {
             return None;
         }
-        [self.runtime.next_wake(), self.refine_at, self.trim_at]
+        // Image présentée, battement attendu : il réveillera la boucle (ou son délai).
+        let runtime = match self.link.as_ref().and_then(FrameLink::timeout) {
+            Some(timeout) => Some(timeout),
+            None => self.runtime.next_wake(),
+        };
+        [runtime, self.refine_at, self.trim_at]
             .into_iter()
             .flatten()
             .min()
+    }
+    /// Une image peut partir maintenant (battement de l'écran reçu depuis la précédente).
+    pub fn frame_ready(&self, now: Instant) -> bool {
+        self.link.as_ref().is_none_or(|link| link.ready(now))
+    }
+    /// Battement de l'écran : l'attente est finie, et les animations de l'image suivante
+    /// sont échantillonnées tout de suite au lieu d'attendre leur échéance.
+    pub fn frame_tick(&mut self, now: Instant) {
+        let busy = self.dirty
+            || self
+                .runtime
+                .next_wake()
+                .is_some_and(|wake| wake <= now + MOTION_HORIZON);
+        if let Some(link) = &mut self.link {
+            link.tick(busy);
+        }
+        self.frame_wait_over(now);
+        self.frame_clock = true;
     }
     /// Une image vient d'être présentée : avant l'attente de l'écran, une tranche du
     /// travail étalé et la reconstruction demandée (voir `platform/backend.rs`).
     pub fn frame_presented(&mut self) -> crate::Result<()> {
         let now = Instant::now();
         self.runtime.frame_presented(now);
-        if crate::platform::shared::pacing::enabled(false) {
+        if let Some(link) = &mut self.link {
+            link.presented(now);
+        }
+        if crate::platform::shared::pacing::enabled(self.link.is_some()) {
             self.runtime.begin_frame_work(now);
             if self.runtime.rebuild_pending() {
                 self.prepare()?;
@@ -332,7 +371,7 @@ impl Session {
     }
     /// L'attente de l'écran est finie : ce qui est demandé maintenant attend l'image suivante.
     pub fn frame_wait_over(&mut self, now: Instant) {
-        if crate::platform::shared::pacing::enabled(false) {
+        if crate::platform::shared::pacing::enabled(self.link.is_some()) {
             self.runtime.hold_rebuild(now);
         }
     }
@@ -352,8 +391,16 @@ impl Session {
                 gpu.trim(metal::Trim::Idle);
             }
         }
-        if self.runtime.next_wake().is_some_and(|wake| wake <= now) {
-            self.frame_wait_over(now);
+        // Juste après un battement, un réveil dû dans la période qui vient part de lui.
+        let horizon = if std::mem::take(&mut self.frame_clock) {
+            now + FRAME_CLOCK_HORIZON
+        } else {
+            now
+        };
+        if self.runtime.next_wake().is_some_and(|wake| wake <= horizon) {
+            if self.link.is_none() {
+                self.frame_wait_over(now);
+            }
             self.input(UiEvent::Timer(now))?;
         }
         Ok(())

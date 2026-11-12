@@ -2,13 +2,15 @@
 //! Direct2D : Core Graphics et Metal (macOS), Cairo (Linux). Filtres CSS sur CPU,
 //! structure des portées d'une scène, géométrie, empreintes des caches, cache des
 //! mises en page de texte, zones modifiées d'une image à l'autre (redessin partiel) et
-//! structures envoyées aux GPU (Metal, Vulkan).
+//! structures envoyées aux GPU (Metal, Vulkan), résumé de l'affichage réel des images
+//! pendant la sonde de défilement.
 pub(in crate::platform) mod damage;
 mod filters;
 mod geometry;
 pub(in crate::platform) mod gpu;
 mod keys;
 pub(in crate::platform) mod pacing;
+pub(in crate::platform) mod presentation;
 mod scopes;
 mod text_cache;
 

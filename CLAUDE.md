@@ -66,7 +66,10 @@ accessibilité NSAccessibility faits. Renderer GPU Metal (`metal/`) : chemin par
 des fenêtres (`Auto`/`Gpu` avec un périphérique), Core Graphics en repli (`Software`,
 pas de GPU, erreur GPU) et pour le hors écran ; étapes 1-4 faites (toute la scène, caches
 bornés, stockage `Managed` testé par `KARBON_METAL_STORAGE=managed`) ; reste la mesure
-sur un vrai Mac Intel.
+sur un vrai Mac Intel. Images cadencées par un lien d'affichage
+(`window/session/frame_link.rs`, macOS 14) ; sonde de l'affichage réel par
+`MTLDrawable.presentedTime`. Banc d'essai : clone `../rustmusic-karbon` recréé sur le
+Mac (base de RustMusic du Mac, page Morceaux).
 Liaisons Apple : crates `objc2` (accord du 2026-11-04) ; `bitflags` y arrive en
 dépendance transitive.
 

@@ -654,6 +654,15 @@ Une fenêtre a deux chemins de dessin, choisis à chaque image par
   `KARBON_METAL_FALLBACK` (diagnostic, lu à chaque image) confie les images à Core
   Graphics tant que la variable existe : la sonde native vérifie ainsi le passage.
 
+**Cadence** (`window/session/frame_link.rs`) : un lien d’affichage par fenêtre
+(`NSView.displayLink`, macOS 14) bat à chaque rafraîchissement de l’écran. Une image
+présentée attend le battement suivant (50 ms au plus, pour une fenêtre masquée que l’écran
+ne cadence plus) ; le battement termine l’attente (`hold_rebuild`) et échantillonne les
+animations tout de suite, comme le rappel de trame de Wayland. Le lien se met en pause après
+quatre battements sans image ni animation proche. Avant macOS 14, les images suivent les
+échéances du runtime (`next_wake`). Pendant la sonde de défilement, chaque drawable relève
+son instant d’affichage (`metal/presentation.rs`, `MTLDrawable.presentedTime`).
+
 Le passage d’un chemin à l’autre se fait dans une seule transaction : le calque Metal est
 montré et le contenu de la vue vidé, ou l’inverse. Une image Metal libère ce qui ne sert
 qu’à Core Graphics (surface de la fenêtre, surface de mouvement, images converties et

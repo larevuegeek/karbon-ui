@@ -70,6 +70,11 @@ define_class!(
         fn update_layer(&self) {
             super::paint_now(self.ivars().id);
         }
+        // Battement de l'écran (`session/frame_link.rs`).
+        #[unsafe(method(karbonDisplayLink:))]
+        fn display_link(&self, _link: &AnyObject) {
+            super::display_tick(self.ivars().id);
+        }
         // Thème du système changé : l'image suit tout de suite, même sans autre événement.
         #[unsafe(method(viewDidChangeEffectiveAppearance))]
         fn appearance_changed(&self) {

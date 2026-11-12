@@ -284,6 +284,14 @@ pub(super) fn occlusion(id: WindowId) {
         hidden(id);
     }
 }
+/// Battement de l'écran d'une fenêtre (`frame_link.rs`) : la boucle repart pour l'image.
+pub(super) fn display_tick(id: WindowId) {
+    with(id, |s| {
+        s.frame_tick(Instant::now());
+        Ok(())
+    });
+    wake();
+}
 pub(super) fn paint_now(id: WindowId) {
     with(id, |s| s.paint());
 }
@@ -384,8 +392,15 @@ pub(super) fn service(policy: ExitPolicy, mtm: MainThreadMarker) -> bool {
             execute(command, mtm);
         }
     }
+    let now = Instant::now();
     for id in ids() {
-        with(id, |s| if s.dirty { s.paint() } else { Ok(()) });
+        with(id, |s| {
+            if s.dirty && s.frame_ready(now) {
+                s.paint()
+            } else {
+                Ok(())
+            }
+        });
     }
     let failed = ERROR.with(|e| e.borrow().is_some());
     let empty = SESSIONS.with(|s| s.borrow().is_empty());
@@ -397,10 +412,10 @@ pub(super) fn service(policy: ExitPolicy, mtm: MainThreadMarker) -> bool {
 pub(super) fn deadline() -> Option<f64> {
     SESSIONS.with(|s| {
         let sessions = s.borrow();
-        if sessions.iter().any(|s| s.dirty) {
+        let now = Instant::now();
+        if sessions.iter().any(|s| s.dirty && s.frame_ready(now)) {
             return Some(0.);
         }
-        let now = Instant::now();
         sessions
             .iter()
             .filter_map(|s| s.next_wake())

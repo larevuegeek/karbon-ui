@@ -26,10 +26,11 @@
 //!    ensuite passe à l'image suivante ;
 //! 3. `UiEvent::Timer`, puis la préparation et la présentation de l'image.
 //!
-//! Windows le fait toujours (`events/dispatch.rs`, `FRAME_WAKE`), Wayland par défaut
-//! (rappel de trame, mesuré ; `KARBON_FRAME_PACING=0` pour l'ôter). X11 et macOS, dont
-//! l'attente n'est qu'estimée, le font avec `KARBON_FRAME_PACING=1`, tant que le gain n'y
-//! est pas mesuré (`platform/shared/pacing.rs`). Chaque présentation appelle aussi
+//! Windows le fait toujours (`events/dispatch.rs`, `FRAME_WAKE`), Wayland (rappel de trame)
+//! et macOS (lien d'affichage, `macos/window/session/frame_link.rs`) par défaut, mesurés ;
+//! `KARBON_FRAME_PACING=0` pour l'ôter. X11, dont l'attente n'est qu'estimée, le fait avec
+//! `KARBON_FRAME_PACING=1`, tant que le gain n'y est pas mesuré
+//! (`platform/shared/pacing.rs`). Chaque présentation appelle aussi
 //! `UiRuntime::frame_presented` (sonde de défilement).
 //!
 //! # Obligations de la boucle d'événements

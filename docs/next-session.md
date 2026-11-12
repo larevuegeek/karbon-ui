@@ -164,8 +164,9 @@ qui faussaient la première mesure :
 | Correctifs, cadence | 59,2 | 18,0 ms | 26 | 42,1 / 43,3 ms |
 
 Règle du point 4 remplie : la cadence est **active par défaut sous Wayland**
-(`KARBON_FRAME_PACING=0` pour l'ôter) ; X11 et macOS, à l'attente estimée, la gardent
-sur demande (`=1`) jusqu'à leur mesure. X11 sous XWayland, sans cadence : 59,5 images/s,
+(`KARBON_FRAME_PACING=0` pour l'ôter), puis sous **macOS** le 2026-11-12, une fois le
+lien d'affichage branché (mesure dans « Backend macOS ») ; X11, à l'attente estimée, la
+garde sur demande (`=1`) jusqu'à sa mesure. X11 sous XWayland, sans cadence : 59,5 images/s,
 19 à-coups en 20 s (pas une vraie session X11).
 
 - **Thème système** : macOS, apparence effective de la fenêtre (changement suivi par
@@ -173,14 +174,14 @@ sur demande (`=1`) jusqu'à leur mesure. X11 sous XWayland, sans cadence : 59,5 
   `org.freedesktop.portal.Settings` (`portal/appearance.rs`), suivi par `SettingChanged`.
   Sans portail, `ColorScheme::System` donne le clair.
 - **Cadence** : contrat dans [`platform/backend.rs`](../src/platform/backend.rs)
-  (« Cadence d'une image »). Toujours actif sous Windows, par défaut sous Wayland
-  (mesuré) ; sur X11 et macOS seulement avec `KARBON_FRAME_PACING=1`.
+  (« Cadence d'une image »). Toujours actif sous Windows, par défaut sous Wayland et
+  macOS (mesurés) ; sur X11 seulement avec `KARBON_FRAME_PACING=1`.
 
 | Système | Fin de l'attente de l'écran | À vérifier |
 | --- | --- | --- |
 | Wayland | `frame_done` (`wl_surface.frame`), exact ; horloge des animations | Fait (2026-11-11) |
 | X11 | échéance de `next_wake`, faute de rappel du serveur | Approximatif |
-| macOS | échéance de `next_wake` ; `nextDrawable` attend, lui, après la préparation | Peut demander un lien d'affichage (`CADisplayLink`) |
+| macOS | battement du lien d'affichage (`NSView.displayLink`), exact | Fait (2026-11-12) |
 
 **Sur chaque système** :
 
@@ -434,24 +435,62 @@ cibles ne tournent ici).
 Rien de ce qui suit n'a tourné sur macOS : seulement compilé (`cargo clippy --target
 aarch64-apple-darwin`).
 
-1. `git pull`, puis toutes les vérifications de « Vérifications » (dont la suite native
-   `tests/macos`) et les exports de référence.
+1. Fait le 2026-11-12 (MacBook Air M1) : toutes les vérifications passent (346 tests du
+   socle, `tests/macos` compris ; clippy Linux et Windows depuis le Mac). Exports de
+   référence sous macOS (Core Graphics), SHA-256 : 1280 × 900 `F66F4838AEED6380…`
+   (identique au premier commit public `8dadab0`), 960 × 700 `D2C81EB0D7D9146C…`
+   (seul change le liseré de la première playlist du 2026-11-07 : 160 pixels sur trois
+   lignes de la barre latérale).
 2. Moteur commun changé depuis la dernière session Mac, à revérifier à l'usage : molette
    (glissement raccordé à la position de la courbe à l'instant du cran), contenu sauté
    (`content-visibility`) immobile pendant un défilement puis replacé en revenant,
    styles des lignes mémorisées repris malgré une règle `[.a+&]`, ancrage du défilement
-   dès le premier placement. Sous macOS la cadence reste sur demande
-   (`pacing::enabled(false)` dans `macos/window/session/lifecycle.rs`).
-3. Clone RustMusic : copier `~/Developpement/perso/rust/rustmusic-karbon` du poste Linux
-   (sans `target/`) à côté de karbon-ui sur le Mac, puis copier la base du Mac (son
-   README donne la commande, chemins macOS compris).
-4. Mesurer comme sous Linux (« Cadence et thème », point 3) : sonde 30:8, 5 essais
-   alternés sans et avec `KARBON_FRAME_PACING=1` ; appliquer la règle du point 4.
-   macOS n'a que la sonde des envois : pour l'affichage réel, l'équivalent de
-   `wp_presentation` est `MTLDrawable.presentedTime` (`addPresentedHandler`), à brancher
-   sur la sonde comme `wayland/presentation.rs`. Regarder aussi le décodage des
-   pochettes en parallèle (sous Linux, quatre tâches faisaient manquer 7-12 images,
-   une seule 1-4).
+   dès le premier placement. Molette et ancrage vus fonctionner sur le clone du Mac par
+   la sonde (aucun « arrêt » ni saut) ; le reste à vérifier à la main.
+3. Clone RustMusic : le clone Linux n'a pas pu être copié. Un clone propre au Mac a été
+   recréé le 2026-11-12 dans `~/Developpement/_perso/rust/rustmusic-karbon` (son README) :
+   copie de l'exemple `rustmusic_html` plus une vraie page Morceaux (base de RustMusic du
+   Mac, 2 078 titres, SQLite par liaisons écrites à la main, fenêtre de 200 lignes,
+   pages de 100 entrées par tranches de 10, pochettes décodées une à la fois). Pas de
+   barre d'outils ni de tri : moins chargé que le clone Linux, mesures comparables entre
+   elles seulement.
+4. Affichage réel branché (2026-11-12) : pendant la sonde, chaque drawable Metal relève
+   son `presentedTime` (`macos/metal/presentation.rs`, résumé commun avec Wayland dans
+   `platform/shared/presentation.rs`) ; ligne « sonde, affichage
+   (MTLDrawable.presentedTime) » à la fermeture.
+   Mesure (MacBook Air M1, écran intégré 60 Hz, clone du Mac, `--page tracks`, sonde
+   30:8, 5 essais alternés) :
+
+   | Sonde 30:8 | Envois/s | À-coups des envois | Affichées | Écartées | Rafraîchissements manqués |
+   | --- | --- | --- | --- | --- | --- |
+   | Sans cadence (essais 2-4) | 69,0 | 2-3 | ~1 660 | ~443 | 160, 166, 168 |
+   | `KARBON_FRAME_PACING=1` (essais 2-5) | 68,9 | 1-3 | ~1 657 | ~440 | 169, 151, 163, 165 |
+
+   Essais 1 et 5 sans cadence, 1 avec : perturbés (arrêts, jusqu'à 1 633 écartées :
+   fenêtre sans doute masquée), écartés. Règle du point 4 non remplie : la cadence reste
+   sur demande sous macOS. Constat : le moteur envoie ~69 images/s à un écran de 60 Hz ;
+   environ une sur cinq est remplacée avant d'être montrée et ~165 rafraîchissements par
+   30 s n'ont pas d'image neuve (deux envois dans une période, aucun dans la suivante).
+   L'horloge des images n'était pas celle de l'écran : `next_wake` de l'animation du
+   défilement, pas un rappel de l'affichage.
+   **Fait** : lien d'affichage par fenêtre (`macos/window/session/frame_link.rs`,
+   `NSView.displayLink`, macOS 14 ; avant, les échéances du runtime comme jusqu'ici).
+   Une image présentée attend le battement suivant (au plus 50 ms : fenêtre masquée), le
+   battement échantillonne les animations tout de suite (horizon de 16,67 ms, comme
+   Wayland) et le lien se met en pause après quatre battements sans rien à faire. La
+   cadence est active par défaut (attente exacte). Même mesure, 5 essais alternés :
+
+   | Sonde 30:8, après le lien | Envois/s | Écartées | Rafraîchissements manqués | Pire écart affiché |
+   | --- | --- | --- | --- | --- |
+   | Par défaut (cadence active) | 60,0 | 6-13 | 3*, 0, 2*, 0, 7 (médiane 2) | 33,3 ms |
+   | `KARBON_FRAME_PACING=0` | 60,0 | 8-11 | 3, 5, 4, 3, 4 (médiane 4) | 33,3 ms |
+
+   (\* envois perturbés, « arrêts » : 48 et 56 images/s, affichage peu touché.) Objectif
+   du propriétaire : 3 à 4 saccades au plus par essai ; un essai sur cinq le dépasse
+   encore (7). Piste : relever avec `--profile` les images qui débordent (arrivée d'une
+   page, pochettes).
+   Regarder aussi le décodage des pochettes en parallèle (sous Linux, quatre tâches
+   faisaient manquer 7-12 images, une seule 1-4).
 5. Thème système (`ColorScheme::System`) en changeant l'apparence fenêtre ouverte, et
    rendu du `Drawer` du kit.
 
