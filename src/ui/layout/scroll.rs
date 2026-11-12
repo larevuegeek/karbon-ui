@@ -232,5 +232,6 @@ pub(crate) fn set_offset(node: &mut Element, requested: f32) -> f32 {
             clip,
         );
     }
+    layout::sticky::stick(node);
     delta
 }

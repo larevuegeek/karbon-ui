@@ -116,7 +116,8 @@ déclarations s'appliquent à `<body>` sous ses propres règles.
 - `rem` vaut 16 px (taille racine des navigateurs) ; les propriétés logiques
   (`padding-inline`, `margin-block-start`…) deviennent les côtés physiques d'un texte
   horizontal de gauche à droite ; `border-radius` de 50 % et plus arrondit toute la
-  boîte (cercle, pilule) ; `position: sticky` devient `relative`.
+  boîte (cercle, pilule) ; `position: sticky` colle dans la zone défilante verticale la plus proche
+  ([CSS](css.md)).
 - `animation` (raccourci et longues) passe par le compilateur commun quand sa valeur
   est connue à la compilation, variables de l'élément substituées
   (`.spinner-border`, `.spinner-grow`). Une étape `0%`/`100%` absente, ou qui omet une

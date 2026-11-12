@@ -18,3 +18,9 @@
 .smart::-webkit-scrollbar { width: 8px; height: 8px; }
 .tall { height: 300px; }
 .short { height: 40px; }
+
+/* `position: sticky` : en-têtes de sections tenus en haut de la vue. */
+.sticky-page { overflow-y: auto; height: 200px; width: 300px; }
+.sticky-section { display: flex; flex-direction: column; }
+.sticky-head { position: sticky; top: 0px; height: 30px; flex-shrink: 0; z-index: 1; }
+.sticky-row { height: 50px; flex-shrink: 0; }

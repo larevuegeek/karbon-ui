@@ -49,7 +49,8 @@ pub(super) fn capture(root: &Element) -> Vec<Anchor> {
 /// haut de la vue, ou le premier entièrement dessous.
 fn pick(node: &Element, view: RectF) -> Option<(ElementId, f32)> {
     for child in &node.children {
-        if layout::out_of_flow(child) || layout::hidden(child) {
+        // Un élément collant reste en haut de la vue : il n'ancre rien (comme Chromium).
+        if layout::out_of_flow(child) || layout::hidden(child) || layout::sticky(child) {
             continue;
         }
         let r = child.rect;

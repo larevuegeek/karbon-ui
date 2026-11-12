@@ -347,7 +347,8 @@ parenthèses, les jetons distincts de RustMusic concernés (105 au total) :
 - `:has()` (`has-checked:`, `has-[:focus-visible]:`), `marker:`, `print`,
   `contrast-*`, `ltr`/`rtl` (3) ;
 - `position`, `overflow` et `z-index: auto` conditionnels (`md:relative`,
-  `max-md:overflow-y-auto`, `md:z-auto`), `sticky`, `display: contents` (5) ;
+  `max-md:overflow-y-auto`, `md:z-auto`), `display: contents` (4 ; `sticky` est pris en
+  charge depuis le 2026-11-12) ;
 - transformation d’un conteneur qui porte une zone défilante (refusée à l’exécution,
   pas à la compilation : `-translate-x-full` sur la barre latérale) ;
 - `visibility` (`invisible`), `fill-*`/`stroke-*` (le SVG prend ses couleurs dans ses

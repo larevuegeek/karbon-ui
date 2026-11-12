@@ -262,10 +262,6 @@ pub fn classify(name: &str, value: &str, vars: &BTreeMap<String, String>) -> Kin
             None => Kind::Skip("background: url()".into()),
         };
     }
-    // `sticky` : position relative dans le flux (pas de collage au défilement).
-    if name == "position" && lower == "sticky" {
-        return Kind::Static("relative".into());
-    }
     if name == "z-index" && lower == "auto" {
         return Kind::Static("0".into());
     }

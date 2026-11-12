@@ -18,7 +18,10 @@ pub fn arrange(
             containing: bounds,
             parent: bounds,
         },
-    )
+    )?;
+    // Éléments collants, depuis leur place dans le flux.
+    super::sticky::refresh(node);
+    Ok(())
 }
 pub(super) fn arrange_in(
     node: &mut Element,
@@ -60,6 +63,9 @@ fn arrange_node(
     );
     node.rect = bounds;
     node.clip = node_clip(node, bounds, clip);
+    if let Some(rules) = node.rules.as_mut() {
+        rules.sticky_shift = 0.;
+    }
     node.divider = None;
     node.scroll = None;
     // Révélation : le contenu est disposé dans la hauteur naturelle, puis rogné à la

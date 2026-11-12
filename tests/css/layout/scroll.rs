@@ -3,7 +3,10 @@
 use crate::support::*;
 use karbon_ui::{
     platform::headless::HeadlessApp,
-    ui::{prelude::*, scene::DrawCommand},
+    ui::{
+        prelude::*,
+        scene::{DrawCommand, PointF},
+    },
 };
 css_file!(mod css, "scroll.css");
 
@@ -138,4 +141,61 @@ fn scrollbar_width_color_and_gutter_shape_scroll_containers() -> karbon_ui::Resu
     assert_eq!((width(smart.viewport), smart.thickness), (192., 8.));
     assert_eq!(width(metrics(&app, "smart-fits").viewport), 200.);
     Ok(())
+}
+
+#[derive(Default)]
+struct Sticky {
+    /// Derniers clics : `true` pour un en-tête, `false` pour une ligne.
+    clicks: Vec<bool>,
+}
+
+impl Application for Sticky {
+    type Message = bool;
+    fn view(&self, _: &ViewContext) -> Element {
+        ui! {@styles(css);
+            <div>
+            <div id="sticky.page" class="sticky-page">
+                <div id="sticky.a" class="sticky-section">
+                    <div id="sticky.head.a" class="sticky-head" onclick={true}></div>
+                    {#each 0..6 as row (row)}<div class="sticky-row" onclick={false}></div>{/each}
+                </div>
+                <div id="sticky.b" class="sticky-section">
+                    <div id="sticky.head.b" class="sticky-head"></div>
+                    {#each 0..6 as row (row)}<div class="sticky-row"></div>{/each}
+                </div>
+            </div>
+            </div>
+        }
+    }
+    fn update(&mut self, head: bool) -> bool {
+        self.clicks.push(head);
+        false
+    }
+}
+
+/// Un en-tête collant reste en haut de la vue tant que sa section y est, puis remonte avec
+/// elle ; le suivant prend sa place. Sections de 30 + 6 × 50 = 330.
+#[test]
+fn a_sticky_header_stays_at_the_top_of_its_scrolled_section() {
+    let mut app = HeadlessApp::new(Sticky::default()).unwrap();
+    let top = app.bounds("sticky.page").unwrap().top;
+    let at = |app: &HeadlessApp<Sticky>, id: &str| app.bounds(id).unwrap().top - top;
+    near(at(&app, "sticky.head.a"), 0.);
+    near(at(&app, "sticky.head.b"), 330.);
+    app.scroll("sticky.page", 0., 100.).unwrap();
+    near(at(&app, "sticky.a"), -100.);
+    near(at(&app, "sticky.head.a"), 0.);
+    // Collé au-dessus des lignes qui passent dessous : c'est lui qui reçoit le clic.
+    app.click_at(PointF { x: 20., y: top + 10. }).unwrap();
+    assert_eq!(app.app().clicks, [true]);
+    // Bas de la section A à 10 de la vue : son en-tête remonte avec elle.
+    app.scroll("sticky.page", 0., 220.).unwrap();
+    near(at(&app, "sticky.head.a"), 10. - 30.);
+    near(at(&app, "sticky.head.b"), 10.);
+    app.scroll("sticky.page", 0., 40.).unwrap();
+    near(at(&app, "sticky.head.b"), 0.);
+    // Retour en haut : chacun à sa place dans le flux.
+    app.scroll("sticky.page", 0., -360.).unwrap();
+    near(at(&app, "sticky.head.a"), 0.);
+    near(at(&app, "sticky.head.b"), 330.);
 }

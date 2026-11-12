@@ -61,6 +61,9 @@ pub enum Position {
     Absolute,
     /// Out of flow, placed relative to the viewport.
     Fixed,
+    /// Normal flow, then held inside the nearest scroll container's visible area at its
+    /// `top` (or `bottom`) offset, without leaving its parent (CSS `sticky`).
+    Sticky,
 }
 /// Overflow behaviour on one axis, as CSS `overflow`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -246,6 +249,8 @@ pub struct LayoutRules {
     /// ancêtres sans contexte d'empilement (z-index nul) laissent remonter jusqu'ici :
     /// l'élément est peint parmi ses frères à ce rang, comme en CSS.
     pub(crate) lifted_z: i32,
+    /// Vertical shift currently applied to a `sticky` element (0 at its flow position).
+    pub(crate) sticky_shift: f32,
 }
 /// Hauteur d'un élément pendant sa révélation ([`Element::reveal`]).
 #[derive(Clone, Copy, Debug)]

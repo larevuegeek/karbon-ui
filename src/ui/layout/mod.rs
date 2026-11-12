@@ -6,6 +6,8 @@
 mod arrange;
 mod position;
 pub(crate) use position::{fixed, hidden, out_of_flow};
+mod sticky;
+pub(crate) use sticky::sticky;
 pub(crate) mod containment;
 mod lazy;
 pub(crate) use lazy::unsettle;

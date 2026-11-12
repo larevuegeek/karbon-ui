@@ -33,6 +33,7 @@ pub(super) fn property(name: &str, value: &str, next: Next) -> Result<Properties
                     "relative" => "Relative",
                     "absolute" => "Absolute",
                     "fixed" => "Fixed",
+                    "sticky" => "Sticky",
                     _ => return Err("Unsupported position".into()),
                 }
             ),

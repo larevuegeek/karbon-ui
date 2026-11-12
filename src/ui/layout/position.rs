@@ -80,7 +80,7 @@ pub(super) fn restore(node: &mut Element, out: Vec<(usize, Element)>) {
         node.children.insert(index, child);
     }
 }
-fn offset(
+pub(super) fn offset(
     length: Option<Length>,
     reference: f32,
     context: UnitContext,

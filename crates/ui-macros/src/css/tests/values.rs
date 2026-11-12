@@ -79,7 +79,12 @@ fn supported_properties_translate_and_unknown_values_fail_explicitly() {
         values::property("grid-template-columns", "repeat(3, 1fr)").unwrap()[0].0,
         "grid_tracks"
     );
-    for (name, value) in [("position", "sticky"), ("backdrop-filter", "url(#x)")] {
+    assert!(
+        values::property("position", "sticky").unwrap()[0]
+            .1
+            .ends_with("Position::Sticky")
+    );
+    for (name, value) in [("position", "inherit"), ("backdrop-filter", "url(#x)")] {
         assert!(values::property(name, value).is_err(), "{name}: {value}");
     }
 }

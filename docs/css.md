@@ -173,7 +173,7 @@ de lignes avec ses métriques fixes.
 | Flex | display:flex, row/column et reverse, nowrap/wrap/wrap-reverse, basis/grow/shrink, align-self, `order` (entier) |
 | Alignement | start/end/center/stretch ; justify-content start/end/center/space-between |
 | Grille | Colonnes et lignes (`grid-template-columns` / `grid-template-rows`) en px, %, auto, fr, `max-content`, `fit-content(px)`, minmax et repeat (dont `repeat(auto-fill | auto-fit, piste)`, répétée selon la largeur) ; grid-column/span, `N / M`, `1 / -1`, lignes et colonnes explicites ; `justify-self` et `align-self` start/center/end/stretch dans la cellule (largeur auto alignée : largeur du contenu), `align-items` et `justify-items` du conteneur comme alignements par défaut ; `justify-content` start/center/end/space-between place les colonnes quand leurs pistes laissent de la place (sans effet avec une piste `fr`) ; lignes implicites d’une grille de hauteur définie étirées à parts égales |
-| Position | static/relative/absolute/fixed ; top/right/bottom/left et raccourci `inset` (1 à 4 valeurs) en longueurs ou auto ; z-index entier |
+| Position | static/relative/absolute/fixed/sticky ; top/right/bottom/left et raccourci `inset` (1 à 4 valeurs) en longueurs ou auto ; z-index entier |
 | Débordement | overflow et axes visible/hidden/clip ; contours arrondis pour un clip explicite sur les deux axes ; `overscroll-behavior: contain / none` (le reste d’un défilement à la molette reste dans le conteneur) ; `scroll-margin` et `scroll-padding` (marges gardées quand le focus amène un élément dans la vue) ; `scroll-initial-target: nearest / none` (un conteneur qui apparaît part de l'élément, voir [scroll.md](scroll.md)) ; zone visible = boîte de padding, ancrage du défilement comme `overflow-anchor: auto` |
 | Pointeur | `cursor` (auto, default, pointer, text, not-allowed, wait, progress, help, move, grab, grabbing, crosshair, col/row/ew/ns/nwse/nesw-resize…), hérité et possible dans les états ; `pointer-events: none / auto`, hérité (ni clic, ni survol, ni curseur) |
 
@@ -196,7 +196,12 @@ opposés étirent une dimension auto ; sans eux, la hauteur `auto` est celle du 
 qui peut déborder du bloc conteneur (une colonne flexible `top: 50%` n'est pas
 rétrécie à la place restante) ; seule une zone qui défile verticalement
 (`overflow-y: auto | scroll`) prend cette place pour borne. `fixed` reste attaché au viewport et
-échappe au scroll et au clip de ses ancêtres. Chaque conteneur définit ici
+échappe au scroll et au clip de ses ancêtres. `sticky` garde sa place dans le flux, puis
+reste dans la vue de la zone défilante verticale la plus proche à son `top` (ou `bottom`),
+sans sortir de la boîte de contenu de son parent : en-tête de section qui laisse la place
+au suivant (`layout/sticky.rs`). Il n'ancre pas le défilement ; `z-index` le garde
+au-dessus du contenu qui passe dessous, pour le dessin comme pour les clics. Pas de
+collage horizontal. Chaque conteneur définit ici
 un contexte d’empilement ; dessin et clics emploient le même ordre de z-index
 (les feuilles de framework font remonter le `z-index` d’un descendant à travers
 ses ancêtres sans `z-index`, comme en CSS : voir [css-frameworks.md](css-frameworks.md)).
