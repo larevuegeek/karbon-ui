@@ -186,7 +186,11 @@ fn a_sticky_header_stays_at_the_top_of_its_scrolled_section() {
     near(at(&app, "sticky.a"), -100.);
     near(at(&app, "sticky.head.a"), 0.);
     // Collé au-dessus des lignes qui passent dessous : c'est lui qui reçoit le clic.
-    app.click_at(PointF { x: 20., y: top + 10. }).unwrap();
+    app.click_at(PointF {
+        x: 20.,
+        y: top + 10.,
+    })
+    .unwrap();
     assert_eq!(app.app().clicks, [true]);
     // Bas de la section A à 10 de la vue : son en-tête remonte avec elle.
     app.scroll("sticky.page", 0., 220.).unwrap();
