@@ -345,3 +345,14 @@ fn box_properties_expand_sides_outlines_and_ratios() {
         assert!(values::property(n, v).is_err(), "{n}: {v}");
     }
 }
+#[test]
+fn a_value_with_several_variables_is_not_read_as_a_single_variable() {
+    let vars = BTreeMap::from([("--r".into(), "14px".into())]);
+    // Coins d'un tiroir : `var()` en tête et en fin, mais pas une seule variable.
+    let props = values::declaration("border-radius", "var(--r) 0 0 var(--r)", &vars).unwrap();
+    assert_eq!(props[0].0, "corner_radii");
+    assert!(props[0].1.contains("14.0"), "{props:?}");
+    // Une seule variable, même avec une parenthèse dans une chaîne de repli.
+    let font = values::declaration("font-family", "var(--font, \"A ) B\")", &vars).unwrap();
+    assert!(!font.is_empty());
+}

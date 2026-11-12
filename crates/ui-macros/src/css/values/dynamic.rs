@@ -1,10 +1,37 @@
 //! Déclaration complète : variables `var()` résolues, ou déclaration évaluée à la
 //! résolution des styles quand elle dépend de variables d'élément.
 use super::*;
+/// Arguments de `raw` s'il n'est qu'un seul `var(…)` (`var(--a) 0 0 var(--a)` n'en est pas
+/// un : sa première parenthèse se ferme avant la fin).
+fn single_var(raw: &str) -> Option<&str> {
+    let inner = raw.strip_prefix("var(")?;
+    let mut depth = 1usize;
+    let mut quote = None;
+    for (i, c) in inner.char_indices() {
+        if let Some(q) = quote {
+            if c == q {
+                quote = None;
+            }
+            continue;
+        }
+        match c {
+            '"' | '\'' => quote = Some(c),
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return (i == inner.len() - 1).then(|| &inner[..i]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
 fn keys(raw: &str, vars: &BTreeMap<String, String>) -> Result<Vec<String>> {
     let mut raw = raw.trim();
     let mut result = Vec::new();
-    while let Some(inner) = raw.strip_prefix("var(").and_then(|s| s.strip_suffix(')')) {
+    while let Some(inner) = single_var(raw) {
         let args = split(inner, ',')?;
         let name = args[0].trim();
         if result.iter().any(|s| s == name) || result.len() > 32 {
