@@ -485,10 +485,20 @@ aarch64-apple-darwin`).
    | Par défaut (cadence active) | 60,0 | 6-13 | 3*, 0, 2*, 0, 7 (médiane 2) | 33,3 ms |
    | `KARBON_FRAME_PACING=0` | 60,0 | 8-11 | 3, 5, 4, 3, 4 (médiane 4) | 33,3 ms |
 
-   (\* envois perturbés, « arrêts » : 48 et 56 images/s, affichage peu touché.) Objectif
-   du propriétaire : 3 à 4 saccades au plus par essai ; un essai sur cinq le dépasse
-   encore (7). Piste : relever avec `--profile` les images qui débordent (arrivée d'une
-   page, pochettes).
+   (\* « arrêts » : la sonde remonte autant qu'elle est descendue et touche parfois le
+   haut de la liste avant la fin ; plus rien à dessiner, l'affichage n'en souffre pas.)
+   Objectif du propriétaire : 3 à 4 saccades au plus par essai de 30 s.
+   Les saccades restantes venaient de la **première reconstruction de chaque page qui
+   entre** (`--profile` : 13-17 ms, les suivantes 6-9 ms ; ~5 pages par essai). Mêmes
+   étapes que les suivantes (aucune passe de survol, de conteneur ou de contenu révélé en
+   plus), chacune ~×2 : vue 4,2-4,8 ms au lieu de ~2, styles 2,4-3,1 au lieu de ~1,4,
+   layout 5,8-6,3 au lieu de ~2. Ni l'arrivée de la page (reconstruction retirée du clone :
+   le surcoût passe sur la tranche suivante) ni la priorité du fil (QoS interactive, sans
+   effet). Hypothèse : caches du processeur vidés par quelques secondes de défilement (le
+   GPU partage la mémoire). Côté clone, lignes allégées (étoiles vides : 6 éléments au
+   lieu de 16, ~38 → ~28 par ligne) : première reconstruction 12-15 ms, et **5 essais à
+   2, 0, 0, 1, 0 saccades** (plus trois essais profilés à 0). Côté moteur, la marge
+   viendrait de moins de mémoire touchée par élément (`Styles` : 3,8 Ko).
    Regarder aussi le décodage des pochettes en parallèle (sous Linux, quatre tâches
    faisaient manquer 7-12 images, une seule 1-4).
 5. Thème système (`ColorScheme::System`) en changeant l'apparence fenêtre ouverte, et
