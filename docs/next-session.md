@@ -445,10 +445,10 @@ et rendu du kit vérifié en clair et en sombre ; drawables libérés dans le Do
 dépôt git) : page Morceaux sur la vraie base, barre d'outils (recherche, filtres, tri),
 en-tête collant.
 
-Restent sur le Mac, à la main : l'animation de retour du Dock (pas de capture d'écran
-autorisée pour l'assistant), `sudo memory_pressure -S -l warn` puis `critical` pendant
-que le clone tourne avec `--profile`, le réglage réel de l'apparence (le chemin est
-vérifié par la sonde). Moteur : `repeating-linear-gradient` (arrêts en fractions de la
+Vérifié à la main par le propriétaire le 2026-11-12 : retour du Dock (image nette, sans
+fenêtre vide ni saut), pression mémoire simulée (`sudo memory_pressure -S -l warn`
+puis `critical` : les deux alertes reçues, défilement normal), thème du système suivi
+fenêtre ouverte (Sombre, Clair, Auto, galerie du kit). Restent, moteur : `repeating-linear-gradient` (arrêts en fractions de la
 boîte : dépliage du motif à la peinture), mesure sur un vrai Mac Intel (GPU Intel et
 AMD), et la liste « Reste » ci-dessous.
 
@@ -525,8 +525,8 @@ aarch64-apple-darwin`).
    faisaient manquer 7-12 images, une seule 1-4).
 5. Thème système (`ColorScheme::System`) : fait le 2026-11-12, vérifié par la sonde
    native (`tests/macos`, apparence sombre puis claire imposée à la fenêtre ouverte, la
-   vue voit `[clair, sombre, clair]`). Le réglage réel du système n'a pas été basculé
-   (autorisation d'automatisation) : même chemin AppKit (`effectiveAppearance`).
+   vue voit `[clair, sombre, clair]`). Réglage réel du système basculé à la main par
+   le propriétaire le 2026-11-12 (Sombre, Clair, Auto) : la galerie du kit suit.
 6. Mac Intel, faute de machine : tout sous Rosetta 2 le 2026-11-12 (`--target
    x86_64-apple-darwin`, processeur émulé, GPU du M1). Tests du socle (348, ignorés
    compris), d'intégration et sonde native : tout passe. Exports de référence : écart de
@@ -778,16 +778,15 @@ Reste :
   cachée (taille ramenée à 1 × 1, le calque reste ; image refaite en entier au retour,
   et à la fin d’une occlusion). Fenêtre de 1440 × 900 : la réduction libère 44 Mo au
   lieu de 8. Vérifié par la sonde native (drawables d’un pixel dans le Dock, calque à la
-  taille de la vue au retour). À regarder à l’œil : l’animation de retour du Dock (pas
-  de capture d’écran autorisée ici).
+  taille de la vue au retour). Animation de retour du Dock vérifiée à l’œil par le
+  propriétaire le 2026-11-12.
 - Fait le 2026-11-12 : pression mémoire du système (`window/memory.rs`, source
   `DISPATCH_SOURCE_TYPE_MEMORYPRESSURE`, liaisons libdispatch écrites à la main).
   Avertissement : ressources GPU allégées comme au repos ; critique : textures, atlas et
   caches Core Graphics, plus les drawables d’une fenêtre que l’on ne voit pas. Source
-  vérifiée par un test ; déclenchement réel à essayer une fois (droits
-  d’administrateur) : `sudo memory_pressure -S -l warn` (puis `critical`, puis
-  `normal`) pendant que le clone tourne avec `--profile`, qui écrit « pression mémoire
-  du système ».
+  vérifiée par un test, et à la main le 2026-11-12 : `sudo memory_pressure -S -l warn`
+  puis `critical` pendant que le clone tourne avec `--profile` (« pression mémoire du
+  système » écrite pour les deux).
 - Barre latérale et redimensionnement : voir « Préparation du moteur » ci-dessous.
 - Décalage d’un pixel du titre de RustMusic pendant le défilement (cause dans Core
   Graphics non trouvée) et position verticale des émojis.
