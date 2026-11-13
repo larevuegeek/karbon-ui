@@ -351,3 +351,26 @@ fn composition_read_only_and_accessibility_follow_the_single_line_field() {
     r.key(Key::Up, true);
     assert_eq!(r.state().selection, 1..3);
 }
+
+/// `UiRuntime::event` sans `prepare` : les lignes coupées datent de la dernière mesure,
+/// leurs bornes peuvent tomber au milieu d'un caractère du texte actuel.
+#[test]
+fn stale_rows_never_split_a_character() {
+    let mut area = Area::new("ab");
+    let key = |area: &mut Area, key| {
+        area.ui.event(UiEvent::KeyDown {
+            key,
+            shift: false,
+            repeat: false,
+        });
+    };
+    key(&mut area, Key::Home);
+    area.ui.event(UiEvent::Text("😃".into()));
+    // Fin de la ligne mesurée (« ab ») : octet 2, au milieu de 😃.
+    key(&mut area, Key::End);
+    key(&mut area, Key::Backspace);
+    area.ui.event(UiEvent::Text("!".into()));
+    area.prepare();
+    // Fin ramenée à la frontière précédente (0) : rien à effacer, le texte y est inséré.
+    assert_eq!(area.state().value, "!😃ab");
+}

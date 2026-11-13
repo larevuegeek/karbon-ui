@@ -39,6 +39,53 @@ impl Editor {
         }
     }
 
+    /// Arrêt du curseur avant `byte` : celui de la ligne mesurée (grappe), ou le caractère
+    /// précédent. La ligne date de la dernière préparation : quand `UiRuntime::event` est
+    /// appelé sans `prepare` entre deux frappes, ses arrêts ne correspondent plus au
+    /// texte. Elle ne sert que si elle finit avec lui, et seul un arrêt qui recule et
+    /// tombe sur une frontière de caractère est pris.
+    pub(super) fn previous_stop(&self, byte: usize) -> usize {
+        let byte = self.boundary(byte);
+        let character = self.text[..byte]
+            .char_indices()
+            .next_back()
+            .map_or(0, |(i, _)| i);
+        match self.current_line().map(|line| line.previous(byte)) {
+            Some(stop) if stop < byte && self.text.is_char_boundary(stop) => stop,
+            _ => character,
+        }
+    }
+
+    /// Arrêt du curseur après `byte` (voir [`previous_stop`](Self::previous_stop)) :
+    /// avance toujours tant que `byte` n'est pas la fin du texte.
+    pub(super) fn next_stop(&self, byte: usize) -> usize {
+        let byte = self.boundary(byte);
+        let character = self.text[byte..]
+            .chars()
+            .next()
+            .map_or(byte, |c| byte + c.len_utf8());
+        match self.current_line().map(|line| line.next(byte)) {
+            Some(stop) if stop > byte && self.text.is_char_boundary(stop) => stop,
+            _ => character,
+        }
+    }
+
+    /// Ligne mesurée, si elle l'a été pour le texte actuel (son dernier arrêt est sa fin).
+    fn current_line(&self) -> Option<&TextLine> {
+        self.line
+            .as_ref()
+            .filter(|line| line.carets.last().map(|c| c.byte) == Some(self.text.len()))
+    }
+
+    /// `byte` ramené dans le texte, sur une frontière de caractère.
+    fn boundary(&self, byte: usize) -> usize {
+        let mut byte = byte.min(self.text.len());
+        while !self.text.is_char_boundary(byte) {
+            byte -= 1;
+        }
+        byte
+    }
+
     pub(super) fn push_undo(&mut self) {
         self.undo.push(self.snapshot());
         trim_history(&mut self.undo);
@@ -73,6 +120,8 @@ impl Editor {
         self.follow = true;
         self.upstream = false;
         self.goal = None;
+        // Position lue sur une mesure en retard sur le texte (voir `previous_stop`).
+        let position = self.boundary(position);
         self.cursor = position;
         if !extend {
             self.anchor = position;

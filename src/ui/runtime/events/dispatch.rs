@@ -4,6 +4,9 @@ impl UiRuntime {
     ///
     /// Messages emitted by the affected elements are delivered to the application, whose
     /// `update` may invalidate the view.
+    ///
+    /// It does not lay out the tree: see the type documentation for events dispatched
+    /// without a [`prepare`](Self::prepare) in between.
     pub fn event(&mut self, event: UiEvent) -> EventResult {
         let ends = matches!(
             event,

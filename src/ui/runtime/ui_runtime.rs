@@ -113,6 +113,12 @@ pub(super) struct PaintState {
 ///
 /// A backend calls [`event`](Self::event) for each input, then
 /// [`prepare`](Self::prepare) and paints [`scene`](Self::scene) when a repaint is needed.
+///
+/// Several events may be dispatched between two calls to `prepare` (a burst of keys, a
+/// pasted text followed by a key). Hit testing, hover and the caret stops of text fields
+/// then still describe the last prepared frame: a field edited since falls back to
+/// character boundaries of its current text (never splitting a character), and the layout
+/// catches up at the next `prepare`. Call `prepare` before painting.
 pub struct UiRuntime {
     pub(super) app: Box<dyn DynApplication>,
     pub(super) root: Option<Element>,

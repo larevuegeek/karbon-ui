@@ -156,29 +156,28 @@ impl TextInputs {
                     }
                     EditCommand::WordLeft { extend } | EditCommand::WordRight { extend } => {
                         let right = matches!(command, EditCommand::WordRight { .. });
-                        let line = e.line.as_ref().unwrap();
                         let mut byte = e.cursor;
                         if right {
                             while byte < e.text.len()
                                 && !e.text[byte..].chars().next().unwrap().is_whitespace()
                             {
-                                byte = line.next(byte);
+                                byte = e.next_stop(byte);
                             }
                             while byte < e.text.len()
                                 && e.text[byte..].chars().next().unwrap().is_whitespace()
                             {
-                                byte = line.next(byte);
+                                byte = e.next_stop(byte);
                             }
                         } else {
                             while byte > 0
                                 && e.text[..byte].chars().next_back().unwrap().is_whitespace()
                             {
-                                byte = line.previous(byte);
+                                byte = e.previous_stop(byte);
                             }
                             while byte > 0
                                 && !e.text[..byte].chars().next_back().unwrap().is_whitespace()
                             {
-                                byte = line.previous(byte);
+                                byte = e.previous_stop(byte);
                             }
                         }
                         e.move_to(byte, *extend);
@@ -209,13 +208,12 @@ impl TextInputs {
                     changed = edited;
                     result.handled = true;
                 } else {
-                    let line = e.line.as_ref().unwrap();
                     match key {
                         Key::Left => {
                             let target = if !shift && !e.range().is_empty() {
                                 e.range().start
                             } else {
-                                line.previous(e.cursor)
+                                e.previous_stop(e.cursor)
                             };
                             e.move_to(target, *shift);
                         }
@@ -223,7 +221,7 @@ impl TextInputs {
                             let target = if !shift && !e.range().is_empty() {
                                 e.range().end
                             } else {
-                                line.next(e.cursor)
+                                e.next_stop(e.cursor)
                             };
                             e.move_to(target, *shift);
                         }
@@ -233,9 +231,9 @@ impl TextInputs {
                             if !input.read_only {
                                 if e.range().is_empty() {
                                     if *key == Key::Backspace {
-                                        e.anchor = line.previous(e.cursor);
+                                        e.anchor = e.previous_stop(e.cursor);
                                     } else {
-                                        e.anchor = line.next(e.cursor);
+                                        e.anchor = e.next_stop(e.cursor);
                                     }
                                 }
                                 changed = e.replace("", input.max_chars);

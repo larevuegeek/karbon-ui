@@ -209,3 +209,38 @@ fn word_navigation_and_style_validation() {
     );
     assert!(crate::error::rejected(layout::validate(&bad)));
 }
+
+/// `UiRuntime::event` sans `prepare` entre deux entrées : la ligne mesurée date d'avant
+/// les dernières frappes. Les touches restent aux frontières du texte et avancent.
+#[test]
+fn keys_without_prepare_stay_on_character_boundaries() {
+    let mut f = Fixture::new("abcd");
+    let key = |f: &mut Fixture, key| {
+        f.ui.event(UiEvent::KeyDown {
+            key,
+            shift: false,
+            repeat: false,
+        })
+    };
+    key(&mut f, Key::Home);
+    f.ui.event(UiEvent::Text("😃".into()));
+    // Arrêts de « abcd » (un par octet) : le précédent de 4 serait 3, au milieu de 😃.
+    key(&mut f, Key::Backspace);
+    assert_eq!(f.state().value, "abcd");
+    f.ui.event(UiEvent::Text("é😃".into()));
+    key(&mut f, Key::Left);
+    key(&mut f, Key::Delete);
+    assert_eq!(f.state().value, "éabcd");
+    // Mots tapés après la dernière mesure : la navigation par mot va jusqu'au bout.
+    key(&mut f, Key::End);
+    f.ui.event(UiEvent::Text(" deux mots".into()));
+    key(&mut f, Key::Home);
+    f.ui.event(UiEvent::Edit(EditCommand::WordRight { extend: false }));
+    f.ui.event(UiEvent::Edit(EditCommand::WordRight { extend: false }));
+    f.ui.event(UiEvent::Edit(EditCommand::WordRight { extend: false }));
+    assert_eq!(f.state().selection, 16..16);
+    f.ui.event(UiEvent::Edit(EditCommand::WordLeft { extend: false }));
+    assert_eq!(f.state().selection, 12..12);
+    f.prepare();
+    assert_eq!(f.state().value, "éabcd deux mots");
+}
