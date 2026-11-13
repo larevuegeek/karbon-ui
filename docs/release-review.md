@@ -69,36 +69,37 @@ cascade ; les valeurs écrites ensuite par une règle d'état (`md:`, `hover:`, 
 | W1 | bug | Corrigé | `graphics/typography/rich.rs:257` | `rich_rects` indexe la table UTF-16 du paragraphe coupé avec des octets du paragraphe d'origine (lien dans un texte `nowrap` + ellipse + `rtl`) : hors bornes. Décaler comme Linux (`graphics/text/measure.rs`). |
 | W2 | bug | Corrigé | `events/keyboard.rs` | Touches de développement actives dans toute fenêtre (F2 renderer, F3 transparence, F5 thème, F8 statistiques) et Échap qui détruisait la fenêtre quand l'interface ne la consommait pas. Les touches F ne répondent plus qu'avec l'option `profile` ; Échap suit le chemin des autres touches. |
 | W3 | bug | Corrigé, test ajouté | `events/procedure.rs` | Après une panique rattrapée, la fenêtre est détruite sans le démontage de `WM_DESTROY` : la fenêtre d'ombre reste à l'écran, l'accessibilité n'est pas déconnectée. Le démontage (`teardown`) s'exécute aussi après une panique, chaque étape isolée. |
-| W4 | bug probable | À faire | `window/session.rs`, `window/tasks.rs` | Rappels de l'application appelés depuis la boucle hors de `catch_unwind` (`task_completed`, `take_window_commands`, `load`) : selon le moment, la panique sort de `platform::run` au lieu de rendre `Error::Panicked`. |
+| W4 | bug probable | Corrigé (à valider) | `window/session.rs`, `window/tasks.rs` | Rappels de l’application appelés depuis la boucle hors de `catch_unwind` (`task_completed`, `take_window_commands`, `load`). `guard` / `catch_panic` (`events/procedure.rs`) : fenêtre détruite et `Error::Panicked`. Tests Windows ajoutés, non exécutés (écrits sur Mac). |
 | W5 | bug probable | Corrigé | `graphics/formats.rs:40` | Formats DirectWrite créés avec la locale `fr-FR` en dur (repli de polices et césure sur un système chinois ou japonais). Lire `GetUserDefaultLocaleName`. |
-| W7 | bug probable | À faire | `present/runtime.rs`, `present/paint.rs` | `DRAWING` emprunté pendant les rappels : une application qui pompe des messages dans `update` (`MessageBoxW`) fait paniquer la peinture imbriquée. `try_borrow_mut` et report. |
-| W8 | bug probable | À faire | `fonts.rs:178` | Cache de résolution des familles indexé par l'adresse de la collection, jamais invalidé : deux fenêtres aux polices embarquées différentes peuvent se mélanger. |
-| W9 | mineur | À faire | `accessibility/sync.rs:38` | `PUBLISHED_FOCUS` commun à toutes les fenêtres. |
+| W7 | bug probable | Corrigé (à valider) | `present/runtime.rs`, `present/paint.rs` | `DRAWING` emprunté pendant les rappels : peinture imbriquée (application qui pompe des messages dans `update`) reportée (`exclusive`, `paint_deferred`), lectures imbriquées sans panique. Test Windows ajouté, non exécuté. |
+| W8 | bug probable | Corrigé (à valider) | `fonts.rs:178` | Cache des familles indexé par un numéro unique par collection au lieu de son adresse. |
+| W9 | mineur | Corrigé (à valider) | `accessibility/sync.rs:38` | `PUBLISHED_FOCUS` propre à chaque fenêtre (`accessibility_focus`). |
 | W10 | mineur | Corrigé | `events/text.rs` | `WM_UNICHAR` laissait passer les caractères de commande. |
 | W11 | nettoyage | Corrigé | `present/drawing.rs`, `window/dwm.rs` | `println!` à chaque ouverture de fenêtre : avec `profile` seulement. |
 | W12 | nettoyage | Corrigé | `window/config.rs`, `window/create.rs`, `window/shadow.rs`, `accessibility/provider/common.rs` | Noms d'anciennes étapes : titre par défaut « Native UI - J2 », classes `MonMoteur`, fournisseur UIA `WindowEngine`. |
 | W13 | nettoyage | Corrigé | `diagnostics.rs`, `error.rs`, `task/types.rs` | Rustdoc public qui contredit le code (aperçus « sans backend natif hors de Windows », `QueueFull`). |
-| W14 | mineur | À faire | `window/dialog.rs:146`, `window/shadow.rs:92` | Chemin avec un demi-codet isolé refusé (`OsString::from_wide`) ; `GetModuleHandleW` non vérifié. |
+| W14 | mineur | Corrigé (à valider) | `window/dialog.rs:146`, `window/shadow.rs:92` | Chemin rendu par `OsString::from_wide` (demi-codet isolé gardé) ; `GetModuleHandleW` vérifié. |
 
 ## Backend macOS (`src/platform/macos`)
 
-Rien de cette section n'a été exécuté : la revue a été faite depuis Windows.
+Revue faite depuis Windows ; tout a été repris, exécuté et testé sur un Mac (Apple
+Silicon) le 2026-11-13, avec la sonde native `tests/macos`.
 
 | # | Gravité | État | Fichier | Constat |
 | --- | --- | --- | --- | --- |
-| M1 | bug | Corrigé (à valider) | `window/session/frame_link.rs:80`, `lifecycle.rs:328` | L'attente du lien d'affichage expirée n'est jamais effacée : fenêtre couverte pendant une animation, `timeout()` reste dans le passé, la boucle tourne à 100 % du processeur. Filtrer `timeout(now)` ou effacer `awaiting` à l'expiration. |
-| M2 | bug | À faire | `window/event_loop.rs:320,352`, `window/change.rs` | `Session::change` et `show` appellent AppKit sous l'emprunt des sessions : les notifications synchrones (clé, taille) sont perdues (`try_borrow_mut`). Fenêtre B sans focus après `Focus`, image non rafraîchie après `Size`. |
-| M3 | bug probable | À faire | `metal/renderer.rs:195` | Image sans drawable : les caches (groupes filtrés, mipmaps) gardent des entrées jamais rendues. |
-| M4 | bug probable | À faire | `window/event_loop.rs:466` | Pas de `NSApplicationDelegate` : Quitter depuis le Dock ou la fermeture de session termine le processus sans que `run_windows` rende la main ; Quitter grisé sans fenêtre clé. |
-| M5 | bug probable | À faire | `window/session/paint.rs:26` | Une fenêtre entièrement couverte continue de peindre, ce qui annule la libération des ressources. |
-| M6 | mémoire | À faire | `metal/resources.rs:167`, `metal/submit.rs:47` | `Trim::Hidden` garde les cibles de la dernière image (`taken`, `ring.last`). |
-| M7 | bug probable | Corrigé (à valider) | `window/event_loop.rs:473` | `activateIgnoringOtherApps(true)` même quand toutes les fenêtres ont `activate: false`. |
-| M8 | bug | Corrigé (à valider) pour `dragging` ; À faire pour `GRIP` | `window/change.rs:203` | `dragging` vrai pour toutes les fenêtres pendant le geste d'une seule ; `GRIP` jamais effacé si la fenêtre se ferme pendant le geste. |
-| M9 | à vérifier | À faire | `window/event_loop.rs:47` | `WAKE_PENDING` reste vrai si une boucle AppKit imbriquée consomme l'événement de réveil. |
-| M10 | performance | À faire | `metal/submit.rs:125` | Cible allouée pour chaque calque, même vide. |
-| M11 | latent | À faire | `metal/encode/raster.rs:57` | Clé du cache par adresse d'un `Arc<VectorIcon>` non retenu (même schéma dans `linux/vulkan/encode/raster.rs`). |
-| M12 | nettoyage | À faire | `metal/renderer.rs:141` | Erreur d'`encode` sans `resources.end()`. |
-| M13 | nettoyage | À faire | divers | Commentaires en double (`window/view.rs:55`, `graphics/cache.rs:41`, `window/events.rs:80`), `offscreen.rs` : trois `unsafe` sans `// SAFETY :`, messages d'erreur en français sur la sortie d'erreur hors `--profile`. |
+| M1 | bug | Corrigé, test ajouté | `window/session/frame_link.rs`, `pacing.rs` | Attente du lien d’affichage expirée jamais effacée (fenêtre couverte, écran en veille) : la boucle ne dormait plus. Abandonnée à l’échéance (`expire`) ; logique d’attente séparée du lien AppKit (`Beat`) et testée. La sonde native mesure aussi le processeur dans le Dock (16 à 29 ms en 0,9 s). |
+| M2 | bug | Corrigé | `window/event_loop.rs`, `window/change.rs` | `Session::change` et l’affichage d’une fenêtre ouverte appelaient AppKit sous l’emprunt des sessions : notifications synchrones (clé, taille) perdues. AppKit est appelé hors emprunt (`change::apply`), l’état relevé ensuite (`Session::changed`). Sonde native : taille demandée par l’application, image refaite à cette taille (non discriminant : la perte d’une notification n’est pas observable depuis l’application). |
+| M3 | bug | Corrigé, test ajouté | `metal/renderer.rs`, `metal/resources.rs` | Image traduite sans drawable : une image nouvelle restait en cache sans ses mipmaps (calculés à l’encodage) et un groupe filtré enregistré sans avoir été dessiné ; réduite, l’image aurait montré des niveaux non remplis. Ils sont oubliés (`discard_unrendered`), l’image suivante les refait. |
+| M4 | bug | Corrigé, test ajouté | `window/app_delegate.rs` | Délégué de l’application : Quitter (Dock, menu, `terminate:`) termine la boucle et `run_windows` rend `Ok` ; fermeture de session : boucle terminée, applications détruites, puis processus terminé par AppKit (`NSTerminateLater`). Quitter actif sans fenêtre clé. Sonde native : sortie par `terminate:`, garde `atexit` (sans délégué : SIGABRT). |
+| M5 | bug | Corrigé, test ajouté | `window/session/paint.rs`, `lifecycle.rs` | Fenêtre affichée mais entièrement couverte : ni peinte ni réveillée, image refaite quand elle redevient visible. Sonde native : fenêtre opaque par-dessus, drawables gardés à un pixel (sans la correction : 1 000). |
+| M6 | mémoire | Corrigé, test ajouté | `metal/resources.rs`, `metal/submit.rs` | `Trim` libère aussi les cibles prises par la dernière image et le dernier tampon de commandes terminé sans erreur (une image en erreur reste lue pour le repli). |
+| M7 | bug probable | Corrigé | `window/event_loop.rs` | Pas d’activation quand aucune fenêtre ne la demande ; vérifié sur le Mac (sonde : `isActive` faux, vrai si l’activation est forcée). Non exigé par la sonde : macOS peut donner le premier plan à une application lancée depuis un processus qui l’a. Les fenêtres de la sonde sont flottantes : sans premier plan, celles de l’utilisateur les couvraient (M5). |
+| M8 | bug | Corrigé | `window/change.rs`, `event_loop.rs` | `dragging` propre à la fenêtre du geste ; `GRIP` terminé à la fermeture de sa fenêtre et effacé à la fin de la boucle. |
+| M9 | bug | Corrigé, test ajouté | `window/event_loop.rs` | Réveil consommé par une boucle AppKit imbriquée : l’indicateur restait levé et tous les réveils suivants étaient ignorés. Il repart de zéro à chaque tour. Sonde native : boucle imbriquée qui consomme un réveil, chien de garde (blocage = échec après 20 s). |
+| M10 | performance | Corrigé, test ajouté | `metal/submit.rs` | Calque vide que ne lit aucun filtre : texture vide au lieu d’une cible, sans passage (groupe d’opacité vide : 32 Ko de cible en moins). |
+| M11 | latent | Corrigé, test ajouté | `metal/resources.rs`, `linux/vulkan/textures.rs` | La rastérisation d’une icône vectorielle retient son `Arc`, dont l’adresse sert de clé (Metal et Vulkan ; test Metal). |
+| M12 | nettoyage | Corrigé | `metal/renderer.rs` | Image fermée (`resources.end()`) et tampons recyclés quand la cible ou l’encodage échouent. |
+| M13 | nettoyage | Corrigé | divers | Commentaires en double retirés, `// SAFETY :` de `offscreen.rs`, messages de la sortie d’erreur hors diagnostic en anglais. |
 
 ## Compilateur (`crates/ui-macros`)
 
@@ -109,12 +110,12 @@ Rien de cette section n'a été exécuté : la revue a été faite depuis Window
 | C3 | bug | Corrigé | `input/files.rs:72`, `css/framework/model.rs:71` | BOM UTF-8 jamais retiré des `.ui` et des CSS (fichier enregistré « UTF-8 avec BOM ») : erreurs incompréhensibles, variables de `:root` perdues en mode `framework`. |
 | C4 | bug | Corrigé, test ajouté | `css/framework/values/normalize.rs:14` | Chaîne entre guillemets recopiée octet par octet : `"Hélvetica"` devient `"HÃ©lvetica"`. |
 | C5 | bug probable | Corrigé | `codegen/properties.rs:74` | Expression collée en `({expr} as f32)` : `style:gap={self.base + 4}` devient `self.base + (4 as f32)`. |
-| C6 | bug probable | À faire | `codegen/properties.rs:94` | Identifiant seul lu comme mot-clé CSS : `style:align={alignment}` refusé. |
-| C7 | bug probable | À faire | `template/generate/components.rs:101` | Nom d'attribut d'un composant collé tel quel : `<Button type="…">` (mot-clé Rust) inutilisable ; noms `__ui_*` non refusés. |
+| C6 | bug probable | Corrigé, test ajouté | `codegen/properties.rs:94` | Identifiant seul de `style:nom={…}` gardé comme valeur de l’appelant (champ `expression` de `StyleProp`) ; les chaînes littérales restent des mots-clés. |
+| C7 | bug probable | Corrigé, test ajouté | `template/generate/components.rs:101` | Prop nommée comme un mot-clé de Rust en identifiant brut (`type` → `r#type`) ; `__ui_*`, `_`, `crate`, `self`, `Self`, `super` refusés. |
 | C8 | bug probable | Corrigé | `input/files.rs` | `.ui` en CRLF : `\r` gardés dans `<pre>`. Fins de ligne normalisées à la lecture, avec le BOM (C3). |
-| C9 | bug probable | À faire | `classes.rs:80` | Feuille `framework` gardée en cache par chemin : diagnostics périmés sous rust-analyzer après une modification. |
-| C10 | bug probable | À faire | `codegen/properties.rs:66`, `template/generate/select.rs` | Expression de l'appelant évaluée deux fois (`overflow`, `option`). |
+| C9 | bug probable | Corrigé, test ajouté | `classes.rs:80` | Feuille en cache revalidée par taille et date du fichier (`framework::load`). |
+| C10 | bug probable | Corrigé, test ajouté | `codegen/properties.rs:66`, `template/generate/select.rs` | `overflow` et la valeur d’une `<option>` liés une fois (5 évaluations → 3 dans le test). |
 | C11 | bug probable | Corrigé | `tailwind/resolve.rs:100` | `calc(0px + 50%)` replié en `50px`. |
-| C12 | mineur | À faire | `svg/paint.rs:229`, `css/inline.rs:84` | Valeur finie en `f64` devenue infinie en `f32` (`inff32` dans le code généré) ; borne de durée décalée de un. |
-| C13 | mineur | À faire | `template/markup/parser.rs`, `css/parser/reader.rs`, `css/framework/syntax.rs` | Récursion non bornée pour `{#if}`, `@media` et accolades imbriqués. |
-| C14 | nettoyage | À faire | divers | Code mort (`styles.rs:37`, `template/generate/element.rs:275`, `components.rs:139`, `css/selector.rs:322`, `tailwind/utilities/dispatch.rs:289`, `statics.rs:272`, `css/class/rules.rs:239`) ; messages « Template include… » pour un CSS ou un SVG (`input/files.rs`) ; commentaires périmés (`normalize.rs:6`, `svg/document.rs:132`, `markup/location.rs:7`). |
+| C12 | mineur | Corrigé, tests ajoutés | `svg/paint.rs:229`, `css/inline.rs:84` | Nombre SVG hors de la plage de `f32` refusé, situé sur l’attribut ; borne de durée `>=` (`u32::MAX as f32` vaut 2^32), aussi dans les listes `animation`. |
+| C13 | mineur | Corrigé, tests ajoutés | `template/markup/parser.rs`, `css/parser/reader.rs`, `css/framework/syntax.rs` | Templates : 128 niveaux, `{#if}` et `{#each}` compris ; feuille stricte : 32 blocs imbriqués, erreur située ; feuille de framework : bloc trop profond sauté et signalé. |
+| C14 | nettoyage | Corrigé | divers | Code mort vérifié puis retiré ; messages des fichiers inclus selon leur nature (`@import` circulaire signalé) ; `strip_prolog` saute les commentaires de tête comme annoncé (fichier Illustrator). `normalize.rs:6` était déjà corrigé (`4d16e2c`). Reste : le lecteur de fichiers limite une macro à 2 Mio, avant la limite de 8 Mio de `framework::load` (message seul changé). |
