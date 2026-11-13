@@ -226,8 +226,16 @@ pub(super) fn paint_code(p: Paint) -> String {
         Paint::Color(c) => color_code(c),
     }
 }
-pub(super) fn f(n: f64) -> String {
-    let n = ((n * 10_000.).round() / 10_000.) as f32;
-    let n = if n == 0. { 0. } else { n };
-    format!("{n:?}f32")
+/// Littéral `f32` du code généré ; erreur pour une valeur finie en `f64` mais hors de
+/// la plage de `f32` (`1e39` deviendrait `inff32`, illisible pour rustc).
+pub(super) fn f(n: f64) -> std::result::Result<String, String> {
+    let rounded = ((n * 10_000.).round() / 10_000.) as f32;
+    if !rounded.is_finite() {
+        return Err(format!(
+            "SVG number {n:e} is out of range (at most {:e})",
+            f32::MAX
+        ));
+    }
+    let rounded = if rounded == 0. { 0. } else { rounded };
+    Ok(format!("{rounded:?}f32"))
 }

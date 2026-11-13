@@ -1,5 +1,5 @@
 //! Compilation des `@keyframes` et des listes `animation` : code produit et erreurs.
-use super::{declaration, frames_at, instance, names, parser};
+use super::{declaration, frames_at, instance, names, parser, timing};
 use std::collections::BTreeMap;
 
 fn keyframes(css: &str) -> Result<String, (Option<usize>, String)> {
@@ -300,4 +300,10 @@ fn state_rules_override_timing_longhands_but_not_the_keyframes() {
     ] {
         assert!(state_override(name, value).is_err(), "{name}: {value}");
     }
+}
+#[test]
+fn an_animation_time_beyond_u32_is_refused() {
+    // 2^32 ms passait la borne et devenait un littéral `u32` hors plage.
+    assert_eq!(timing::time("4294967040ms"), Ok(4294967040));
+    assert!(timing::time("4294967296ms").is_err());
 }

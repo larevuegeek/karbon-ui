@@ -106,14 +106,15 @@ pub fn compile(e: &Element) -> Result<Compiled> {
     };
     builder.children(&e.children, context, true)?;
     let [x, y, w, h] = view_box;
+    let number = |n| f(n).map_err(|m| e.attr("viewBox").map_or(e.loc, |a| a.loc).error(m));
     // Les coordonnées d'un dessin peuvent ressembler à π ou e (3.14, 2.718) : ce ne sont
     // pas des constantes approchées, Clippy ne doit pas les signaler chez l'application.
     let image = format!(
         "{{#[allow(clippy::approx_constant,clippy::excessive_precision)] static __UI_SVG:{SVG}::SvgImage={SVG}::SvgImage{{view_box:[{},{},{},{}],preserve_aspect_ratio:{preserve},shapes:&[{}]}};&__UI_SVG}}",
-        f(x),
-        f(y),
-        f(w),
-        f(h),
+        number(x)?,
+        number(y)?,
+        number(w)?,
+        number(h)?,
         builder.shapes.join(",")
     );
     let (width_css, intrinsic_w) = width.unwrap_or_else(|| (format!("{w}px"), Some(w as f32)));

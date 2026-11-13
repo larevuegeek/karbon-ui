@@ -231,6 +231,11 @@ fn main() {
             "SVG gradients and patterns are not supported",
         ),
         (
+            "svg_f32_range",
+            r#"<svg viewBox="0 0 24 24"><path d="M0 0 L1e39 0"/></svg>"#,
+            "SVG number 1e39 is out of range",
+        ),
+        (
             "svg_dash",
             r#"<svg viewBox="0 0 24 24"><path stroke-dasharray="2" d="M0 0"/></svg>"#,
             "Dashed strokes are not supported",

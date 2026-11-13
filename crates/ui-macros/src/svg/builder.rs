@@ -100,18 +100,19 @@ impl Builder {
         let scale = (m[0] * m[3] - m[1] * m[2]).abs().sqrt();
         let mut code = String::new();
         for op in ops {
-            let p = |x, y| {
+            let p = |x, y| -> Result<String> {
                 let (x, y) = apply(m, (x, y));
-                format!("{},{}", f(x), f(y))
+                let number = |n| f(n).map_err(|m| e.loc.error(m));
+                Ok(format!("{},{}", number(x)?, number(y)?))
             };
             code += &match op {
-                Op::Move(x, y) => format!("{SVG}::PathOp::MoveTo({}),", p(x, y)),
-                Op::Line(x, y) => format!("{SVG}::PathOp::LineTo({}),", p(x, y)),
+                Op::Move(x, y) => format!("{SVG}::PathOp::MoveTo({}),", p(x, y)?),
+                Op::Line(x, y) => format!("{SVG}::PathOp::LineTo({}),", p(x, y)?),
                 Op::Cubic(a, b, c, d, x, y) => format!(
                     "{SVG}::PathOp::CubicTo({},{},{}),",
-                    p(a, b),
-                    p(c, d),
-                    p(x, y)
+                    p(a, b)?,
+                    p(c, d)?,
+                    p(x, y)?
                 ),
                 Op::Close => format!("{SVG}::PathOp::Close,"),
             };
@@ -128,17 +129,18 @@ impl Builder {
         if self.shapes.len() >= 1024 {
             return Err(e.loc.error("Inline SVG exceeds 1024 shapes"));
         }
+        let number = |n| f(n).map_err(|m| e.loc.error(m));
         self.shapes.push(format!(
             "{SVG}::SvgShape{{ops:&[{code}],fill:{},stroke:{},stroke_width:{},line_cap:{SVG}::LineCap::{},line_join:{SVG}::LineJoin::{},miter_limit:{},fill_rule:{SVG}::FillRule::{},fill_opacity:{},stroke_opacity:{}}}",
             paint_code(fill),
             paint_code(context.stroke),
-            f(context.stroke_width * scale),
+            number(context.stroke_width * scale)?,
             context.cap,
             context.join,
-            f(context.miter),
+            number(context.miter)?,
             if context.even_odd { "EvenOdd" } else { "NonZero" },
-            f((context.fill_opacity * context.opacity).clamp(0., 1.)),
-            f((context.stroke_opacity * context.opacity).clamp(0., 1.)),
+            number((context.fill_opacity * context.opacity).clamp(0., 1.))?,
+            number((context.stroke_opacity * context.opacity).clamp(0., 1.))?,
         ));
         Ok(())
     }
@@ -153,7 +155,7 @@ pub(super) fn css_length(a: &Attr) -> Result<(String, Option<f32>)> {
         .trim()
         .parse::<f64>()
     {
-        if !n.is_finite() || n < 0. {
+        if !(n as f32).is_finite() || n < 0. {
             return Err(a.loc.error(format!("Invalid SVG {}=\"{text}\"", a.name)));
         }
         return Ok((format!("{n}px"), Some(n as f32)));

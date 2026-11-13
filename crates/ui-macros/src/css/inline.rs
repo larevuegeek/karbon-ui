@@ -81,7 +81,8 @@ fn animation_longhand(name: &str, value: &str) -> std::result::Result<Option<Str
         } else {
             return Err(format!("{name} needs ms or s: '{value}'"));
         };
-        if ms.abs() > u32::MAX as f32 {
+        // `u32::MAX as f32` vaut 2^32 (arrondi) : la borne elle-même ne tient pas en `u32`.
+        if ms.abs() >= u32::MAX as f32 {
             return Err(format!("Invalid {name} '{value}'"));
         }
         Ok(ms.round() as i64)
@@ -106,4 +107,19 @@ fn animation_longhand(name: &str, value: &str) -> std::result::Result<Option<Str
         },
         _ => return Ok(None),
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    /// 2^32 ms passait la borne (`u32::MAX as f32` vaut 2^32) et devenait un littéral
+    /// `u32` hors plage dans le code généré.
+    #[test]
+    fn an_animation_duration_beyond_u32_is_refused() {
+        let call = |value| super::animation_longhand("animation-duration", value);
+        assert_eq!(
+            call("4294967040ms").unwrap().as_deref(),
+            Some("animation_duration(4294967040u32)")
+        );
+        assert!(call("4294967296ms").is_err());
+    }
 }

@@ -45,7 +45,8 @@ pub(super) fn time(value: &str) -> Result<i64> {
     } else {
         return Err("Animation time needs ms or s".into());
     };
-    if !n.is_finite() || n.abs() > u32::MAX as f32 {
+    // `u32::MAX as f32` vaut 2^32 (arrondi) : la borne elle-même ne tient pas en `u32`.
+    if !n.is_finite() || n.abs() >= u32::MAX as f32 {
         return Err("Invalid animation time".into());
     }
     Ok(n.round() as i64)
