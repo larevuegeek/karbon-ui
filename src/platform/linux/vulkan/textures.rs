@@ -58,6 +58,9 @@ struct Texture {
     pending: Option<usize>,
     /// Retient l'image source, dont l'adresse sert de clé.
     _source: Option<Arc<Picture>>,
+    /// Retient l'icône vectorielle d'une rastérisation, dont l'adresse entre dans la clé
+    /// (M11 de la revue) : libérée, elle pourrait céder son adresse à une autre icône.
+    _icon: Option<Arc<crate::ui::rendering::vector::VectorIcon>>,
 }
 impl Texture {
     /// Texture de `width` × `height` pixels BGRA (`pixels`, `stride` octets par ligne),
@@ -96,6 +99,7 @@ impl Texture {
             used: 0,
             pending: Some(offset),
             _source: None,
+            _icon: None,
         })
     }
 }
@@ -147,6 +151,7 @@ impl Textures {
         staging: &mut Staging,
         key: RasterKey,
         (width, height): (usize, usize),
+        icon: Option<&Arc<crate::ui::rendering::vector::VectorIcon>>,
         draw: impl FnOnce() -> crate::Result<Vec<u8>>,
     ) -> crate::Result<u64> {
         let frame = self.frame;
@@ -165,6 +170,7 @@ impl Textures {
             false,
         )?;
         texture.used = frame;
+        texture._icon = icon.cloned();
         let view = texture.image.view;
         self.rasters.insert(key, texture);
         Ok(view)

@@ -131,6 +131,23 @@ pub(super) fn encode(
     let instance_buffer = upload(gpu, slot, 0, &parts)?;
     let stop_buffer = upload(gpu, slot, 1, &[bytes(&built.stops)])?;
     let clip_buffer = upload(gpu, slot, 2, &[bytes(&built.clips)])?;
+    // Calques vides (aucune instance) que ne lit aucun filtre : transparents, ils prennent
+    // la texture vide au lieu d'une cible et n'ont pas de passage (M10 de la revue). Les
+    // noyaux de filtre lisent leurs sources par coordonnées : celles-là gardent leur cible.
+    let sourced: Vec<usize> = built
+        .steps
+        .iter()
+        .filter_map(|step| match step {
+            Step::Filter(pass) => match pass.source {
+                super::filter::Source::Layer(index) => Some(index),
+                super::filter::Source::Texture(_) => None,
+            },
+            Step::Draw(_) => None,
+        })
+        .collect();
+    let empty = |index: usize| {
+        index > 0 && built.layers[index].instances.is_empty() && !sourced.contains(&index)
+    };
     let textures = built
         .layers
         .iter()
@@ -138,6 +155,8 @@ pub(super) fn encode(
         .map(|(index, layer)| {
             if index == 0 {
                 Ok(target.clone())
+            } else if empty(index) {
+                Ok(resources.blank.clone())
             } else {
                 resources.target(gpu, layer.texture_size, super::device::FORMAT)
             }
@@ -159,6 +178,7 @@ pub(super) fn encode(
     let buffers = [&instance_buffer, &stop_buffer, &clip_buffer];
     for step in &built.steps {
         match step {
+            Step::Draw(layer) if empty(*layer) => {}
             Step::Draw(layer) => {
                 let pass = Pass {
                     built,
@@ -298,7 +318,7 @@ pub(super) fn read_back(
     cb.commit();
     cb.waitUntilCompleted();
     if let Some(error) = cb.error() {
-        eprintln!("karbon-ui: Metal : {}", error.localizedDescription());
+        eprintln!("karbon-ui: Metal: {}", error.localizedDescription());
         return Err(failure("MTLCommandBuffer"));
     }
     let mut pixels = vec![0u8; width * height * 4];

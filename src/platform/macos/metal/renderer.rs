@@ -137,15 +137,17 @@ impl Renderer {
         }
         let size = (width as usize, height as usize);
         let built = self.build(cg, scene, size, scale)?;
-        let target = self.gpu.target_texture(size.0, size.1)?;
-        let cb = submit::encode(
-            &self.gpu,
-            &mut self.ring,
-            &mut self.resources,
-            &built,
-            &target,
-        )?;
-        let pixels = submit::read_back(&self.gpu, &cb, &target, size);
+        // Toute sortie ferme l'image (`end`), échecs compris (M12 de la revue).
+        let pixels = self.gpu.target_texture(size.0, size.1).and_then(|target| {
+            let cb = submit::encode(
+                &self.gpu,
+                &mut self.ring,
+                &mut self.resources,
+                &built,
+                &target,
+            )?;
+            submit::read_back(&self.gpu, &cb, &target, size)
+        });
         self.resources.end();
         self.keep(built);
         pixels
@@ -168,7 +170,7 @@ impl Renderer {
             && last.status() == MTLCommandBufferStatus::Error
         {
             if let Some(error) = last.error() {
-                eprintln!("karbon-ui: Metal : {}", error.localizedDescription());
+                eprintln!("karbon-ui: Metal: {}", error.localizedDescription());
             }
             return Err(crate::Error::DeviceLost {
                 operation: "MTLCommandBuffer",
@@ -203,16 +205,18 @@ impl Renderer {
         self.timings[2] = ms(wait);
         let target = drawable.texture();
         let encoding = std::time::Instant::now();
-        let cb = submit::encode(
+        let encoded = submit::encode(
             &self.gpu,
             &mut self.ring,
             &mut self.resources,
             &built,
             &target,
-        )?;
+        );
+        // Image fermée et tampons recyclés même si l'encodage échoue (M12 de la revue).
         self.resources.end();
-        cb.commit();
         self.keep(built);
+        let cb = encoded?;
+        cb.commit();
         self.timings[1] = ms(encoding);
         // `presentsWithTransaction` : présenter une fois le travail planifié, dans la
         // transaction de l'appelant.

@@ -216,7 +216,11 @@ impl Builder<'_> {
             return Ok(());
         }
         let cg = &mut *self.cg;
-        let texture = self.resources.raster(self.gpu, key, size, || {
+        let icon = match command {
+            DrawCommand::Vector { icon, .. } => Some(icon),
+            _ => None,
+        };
+        let texture = self.resources.raster(self.gpu, key, size, icon, || {
             cg.rasterize(command, size.0, size.1, raster)
         })?;
         let bind = self.bind(&texture);

@@ -77,8 +77,8 @@ pub(super) fn edit_command(event: &NSEvent, m: Modifiers) -> Option<EditCommand>
     }
     None
 }
-/// Défilement en unités logiques ; positif vers le bas et la droite, comme le moteur.
-/// Deltas d'un défilement et `true` pour une molette à crans (glissement doux).
+/// Deltas d'un défilement en unités logiques (positifs vers le bas et la droite, comme le
+/// moteur) et `true` pour une molette à crans (glissement doux).
 pub(super) fn scroll(event: &NSEvent) -> (f32, f32, bool) {
     let (dx, dy) = (
         event.scrollingDeltaX() as f32,

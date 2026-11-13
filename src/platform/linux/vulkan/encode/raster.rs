@@ -242,9 +242,13 @@ impl Builder<'_> {
             return Ok(());
         }
         let (cairo, resources) = (&mut *self.cairo, &mut *self.resources);
+        let icon = match command {
+            DrawCommand::Vector { icon, .. } => Some(icon),
+            _ => None,
+        };
         let view = resources
             .textures
-            .raster(&mut resources.staging, key, size, || {
+            .raster(&mut resources.staging, key, size, icon, || {
                 cairo.rasterize(command, size.0, size.1, raster)
             })?;
         self.emit(

@@ -165,7 +165,8 @@ impl Session {
         }
         CATransaction::commit();
         if let Err(error) = presented {
-            eprintln!("karbon-ui: Metal désactivé pour cette fenêtre : {error}");
+            // Message hors diagnostic : en anglais, comme l'API (M13 de la revue).
+            eprintln!("karbon-ui: Metal disabled for this window: {error}");
             if let Some((_, surface)) = self.gpu.take() {
                 surface.show(false);
                 surface.layer.removeFromSuperlayer();
@@ -243,7 +244,7 @@ pub(super) fn gpu(
         Ok(gpu) => Some(gpu),
         Err(error) => {
             if options.renderer == crate::window::RenderMode::Gpu || options.profile {
-                eprintln!("karbon-ui: Metal indisponible, rendu Core Graphics : {error}");
+                eprintln!("karbon-ui: Metal unavailable, rendering with Core Graphics: {error}");
             }
             None
         }

@@ -52,7 +52,6 @@ define_class!(
         fn mouse_down_can_move_window(&self) -> bool {
             false
         }
-        // Le contenu couvre toute la vue : AppKit n'a rien à composer dessous.
         // Contenu opaque : AppKit n'a rien à composer dessous (sauf fenêtre transparente).
         #[unsafe(method(isOpaque))]
         fn is_opaque(&self) -> bool {

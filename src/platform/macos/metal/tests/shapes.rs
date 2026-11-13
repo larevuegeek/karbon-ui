@@ -230,3 +230,34 @@ fn images_match_core_graphics_at_their_size_and_scaled() {
     });
     close("images", &scene, (130., 56.), 1.5, 0.02);
 }
+/// M11 de la revue : la rastérisation d'une icône vectorielle est rangée sous l'adresse de
+/// son `Arc` ; le cache retient l'icône, si bien qu'une autre ne peut pas reprendre cette
+/// adresse tant que la rastérisation existe.
+#[test]
+fn a_cached_vector_rasterization_keeps_its_icon_alive() {
+    let Some(mut metal) = super::metal() else {
+        return;
+    };
+    let mut cg = crate::platform::macos::graphics::Renderer::new().unwrap();
+    let icon = Arc::new(VectorIcon {
+        width: 10.,
+        height: 10.,
+        contours: vec![VectorContour {
+            start: p(0., 0.),
+            segments: vec![
+                VectorSegment::Line(p(10., 5.)),
+                VectorSegment::Line(p(0., 10.)),
+            ],
+        }],
+    });
+    let mut scene = Scene::new(Color::rgb(255, 255, 255));
+    scene.commands.push(DrawCommand::Vector {
+        rect: RectF::new(4., 4., 24., 24.),
+        icon: Arc::clone(&icon),
+        color: Color::rgb(0, 0, 0),
+        outline: 0.,
+    });
+    metal.render(&mut cg, &scene, 32, 32, 2.).unwrap();
+    drop(scene);
+    assert_eq!(Arc::strong_count(&icon), 2, "le cache retient l'icône");
+}

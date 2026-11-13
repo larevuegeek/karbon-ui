@@ -46,7 +46,7 @@ impl Pipelines {
                 .newRenderPipelineStateWithDescriptor_error(&descriptor)
                 .map_err(|error| {
                     eprintln!(
-                        "karbon-ui: pipeline Metal {name} : {}",
+                        "karbon-ui: Metal pipeline {name}: {}",
                         error.localizedDescription()
                     );
                     failure("newRenderPipelineState")

@@ -4,6 +4,7 @@
 use super::{
     close,
     filters::{backdrop_content, stops},
+    metal,
 };
 use crate::ui::{
     element::ElementId,
@@ -195,4 +196,35 @@ fn text_filled_with_gradients_matches_core_graphics() {
         c.push(DrawCommand::PopTextFill);
     }
     close("texte-rempli", &scene, SIZE, 0.4, 0.004);
+}
+/// Groupe d'opacité vide (M10 de la revue) : rendu comme Core Graphics, sans cible prise
+/// pour lui (la texture vide le remplace, sans passage de rendu).
+#[test]
+fn an_empty_opacity_group_takes_no_render_target() {
+    let mut scene = Scene::new(Color::rgb(250, 250, 250));
+    let c = &mut scene.commands;
+    c.push(DrawCommand::Fill {
+        rect: RectF::new(10., 10., 80., 40.),
+        radius: 4.,
+        color: Color::rgb(20, 120, 220),
+    });
+    c.push(DrawCommand::PushEffect {
+        transform: Affine::IDENTITY,
+        opacity: 0.5,
+        bounds: RectF::new(20., 20., 60., 30.),
+    });
+    c.push(DrawCommand::PopEffect);
+    c.push(DrawCommand::Fill {
+        rect: RectF::new(40., 30., 50., 30.),
+        radius: 0.,
+        color: Color::rgb(200, 30, 30),
+    });
+    close("groupe vide", &scene, (120., 80.), 0.5, 0.001);
+    let Some(mut metal) = metal() else {
+        return;
+    };
+    let mut cg = crate::platform::macos::graphics::Renderer::new().unwrap();
+    metal.render(&mut cg, &scene, 120, 80, 1.).unwrap();
+    // Réserve et cibles prises par l'image : aucune pour le groupe vide.
+    assert_eq!(metal.resources.usage()[3], 0, "aucune cible prise");
 }

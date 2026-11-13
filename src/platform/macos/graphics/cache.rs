@@ -38,8 +38,6 @@ pub(super) struct Caches {
     filters: HashMap<ElementId, Filtered>,
     backdrops: HashMap<BackdropKey, Backdrop>,
     used_scaled: HashSet<(usize, usize, usize)>,
-    /// Tailles d'affichage demandées par la peinture précédente et par la courante (une
-    /// image peut être affichée à plusieurs tailles).
     /// Tailles affichées de chaque image lors de sa dernière peinture (une image peut
     /// être affichée à plusieurs tailles ; un redessin partiel n'en peint qu'une partie).
     requested: HashMap<usize, HashSet<(usize, usize)>>,

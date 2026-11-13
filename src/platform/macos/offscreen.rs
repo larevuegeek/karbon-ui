@@ -16,6 +16,7 @@ use crate::{
 /// processus, en unités de 100 ns comme sous Windows.
 #[allow(deprecated)] // `mach_task_self` : libc renvoie vers `mach2`, crate tierce exclue.
 pub(super) fn sample() -> crate::Result<ProcessSample> {
+    // SAFETY : structure C de nombres, valide à zéro.
     let mut info: libc::mach_task_basic_info = unsafe { std::mem::zeroed() };
     let mut count = (std::mem::size_of::<libc::mach_task_basic_info>()
         / std::mem::size_of::<libc::natural_t>())
@@ -35,6 +36,7 @@ pub(super) fn sample() -> crate::Result<ProcessSample> {
             code: status,
         });
     }
+    // SAFETY : structure C de nombres, valide à zéro.
     let mut usage: libc::rusage_info_v2 = unsafe { std::mem::zeroed() };
     // SAFETY : processus courant ; la structure v2 est valide en écriture.
     let footprint = if unsafe {
@@ -49,6 +51,7 @@ pub(super) fn sample() -> crate::Result<ProcessSample> {
     } else {
         info.resident_size
     };
+    // SAFETY : structure C de nombres, valide à zéro.
     let mut times: libc::rusage = unsafe { std::mem::zeroed() };
     // SAFETY : sortie locale valide en écriture.
     if unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut times) } != 0 {

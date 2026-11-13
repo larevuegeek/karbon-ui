@@ -105,10 +105,7 @@ impl Gpu {
         let library = device
             .newLibraryWithSource_options_error(&NSString::from_str(SOURCE), None)
             .map_err(|error| {
-                eprintln!(
-                    "karbon-ui: shaders Metal : {}",
-                    error.localizedDescription()
-                );
+                eprintln!("karbon-ui: Metal shaders: {}", error.localizedDescription());
                 failure("newLibraryWithSource")
             })?;
         let function = |name: &str| {
@@ -133,7 +130,7 @@ impl Gpu {
             .newRenderPipelineStateWithDescriptor_error(&descriptor)
             .map_err(|error| {
                 eprintln!(
-                    "karbon-ui: pipeline Metal : {}",
+                    "karbon-ui: Metal pipeline: {}",
                     error.localizedDescription()
                 );
                 failure("newRenderPipelineState")

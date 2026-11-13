@@ -51,6 +51,9 @@ pub(super) struct Raster {
     pub width: usize,
     pub height: usize,
     used: u64,
+    /// Retient l'icône vectorielle dont l'adresse entre dans la clé (M11 de la revue) :
+    /// libérée, elle pourrait céder son adresse à une autre icône.
+    _icon: Option<Arc<crate::ui::rendering::vector::VectorIcon>>,
 }
 /// Texture d'une image du moteur ; l'`Arc` retenu empêche la réutilisation de l'adresse
 /// qui sert de clé.
@@ -232,6 +235,7 @@ impl Resources {
         gpu: &Gpu,
         key: RasterKey,
         (width, height): (usize, usize),
+        icon: Option<&Arc<crate::ui::rendering::vector::VectorIcon>>,
         draw: impl FnOnce() -> crate::Result<Vec<u8>>,
     ) -> crate::Result<Texture> {
         let frame = self.frame;
@@ -252,6 +256,7 @@ impl Resources {
                 width,
                 height,
                 used: frame,
+                _icon: icon.cloned(),
             },
         );
         Ok(texture)
