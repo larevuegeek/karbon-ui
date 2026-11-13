@@ -230,3 +230,46 @@ fn a_subtree_declaring_a_dialog_is_rebuilt_so_the_dialog_stays_open() {
         assert!(ui.root().unwrap().find(ElementId(11)).is_some());
     }
 }
+
+#[test]
+fn an_absolute_descendant_anchored_above_a_moved_subtree_stays_in_place() {
+    // Le sous-arbre repris est déplacé (son conteneur suit le bloc au-dessus qui grandit) ;
+    // son descendant absolu est placé par rapport à la racine positionnée, qui ne bouge pas
+    // (sous la barre du moteur, 40 px).
+    let spacer = Rc::new(Cell::new(20.));
+    let height = spacer.clone();
+    let mut ui = view_runtime(move || {
+        let region = lazy(10, &0u8, || {
+            let mut pinned = box_node(12, Length::Px(10.), Length::Px(10.));
+            let rules = pinned.layout_rules();
+            rules.position = Position::Absolute;
+            rules.offsets = [Some(Length::Px(5.)), None, None, Some(Length::Px(7.))];
+            Element::column(10, vec![widgets::text(11, "A"), pinned])
+        });
+        let mut root = Element::column(
+            1,
+            vec![
+                box_node(3, Length::Fill(1.), Length::Px(height.get())),
+                Element::column(4, vec![region]),
+            ],
+        );
+        root.layout_rules().position = Position::Relative;
+        root
+    });
+    let mut measure = Measure::default();
+    let place = |ui: &mut UiRuntime, measure: &mut Measure| {
+        ui.invalidate();
+        prepare(ui, measure);
+        let root = ui.root().unwrap();
+        let (text, pinned) = (
+            root.find(ElementId(11)).unwrap().rect,
+            root.find(ElementId(12)).unwrap().rect,
+        );
+        (text.top, pinned.left, pinned.top)
+    };
+    assert_eq!(place(&mut ui, &mut measure), (60., 7., 45.));
+    spacer.set(50.);
+    assert_eq!(place(&mut ui, &mut measure), (90., 7., 45.));
+    spacer.set(35.);
+    assert_eq!(place(&mut ui, &mut measure), (75., 7., 45.));
+}

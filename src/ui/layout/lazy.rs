@@ -40,7 +40,13 @@ pub(super) fn reuse(
     {
         return false;
     }
-    if dx != 0. || dy != 0. || a.clip != clip {
+    // Un descendant `absolute` ancré hors du sous-arbre ne suit pas son déplacement :
+    // placement refait. Le parcours ne coûte pas plus que la translation qu'il évite.
+    let moved_by = dx != 0. || dy != 0.;
+    if moved_by && anchored_outside(node) {
+        return false;
+    }
+    if moved_by || a.clip != clip {
         super::scroll::translate(node, dx, dy, clip);
     }
     if let Some(m) = node.layout_cache.as_deref_mut() {
@@ -52,6 +58,26 @@ pub(super) fn reuse(
         });
     }
     true
+}
+/// Le sous-arbre de `node` contient un élément `absolute` dont le bloc conteneur est hors
+/// de lui (aucun élément positionné entre eux, `node` compris). Un élément `fixed` est
+/// placé sur la fenêtre et la translation le laisse en place.
+fn anchored_outside(node: &Element) -> bool {
+    fn below(node: &Element) -> bool {
+        node.children
+            .iter()
+            .any(|child| match child.rules.as_ref().map(|r| r.position) {
+                Some(Position::Absolute) => true,
+                None | Some(Position::Static) => below(child),
+                // Bloc conteneur de ses descendants (ou placé sur la fenêtre).
+                Some(Position::Relative | Position::Sticky | Position::Fixed) => false,
+            })
+    }
+    let positioned = node
+        .rules
+        .as_ref()
+        .is_some_and(|r| r.position != Position::Static);
+    !positioned && below(node)
 }
 /// Oublie les mesures et placements retenus de tout l'arbre (disposition changée hors
 /// des styles : séparateur déplacé).
