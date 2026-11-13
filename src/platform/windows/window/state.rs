@@ -23,6 +23,9 @@ pub(crate) struct WindowState {
     pub id: WindowId,
     pub options: Cell<WindowOptions>,
     pub drawing: RefCell<Option<present::DrawingState>>,
+    /// `WM_PAINT` reçu pendant un emprunt de `drawing` (l'application pompait des
+    /// messages) : peinture redemandée quand l'emprunt est rendu.
+    pub paint_deferred: Cell<bool>,
     pub accessibility: RefCell<Option<accessibility::NativeState>>,
     pub shadow: RefCell<Option<shadow::ShadowWindow>>,
     pub pressed: Cell<Option<CaptionButton>>,
@@ -69,6 +72,7 @@ impl WindowState {
             id,
             options: Cell::new(options),
             drawing: RefCell::new(None),
+            paint_deferred: Cell::new(false),
             accessibility: RefCell::new(None),
             shadow: RefCell::new(None),
             pressed: Cell::new(None),

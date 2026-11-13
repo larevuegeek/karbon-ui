@@ -1,7 +1,7 @@
 //! Seul adaptateur natif du service de tâches : réveil par message, résultats sur le thread UI.
 use super::{
-    super::{ffi::Hwnd, present::runtime},
-    state,
+    super::{events::guard, ffi::Hwnd, present::runtime},
+    record_error, state,
 };
 use crate::task::{TaskCommand, TaskError, TaskExecutor, TaskResult, TaskScope};
 use std::cell::RefCell;
@@ -36,11 +36,11 @@ pub(crate) fn close() {
     let tasks = TASKS.with(|slot| slot.borrow_mut().take());
     drop(tasks);
 }
-pub(crate) fn defer_commands() {
+pub(crate) fn defer_commands(window: Hwnd) {
     if !TASKS.with(|slot| slot.borrow().is_some()) {
         return;
     }
-    let commands = runtime::take_task_commands();
+    let commands = runtime::take_task_commands(window);
     if commands.is_empty() {
         return;
     }
@@ -72,7 +72,7 @@ pub(crate) fn deliver(window: Hwnd) -> bool {
         };
         runtime::complete_task(window, result);
         // Une réponse peut annuler une autre tâche dont le résultat attend déjà.
-        defer_commands();
+        defer_commands(window);
         delivered = true;
     }
     delivered
@@ -86,67 +86,79 @@ impl Tasks {
     pub(crate) fn process(&self) -> bool {
         let mut handled = false;
         for (window, _) in state::windows() {
-            let _scope = state::enter(window);
-            defer_commands();
-            let commands = TASKS.with(|slot| {
-                slot.borrow_mut()
-                    .as_mut()
-                    .map_or_else(Vec::new, |tasks| std::mem::take(&mut tasks.commands))
-            });
-            handled |= !commands.is_empty();
-            for command in commands {
-                let error = match command {
-                    TaskCommand::Spawn(task) => {
-                        let mut executor = self.executor.borrow_mut();
-                        if executor.is_none() {
-                            match TaskExecutor::for_ui() {
-                                Ok(pool) => *executor = Some(pool),
-                                Err(error) => {
-                                    let result = TaskResult::failure(
-                                        task.id,
-                                        TaskError::StartFailed(error.to_string()),
-                                    );
-                                    drop(executor);
-                                    runtime::complete_task(window, result);
-                                    continue;
-                                }
-                            }
-                        }
-                        TASKS.with(|slot| {
-                            slot.borrow_mut().as_mut().and_then(|tasks| {
-                                tasks
-                                    .scope
-                                    .spawn(task, executor.as_ref().expect("initialized executor"))
-                            })
-                        })
-                    }
-                    TaskCommand::Cancel(id) => {
-                        TASKS.with(|slot| {
-                            if let Some(tasks) = slot.borrow_mut().as_mut() {
-                                tasks.scope.cancel(id);
-                            }
-                        });
-                        None
-                    }
-                    TaskCommand::CancelAll => {
-                        TASKS.with(|slot| {
-                            if let Some(tasks) = slot.borrow_mut().as_mut() {
-                                tasks.scope.cancel_all();
-                            }
-                        });
-                        None
-                    }
-                };
-                // Aucun emprunt du gestionnaire ni du scope pendant le callback applicatif.
-                if let Some(error) = error {
-                    runtime::complete_task(window, error);
+            // Rappels de l'application (`take_task_commands`, `task_completed`) appelés
+            // depuis la boucle : une panique ferme la fenêtre et devient l'erreur que la
+            // boucle rend au tour suivant.
+            match guard(window, || self.process_window(window)) {
+                Ok(window_handled) => handled |= window_handled,
+                Err(error) => {
+                    record_error(error);
+                    return true;
                 }
             }
-            handled |= deliver(window);
         }
         if let Some(executor) = self.executor.borrow().as_ref() {
             executor.discard_cancelled();
         }
         handled
+    }
+    /// Commandes de tâches puis résultats d'une fenêtre ; vrai si quelque chose a été traité.
+    fn process_window(&self, window: Hwnd) -> bool {
+        defer_commands(window);
+        let commands = TASKS.with(|slot| {
+            slot.borrow_mut()
+                .as_mut()
+                .map_or_else(Vec::new, |tasks| std::mem::take(&mut tasks.commands))
+        });
+        let handled = !commands.is_empty();
+        for command in commands {
+            let error = match command {
+                TaskCommand::Spawn(task) => {
+                    let mut executor = self.executor.borrow_mut();
+                    if executor.is_none() {
+                        match TaskExecutor::for_ui() {
+                            Ok(pool) => *executor = Some(pool),
+                            Err(error) => {
+                                let result = TaskResult::failure(
+                                    task.id,
+                                    TaskError::StartFailed(error.to_string()),
+                                );
+                                drop(executor);
+                                runtime::complete_task(window, result);
+                                continue;
+                            }
+                        }
+                    }
+                    TASKS.with(|slot| {
+                        slot.borrow_mut().as_mut().and_then(|tasks| {
+                            tasks
+                                .scope
+                                .spawn(task, executor.as_ref().expect("initialized executor"))
+                        })
+                    })
+                }
+                TaskCommand::Cancel(id) => {
+                    TASKS.with(|slot| {
+                        if let Some(tasks) = slot.borrow_mut().as_mut() {
+                            tasks.scope.cancel(id);
+                        }
+                    });
+                    None
+                }
+                TaskCommand::CancelAll => {
+                    TASKS.with(|slot| {
+                        if let Some(tasks) = slot.borrow_mut().as_mut() {
+                            tasks.scope.cancel_all();
+                        }
+                    });
+                    None
+                }
+            };
+            // Aucun emprunt du gestionnaire ni du scope pendant le callback applicatif.
+            if let Some(error) = error {
+                runtime::complete_task(window, error);
+            }
+        }
+        deliver(window) || handled
     }
 }

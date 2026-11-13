@@ -1,3 +1,4 @@
+use super::super::ffi::Hwnd;
 pub(super) use super::super::ffi::{hresult_from_win32, last_error};
 use super::*;
 pub(super) use crate::window::{ExitPolicy, WindowCommand, WindowDescriptor};
@@ -25,8 +26,8 @@ pub(crate) fn wake() {
         record_error(last_error("PostMessageW"));
     }
 }
-pub(crate) fn defer_commands() {
-    let commands = super::super::present::runtime::take_window_commands();
+pub(crate) fn defer_commands(window: Hwnd) {
+    let commands = super::super::present::runtime::take_window_commands(window);
     if !commands.is_empty() {
         PENDING.with(|pending| pending.borrow_mut().extend(commands));
         wake();

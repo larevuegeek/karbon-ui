@@ -43,8 +43,8 @@ pub(crate) unsafe extern "system" fn window_proc(
             state::remove(window);
             window::wake();
         } else if message != WM_DESTROY {
-            window::defer_commands();
-            tasks::defer_commands();
+            window::defer_commands(window);
+            tasks::defer_commands(window);
         }
         result
     }));
@@ -83,6 +83,29 @@ fn teardown_guarded(window: Hwnd) {
     teardown(window, |step| {
         let _ = catch_unwind(AssertUnwindSafe(step));
     });
+}
+
+/// Appel de l'application hors de toute procédure de fenêtre (chargement) : une panique
+/// devient `Error::Panicked`, rendu à l'appelant au lieu de sortir de `platform::run`.
+pub(crate) fn catch_panic<R>(f: impl FnOnce() -> R) -> crate::Result<R> {
+    catch_unwind(AssertUnwindSafe(f)).map_err(|payload| panic_error(payload.as_ref()))
+}
+
+/// Appel de l'application pour `window` depuis la boucle de messages, hors de
+/// `window_proc` (commandes de fenêtre, tâches, ouverture) : une panique a la même suite
+/// que dans la procédure. La fenêtre est empoisonnée puis détruite sans rappeler
+/// l'application, et l'erreur `Error::Panicked` est rendue à l'appelant, qui la remonte
+/// à la boucle.
+pub(crate) fn guard<R>(window: Hwnd, f: impl FnOnce() -> R) -> crate::Result<R> {
+    let _scope = state::enter(window);
+    catch_panic(f).inspect_err(|_| {
+        // Fenêtre déjà détruite pendant l'appel : rien à empoisonner ni à détruire.
+        if state::windows().iter().any(|(handle, _)| *handle == window) {
+            POISONED.with(|poisoned| poisoned.set(true));
+            // SAFETY : fenêtre enregistrée, donc vivante sur ce thread.
+            unsafe { DestroyWindow(window) };
+        }
+    })
 }
 
 pub(super) fn panic_error(payload: &(dyn std::any::Any + Send)) -> crate::Error {

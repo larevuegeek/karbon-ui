@@ -3,6 +3,7 @@
 use super::{
     super::{
         accessibility,
+        events::{catch_panic, guard},
         ffi::{Hwnd, last_error},
         graphics::Renderer,
         imaging::DrawingEngine,
@@ -61,7 +62,9 @@ impl Session {
         // Le périphérique D3D11 se crée en parallèle du chargement de l'application et
         // de la première mise en page (voir `present::load`).
         let mut renderer = Renderer::start(options.renderer)?;
-        let runtime = present::load(&mut renderer, &self.decoder, application)?;
+        // Le chargement appelle l'application (`load`, première vue) hors de toute
+        // procédure de fenêtre : une panique y devient l'erreur de l'ouverture.
+        let runtime = catch_panic(|| present::load(&mut renderer, &self.decoder, application))??;
         renderer.ready()?;
         startup::mark("renderer ready (D3D11/D2D)");
         let (window, presenter) = create::create_presented_window(options, &mut renderer)?;
@@ -97,7 +100,9 @@ impl Session {
             super::change::notify(window);
             Ok(())
         };
-        if let Err(error) = initialize() {
+        // Première peinture et premier état remis à l'application, appelés d'ici : une
+        // panique empoisonne et détruit la fenêtre, puis devient l'erreur de l'ouverture.
+        if let Err(error) = guard(window, initialize).and_then(|result| result) {
             // Le rendu peut avoir déjà détruit la fenêtre en signalant son erreur.
             if state::windows().iter().any(|(handle, _)| *handle == window) {
                 // SAFETY : la fenêtre est encore enregistrée, donc vivante sur ce thread.
@@ -112,9 +117,10 @@ impl Session {
 
     pub(crate) fn commands(&self, visible: bool) -> crate::Result<bool> {
         let mut commands = take_pending();
+        // Rappels de l'application appelés depuis la boucle, hors de `window_proc` : une
+        // panique ferme sa fenêtre et devient l'erreur de la boucle (voir `guard`).
         for (window, _) in state::windows() {
-            let _scope = state::enter(window);
-            commands.extend(runtime::take_window_commands());
+            commands.extend(guard(window, || runtime::take_window_commands(window))?);
         }
         let handled = !commands.is_empty();
         // Tous les emprunts d'application sont terminés avant les appels Windows.
@@ -128,8 +134,7 @@ impl Session {
                         .into_iter()
                         .find(|(_, candidate)| *candidate == id)
                     {
-                        let _scope = state::enter(window);
-                        super::actions::execute_action(window, action);
+                        guard(window, || super::actions::execute_action(window, action))?;
                     }
                 }
                 WindowCommand::Change(id, change) => {
@@ -137,8 +142,7 @@ impl Session {
                         .into_iter()
                         .find(|(_, candidate)| *candidate == id)
                     {
-                        let _scope = state::enter(window);
-                        super::change::execute(window, change)?;
+                        guard(window, || super::change::execute(window, change))??;
                     }
                 }
                 WindowCommand::Close(id) => {
@@ -167,9 +171,10 @@ impl Session {
                                 crate::task::TaskError::StartFailed(error.to_string()),
                             ),
                         };
-                        let _scope = state::enter(window);
-                        runtime::complete_task(window, result);
-                        tasks::defer_commands();
+                        guard(window, || {
+                            runtime::complete_task(window, result);
+                            tasks::defer_commands(window);
+                        })?;
                     }
                 }
                 WindowCommand::Exit => {

@@ -139,7 +139,10 @@ pub(crate) fn initialize(
 }
 pub(crate) fn switch_renderer() -> crate::Result<()> {
     DRAWING.with(|slot| {
-        let mut value = slot.borrow_mut();
+        // Touche reçue pendant un appel de l'application (message imbriqué) : ignorée.
+        let Ok(mut value) = slot.try_borrow_mut() else {
+            return Ok(());
+        };
         if let Some(state) = value.as_mut() {
             let mode = if state.renderer.is_software() {
                 RenderMode::Gpu

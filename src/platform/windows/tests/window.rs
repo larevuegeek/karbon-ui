@@ -1,5 +1,6 @@
 //! Cycle de vie des fenêtres natives : identifiants, commandes différées, état isolé
-//! par fenêtre, panique applicative, politique de sortie et réveil de la boucle.
+//! par fenêtre, panique applicative (procédure de fenêtre, boucle, chargement), peinture
+//! imbriquée dans un rappel, politique de sortie et réveil de la boucle.
 use super::super::{
     events::text,
     present::runtime,
@@ -232,4 +233,123 @@ fn main_window_policy_returns_then_session_closes_remaining_windows() {
     // SAFETY : simple test de validité d'un handle.
     assert_eq!(unsafe { IsWindow(other) }, 0);
     assert_eq!(drops.get(), 1);
+}
+
+/// Application qui panique dans le rappel nommé par `armed`.
+struct PanicIn(Rc<Cell<&'static str>>);
+impl PanicIn {
+    fn check(&self, callback: &'static str) {
+        if self.0.get() == callback {
+            panic!("{callback} en échec");
+        }
+    }
+}
+impl Application for PanicIn {
+    type Message = ();
+    fn load(&mut self, _: &dyn Resources) -> crate::Result<()> {
+        self.check("load");
+        Ok(())
+    }
+    fn update(&mut self, _: ()) -> bool {
+        false
+    }
+    fn view(&self, _: &ViewContext) -> Element {
+        widgets::text(1, "Panique armée")
+    }
+    fn take_window_commands(&mut self) -> Vec<WindowCommand> {
+        self.check("window");
+        Vec::new()
+    }
+    fn take_task_commands(&mut self) -> Vec<crate::task::TaskCommand> {
+        self.check("task");
+        Vec::new()
+    }
+}
+fn panicking(id: u64, armed: &Rc<Cell<&'static str>>) -> WindowDescriptor {
+    WindowDescriptor {
+        application: Box::new(PanicIn(Rc::clone(armed))),
+        ..descriptor(id, app())
+    }
+}
+fn is_panic(error: &crate::Error, expected: &str) -> bool {
+    matches!(error, crate::Error::Panicked { message } if message == expected)
+}
+
+#[test]
+fn application_panic_while_loading_is_returned_by_open() {
+    let (_apartment, session) = session();
+    let other = session.open(descriptor(1, app()), false).unwrap();
+    let armed = Rc::new(Cell::new("load"));
+    let error = session.open(panicking(2, &armed), false).unwrap_err();
+    assert!(is_panic(&error, "load en échec"), "{error}");
+    assert_eq!(state::windows().len(), 1);
+    // SAFETY : simple test de validité d'un handle.
+    assert_ne!(unsafe { IsWindow(other) }, 0);
+    assert!(take_error().is_none());
+}
+
+#[test]
+fn application_panic_in_loop_callbacks_closes_its_window_and_is_returned() {
+    let (_apartment, session) = session();
+    let armed = Rc::new(Cell::new(""));
+    // Commandes de fenêtre lues par la boucle (hors de `window_proc`).
+    let window = session.open(panicking(1, &armed), false).unwrap();
+    let other = session.open(descriptor(2, app()), false).unwrap();
+    armed.set("window");
+    let error = session.commands(false).unwrap_err();
+    assert!(is_panic(&error, "window en échec"), "{error}");
+    // SAFETY : simple test de validité d'un handle.
+    assert_eq!(unsafe { IsWindow(window) }, 0);
+    // SAFETY : simple test de validité d'un handle.
+    assert_ne!(unsafe { IsWindow(other) }, 0);
+    assert!(take_error().is_none());
+    // Commandes de tâches lues par la boucle : l'erreur est rendue au tour suivant.
+    armed.set("");
+    let window = session.open(panicking(3, &armed), false).unwrap();
+    armed.set("task");
+    assert!(session.tasks.process());
+    // SAFETY : simple test de validité d'un handle.
+    assert_eq!(unsafe { IsWindow(window) }, 0);
+    let error = session
+        .run_message_loop(ExitPolicy::LastWindowClosed)
+        .unwrap_err();
+    assert!(is_panic(&error, "task en échec"), "{error}");
+    // SAFETY : simple test de validité d'un handle.
+    assert_ne!(unsafe { IsWindow(other) }, 0);
+    // SAFETY : fenêtre de test créée sur ce thread ; Windows valide le handle.
+    unsafe {
+        DestroyWindow(other);
+    }
+}
+
+#[test]
+fn paint_nested_in_an_application_callback_is_deferred_instead_of_panicking() {
+    let (_apartment, session) = session();
+    let application = app();
+    let count = Rc::clone(&application.count);
+    let nested = Rc::clone(&application.nested_target);
+    let window = session.open(descriptor(1, application), false).unwrap();
+    // `update` envoie WM_KEYDOWN puis WM_PAINT à sa propre fenêtre pendant que son état
+    // de dessin est emprunté, comme la boucle modale d'un `MessageBoxW` ouvert par elle.
+    nested.set(window);
+    let _scope = state::enter(window);
+    assert_eq!(
+        runtime::accessibility_action(window, AccessibilityAction::Invoke(ElementId(3))),
+        0
+    );
+    assert_eq!(count.get(), 1);
+    assert!(take_error().is_none());
+    // SAFETY : simple test de validité d'un handle.
+    assert_eq!(unsafe { IsWindow(window) }, 1);
+    // La fenêtre reste utilisable : peinture et rappels suivants.
+    nested.set(null_mut());
+    super::super::present::paint::paint_window(window);
+    assert!(take_error().is_none());
+    assert_eq!(
+        runtime::accessibility_action(window, AccessibilityAction::Invoke(ElementId(3))),
+        0
+    );
+    assert_eq!(count.get(), 2);
+    // SAFETY : fenêtre de test créée sur ce thread ; Windows valide le handle.
+    assert_ne!(unsafe { DestroyWindow(window) }, 0);
 }

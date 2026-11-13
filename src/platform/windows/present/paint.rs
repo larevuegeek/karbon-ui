@@ -45,7 +45,15 @@ pub(crate) fn paint_window(window: Hwnd) {
     let mut paint = PAINTSTRUCT::default();
     // SAFETY : `paint` est une structure locale, rendue à EndPaint ci-dessous.
     unsafe { BeginPaint(window, &mut paint) };
-    let state = DRAWING.with(|slot| slot.borrow_mut().take());
+    let Ok(state) = DRAWING.with(|slot| slot.try_borrow_mut().map(|mut state| state.take())) else {
+        // Peinture imbriquée dans un appel de l'application qui pompe des messages
+        // (`MessageBoxW` dans `update`) : la zone est validée pour que Windows ne renvoie
+        // pas `WM_PAINT` sans fin, et la peinture est redemandée à la fin de l'appel.
+        // SAFETY : même structure que celle remplie par BeginPaint.
+        unsafe { EndPaint(window, &paint) };
+        super::runtime::defer_paint();
+        return;
+    };
     let result = if let Some(mut state) = state {
         let result = state.paint(window);
         DRAWING.with(|slot| *slot.borrow_mut() = Some(state));

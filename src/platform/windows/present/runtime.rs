@@ -3,9 +3,9 @@
 use super::{
     super::{
         ffi::{Hwnd, invalidate},
-        window::record_error,
+        window::{record_error, state},
     },
-    DRAWING, composition,
+    DRAWING, DrawingState, composition,
 };
 use crate::ui::{
     rendering::scene::coverage,
@@ -13,6 +13,7 @@ use crate::ui::{
 };
 #[cfg(test)]
 use composition::Presenter;
+use std::cell::Cell;
 use windows_sys::Win32::{
     Foundation::{E_FAIL, E_INVALIDARG},
     UI::{
@@ -24,47 +25,61 @@ use windows_sys::Win32::{
     },
 };
 
-pub(crate) fn take_window_commands() -> Vec<crate::window::WindowCommand> {
-    DRAWING.with(|slot| {
-        slot.try_borrow_mut()
-            .ok()
-            .as_mut()
-            .and_then(|state| state.as_mut())
-            .map_or_else(Vec::new, |state| state.runtime.take_window_commands())
-    })
+/// Une peinture est arrivée pendant que l'état de dessin était emprunté : elle est
+/// redemandée quand l'emprunt est rendu (voir [`exclusive`]).
+static PAINT_DEFERRED: state::WindowLocal<Cell<bool>> =
+    state::WindowLocal::new(|state| &state.paint_deferred);
+
+/// Appelé par `paint::paint_window` quand l'état de dessin est occupé.
+pub(super) fn defer_paint() {
+    PAINT_DEFERRED.with(|deferred| deferred.set(true));
 }
 
-pub(crate) fn take_task_commands() -> Vec<crate::task::TaskCommand> {
-    DRAWING.with(|slot| {
-        slot.try_borrow_mut()
-            .ok()
-            .as_mut()
-            .and_then(|state| state.as_mut())
-            .map_or_else(Vec::new, |state| state.runtime.take_task_commands())
-    })
+/// Emprunt exclusif de l'état de dessin de la fenêtre courante, pour un appel qui peut
+/// atteindre l'application. Une application qui pompe des messages pendant cet appel
+/// (`MessageBoxW` dans `update`) fait réentrer la procédure de fenêtre : les requêtes
+/// imbriquées trouvent l'état occupé et s'en passent (`try_borrow`), la peinture
+/// imbriquée est reportée puis redemandée ici, une fois l'emprunt rendu.
+/// `None` : fenêtre sans état de dessin, ou état déjà emprunté plus haut dans la pile
+/// (seul l'emprunt le plus extérieur redemande la peinture : un appel imbriqué qui
+/// invaliderait la fenêtre relancerait sans fin la peinture reportée).
+fn exclusive<R>(window: Hwnd, f: impl FnOnce(&mut DrawingState) -> R) -> Option<R> {
+    let result = DRAWING.with(|slot| {
+        let mut value = slot.try_borrow_mut().ok()?;
+        Some(value.as_mut().map(f))
+    })?;
+    if PAINT_DEFERRED.with(|deferred| deferred.replace(false)) {
+        invalidate(window);
+    }
+    result
+}
+
+pub(crate) fn take_window_commands(window: Hwnd) -> Vec<crate::window::WindowCommand> {
+    exclusive(window, |state| state.runtime.take_window_commands()).unwrap_or_default()
+}
+
+pub(crate) fn take_task_commands(window: Hwnd) -> Vec<crate::task::TaskCommand> {
+    exclusive(window, |state| state.runtime.take_task_commands()).unwrap_or_default()
 }
 pub(crate) fn can_receive_tasks() -> bool {
     DRAWING.with(|slot| slot.try_borrow().is_ok_and(|state| state.is_some()))
 }
+/// Livre un résultat de tâche. Jamais appelé pendant un emprunt de l'état : `deliver`
+/// vérifie d'abord [`can_receive_tasks`], les autres appels viennent de la boucle de
+/// messages. Sans état de dessin (fenêtre fermée), le résultat est abandonné.
 pub(crate) fn complete_task(window: Hwnd, result: crate::task::TaskResult) {
-    let changed = DRAWING.with(|slot| {
-        let mut value = slot.borrow_mut();
-        let Some(state) = value.as_mut() else {
-            return false;
-        };
-        state.runtime.task_completed(result)
-    });
+    let changed = exclusive(window, |state| state.runtime.task_completed(result));
     // Coalescer les reconstructions au prochain paint plutôt que remesurer par résultat.
-    if changed {
+    if changed == Some(true) {
         invalidate(window);
     }
 }
 
 pub(crate) fn cursor() -> Cursor {
     DRAWING.with(|slot| {
-        slot.borrow()
-            .as_ref()
-            .map(|s| s.runtime.cursor())
+        slot.try_borrow()
+            .ok()
+            .and_then(|s| s.as_ref().map(|s| s.runtime.cursor()))
             .unwrap_or(Cursor::Arrow)
     })
 }
@@ -79,20 +94,23 @@ pub(crate) fn edit_menu_open() -> bool {
 }
 pub(crate) fn has_capture() -> bool {
     DRAWING.with(|slot| {
-        slot.borrow()
-            .as_ref()
-            .is_some_and(|s| s.runtime.has_capture())
+        slot.try_borrow()
+            .is_ok_and(|s| s.as_ref().is_some_and(|s| s.runtime.has_capture()))
     })
 }
 pub(crate) fn focused_input() -> Option<crate::ui::text_input::InputGeometry> {
     DRAWING.with(|slot| {
-        slot.borrow()
-            .as_ref()
-            .and_then(|s| s.runtime.focused_input_geometry())
+        slot.try_borrow()
+            .ok()?
+            .as_ref()?
+            .runtime
+            .focused_input_geometry()
     })
 }
+/// L'état de dessin existe et peut être lu. Faux pendant un emprunt (message imbriqué) :
+/// la synchronisation du texte et de l'état de la fenêtre attend alors le suivant.
 pub(crate) fn initialized() -> bool {
-    DRAWING.with(|slot| slot.borrow().is_some())
+    can_receive_tasks()
 }
 pub(crate) fn next_wake() -> Option<std::time::Instant> {
     DRAWING.with(|slot| slot.try_borrow().ok()?.as_ref()?.runtime.next_wake())
@@ -131,11 +149,7 @@ pub(crate) fn accessibility_action(
     action: crate::ui::runtime::AccessibilityAction,
 ) -> i32 {
     use crate::ui::runtime::AccessibilityError;
-    let result = DRAWING.with(|slot| -> crate::Result<i32> {
-        let mut value = slot.borrow_mut();
-        let Some(state) = value.as_mut() else {
-            return Ok(UIA_E_ELEMENTNOTAVAILABLE as i32);
-        };
+    let result = exclusive(window, |state| -> crate::Result<i32> {
         state.prepare(window)?;
         let result = state.runtime.accessibility_action(action).map_or_else(
             |e| match e {
@@ -151,7 +165,9 @@ pub(crate) fn accessibility_action(
             state.prepare(window)?;
         }
         Ok(result)
-    });
+    })
+    // Sans état, ou état occupé par un appel de l'application en cours.
+    .unwrap_or(Ok(UIA_E_ELEMENTNOTAVAILABLE as i32));
     match result {
         Ok(result) => result,
         Err(error) => {
@@ -168,27 +184,25 @@ pub(crate) fn input(window: Hwnd, event: UiEvent) -> EventResult {
     // image, une seule fois pour tous les déplacements reçus entre-temps. Réveil
     // d'animation : l'horloge avance ici, l'image n'est préparée qu'une fois, au dessin.
     let deferred = matches!(event, UiEvent::PointerMove(_) | UiEvent::Timer(_));
-    let result = DRAWING.with(|slot| -> crate::Result<EventResult> {
-        let mut value = slot.borrow_mut();
-        if let Some(state) = value.as_mut() {
-            let paints = state.runtime.stats().paints;
-            if !deferred {
-                state.prepare(window)?;
-            }
-            let mut result = state.runtime.event(event);
-            if deferred {
-                result.repaint |= state.runtime.has_state_styles();
-            } else if result.repaint || state.runtime.has_state_styles() {
-                state.prepare(window)?;
-            }
-            // prepare peut déjà avoir produit l'image, notamment avant Timer(now).
-            // Cela ne signifie pas qu'elle a été présentée par WM_PAINT.
-            result.repaint |= state.runtime.stats().paints != paints;
-            Ok(result)
-        } else {
-            Ok(EventResult::default())
+    let result = exclusive(window, |state| -> crate::Result<EventResult> {
+        let paints = state.runtime.stats().paints;
+        if !deferred {
+            state.prepare(window)?;
         }
-    });
+        let mut result = state.runtime.event(event);
+        if deferred {
+            result.repaint |= state.runtime.has_state_styles();
+        } else if result.repaint || state.runtime.has_state_styles() {
+            state.prepare(window)?;
+        }
+        // prepare peut déjà avoir produit l'image, notamment avant Timer(now).
+        // Cela ne signifie pas qu'elle a été présentée par WM_PAINT.
+        result.repaint |= state.runtime.stats().paints != paints;
+        Ok(result)
+    })
+    // Sans état, ou entrée reçue pendant un appel de l'application (boucle modale
+    // ouverte par elle) : l'événement est ignoré.
+    .unwrap_or_else(|| Ok(EventResult::default()));
     match result {
         Ok(result) => result,
         Err(error) => {
@@ -201,7 +215,9 @@ pub(crate) fn input(window: Hwnd, event: UiEvent) -> EventResult {
 }
 pub(crate) fn print_stats() {
     DRAWING.with(|slot| {
-        if let Some(s) = slot.borrow().as_ref() {
+        if let Ok(s) = slot.try_borrow()
+            && let Some(s) = s.as_ref()
+        {
             println!("karbon-ui: UI stats: {:?}", s.runtime.stats());
             if let Some(profile) = &s.profile {
                 profile.emit(s.renderer.label(), "snapshot");
@@ -212,7 +228,8 @@ pub(crate) fn print_stats() {
 
 pub(crate) fn finish_profile() {
     DRAWING.with(|slot| {
-        if let Some(state) = slot.borrow_mut().as_mut()
+        if let Ok(mut state) = slot.try_borrow_mut()
+            && let Some(state) = state.as_mut()
             && let Some(profile) = state.profile.take()
         {
             profile.emit(state.renderer.label(), "close");
@@ -260,18 +277,14 @@ pub(crate) fn drag_region_at(point: crate::ui::scene::PointF) -> bool {
 /// alors son affichage (11 ms de préparation après 12 ms d'attente inactive). Une tranche
 /// du travail étalé de l'application passe au même moment.
 pub(crate) fn prepare_pending_rebuild(window: Hwnd) {
-    let result = DRAWING.with(|slot| -> crate::Result<()> {
-        if let Ok(mut state) = slot.try_borrow_mut()
-            && let Some(state) = state.as_mut()
-        {
-            state.runtime.begin_frame_work(std::time::Instant::now());
-            if state.runtime.rebuild_pending() {
-                state.prepare(window)?;
-            }
+    let result = exclusive(window, |state| -> crate::Result<()> {
+        state.runtime.begin_frame_work(std::time::Instant::now());
+        if state.runtime.rebuild_pending() {
+            state.prepare(window)?;
         }
         Ok(())
     });
-    if let Err(error) = result {
+    if let Some(Err(error)) = result {
         record_error(error);
         // SAFETY : destruction sur le thread propriétaire ; Windows valide le handle.
         unsafe { DestroyWindow(window) };
@@ -315,14 +328,7 @@ pub(crate) fn resize_region_at(
 /// Remet l'état de la fenêtre à l'application ; `false` si elle n'est pas joignable
 /// (runtime en cours d'usage ou pas encore initialisé), l'état est alors renvoyé plus tard.
 pub(crate) fn window_changed(window: Hwnd, state: crate::window::WindowState) -> bool {
-    let delivered = DRAWING.with(|slot| {
-        let Ok(mut value) = slot.try_borrow_mut() else {
-            return None;
-        };
-        value
-            .as_mut()
-            .map(|drawing| drawing.runtime.window_changed(state))
-    });
+    let delivered = exclusive(window, |drawing| drawing.runtime.window_changed(state));
     if delivered == Some(true) {
         invalidate(window);
     }
