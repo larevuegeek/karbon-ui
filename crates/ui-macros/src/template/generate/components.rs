@@ -10,6 +10,35 @@ use crate::{
     },
 };
 
+/// Mots-clés de Rust (stricts et réservés, édition 2024) : un champ de ce nom s'écrit
+/// en identifiant brut (`r#type`).
+const KEYWORDS: &[&str] = &[
+    "abstract", "as", "async", "await", "become", "box", "break", "const", "continue", "do", "dyn",
+    "else", "enum", "extern", "false", "final", "fn", "for", "gen", "if", "impl", "in", "let",
+    "loop", "macro", "match", "mod", "move", "mut", "override", "priv", "pub", "ref", "return",
+    "static", "struct", "trait", "true", "try", "type", "typeof", "unsafe", "unsized", "use",
+    "virtual", "where", "while", "yield",
+];
+/// Champ Rust de la prop `name` d'un composant (`aria-x` → `aria_x`, `type` → `r#type`).
+fn prop_field(name: &str) -> std::result::Result<String, String> {
+    let field = name.replace('-', "_");
+    if field.is_empty()
+        || !field.chars().all(|c| c.is_alphanumeric() || c == '_')
+        || field.starts_with(|c: char| c.is_ascii_digit())
+    {
+        return Err(format!("'{name}' is not a valid component prop name"));
+    }
+    // Le code généré réserve les noms `__ui_*` (`__ui_root` y devient le chemin de la
+    // crate) ; ces mots-clés n'ont pas de forme brute.
+    if field.starts_with("__ui_") || ["_", "crate", "self", "Self", "super"].contains(&&*field) {
+        return Err(format!("'{name}' cannot be a component prop name"));
+    }
+    Ok(if KEYWORDS.contains(&field.as_str()) {
+        format!("r#{field}")
+    } else {
+        field
+    })
+}
 impl Generator {
     pub(super) fn expand(&mut self, nodes: Vec<Node>, source: &Source) -> Result<Vec<Node>> {
         let mut out = Vec::with_capacity(nodes.len());
@@ -98,14 +127,7 @@ impl Generator {
             if reserved(&a.name) {
                 continue;
             }
-            let field = a.name.replace('-', "_");
-            if !field.chars().all(|c| c.is_alphanumeric() || c == '_')
-                || field.starts_with(|c: char| c.is_ascii_digit())
-            {
-                return Err(a
-                    .loc
-                    .error(format!("'{}' is not a valid component prop name", a.name)));
-            }
+            let field = prop_field(&a.name).map_err(|m| a.loc.error(m))?;
             let value = self.value(a);
             fields += &format!("{field}:{R}::ui::template::prop({value}),");
         }

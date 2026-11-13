@@ -271,6 +271,11 @@ fn main() {
             "cross-offset=\"400\" must be a shift",
         ),
         (
+            "reserved_prop",
+            r#"<Comp __ui_root="1" />"#,
+            "'__ui_root' cannot be a component prop name",
+        ),
+        (
             "svg_expression",
             r#"<svg viewBox="0 0 24 24"><path d={path}/></svg>"#,
             "must be a literal value",

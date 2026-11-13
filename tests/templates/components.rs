@@ -122,3 +122,27 @@ fn style_directives_on_a_component_apply_to_its_root() {
     near(badge.bounds().right - badge.bounds().left, 120.);
     near(badge.style.padding.left, 4.);
 }
+
+/// Composant dont des props portent le nom d'un mot-clé de Rust.
+#[derive(Default)]
+struct Field {
+    r#type: &'static str,
+    r#for: &'static str,
+}
+
+impl Component for Field {
+    fn render(self, cx: &TemplateContext<'_>, _: Slots) -> Element {
+        ui! {@context(cx);<span>{self.r#type}:{self.r#for}</span>}
+    }
+}
+
+/// `<Field type="…">` remplit le champ `r#type` (le nom était collé tel quel : `type:`
+/// ne compilait pas).
+#[test]
+fn a_component_prop_named_like_a_rust_keyword_fills_the_raw_field() {
+    let node = ui! {<Field type="email" for="contact" />};
+    assert_eq!(
+        node.widget.as_ref().unwrap().semantics().name,
+        "email:contact"
+    );
+}
