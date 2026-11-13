@@ -213,3 +213,35 @@ fn a_min_content_column_measures_a_non_text_leaf_on_the_first_layout() {
     near(layout::width(root.children[0].bounds()), 58.);
     near(root.children[1].bounds().left, 58.);
 }
+
+/// Placement automatique « sparse » (CSS sans `dense`) : un élément suit le précédent et
+/// ne revient pas combler un trou laissé plus haut ; coût linéaire en nombre d'enfants.
+#[test]
+fn grid_auto_placement_moves_forward_without_filling_earlier_holes() {
+    let cell = |id| box_node(id, Length::Fill(1.), Length::Px(20.));
+    let mut root = Element::grid(1, 3, vec![cell(2), cell(3).span(3), cell(4), cell(5)]);
+    arrange(&mut root, 300., 400.);
+    fn place_of(root: &Element, i: usize) -> (i32, i32) {
+        let b = root.children[i].bounds();
+        (b.left as i32, b.top as i32)
+    }
+    assert_eq!(place_of(&root, 0), (0, 0));
+    assert_eq!(place_of(&root, 1), (0, 20));
+    assert_eq!(
+        place_of(&root, 2),
+        (0, 40),
+        "pas de retour dans le trou de la première ligne"
+    );
+    assert_eq!(place_of(&root, 3), (100, 40));
+    // Colonne imposée plus à gauche que le curseur : ligne suivante.
+    let mut root = Element::grid(1, 3, vec![cell(2).column_start(3), cell(3).column_start(1)]);
+    arrange(&mut root, 300., 400.);
+    assert_eq!(root.children[1].bounds().top as i32, 20);
+    // 4 096 lignes de 4 colonnes : chaque enfant ne repart pas de la première ligne.
+    let children = (0..16_384).map(|i| cell(10 + i)).collect();
+    let mut root = Element::grid(1, 4, children);
+    let start = std::time::Instant::now();
+    arrange(&mut root, 400., 400.);
+    eprintln!("16 384 enfants placés en {:?}", start.elapsed());
+    assert_eq!(place_of(&root, 16_383), (300, 4095 * 20));
+}

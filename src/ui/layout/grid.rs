@@ -283,35 +283,76 @@ pub(super) fn placements(
             }
         }
     }
-    for child in node
+    // Placement automatique « sparse » de CSS (sans `dense`) : d'abord les éléments à
+    // ligne imposée, chacun après le précédent de sa ligne ; puis les autres dans l'ordre,
+    // derrière un curseur qui ne recule jamais (un trou laissé plus haut reste vide, et
+    // chaque enfant ne repart pas de la première ligne).
+    let flow: Vec<Style> = node
         .children
         .iter()
         .filter(|c| !super::position::out_of_flow(c))
-    {
-        let s = resolved_span(child.style, columns, fitted);
-        if let (Some(r), Some(c)) = (s.row, s.column) {
-            result.push((r - 1, c - 1, s.span));
+        .map(|c| resolved_span(c.style, columns, fitted))
+        .collect();
+    let mut placed: Vec<Option<(usize, usize, usize)>> = flow
+        .iter()
+        .map(|s| match (s.row, s.column) {
+            (Some(r), Some(c)) => Some((r - 1, c - 1, s.span)),
+            _ => None,
+        })
+        .collect();
+    let fits = |occupied: &HashSet<(usize, usize)>, row: usize, column: usize, span: usize| {
+        (column..column + span).all(|c| !occupied.contains(&(row, c)))
+    };
+    let take = |occupied: &mut HashSet<(usize, usize)>, (row, column, span)| {
+        for c in column..column + span {
+            occupied.insert((row, c));
+        }
+    };
+    // Ligne imposée : première place libre après le dernier élément placé dans cette ligne.
+    let mut row_cursors = std::collections::HashMap::new();
+    for (s, slot) in flow.iter().zip(&mut placed) {
+        let (Some(r), None) = (s.row, s.column) else {
+            continue;
+        };
+        let row = r - 1;
+        let start = row_cursors.get(&row).copied().unwrap_or(0);
+        match (start..=columns - s.span).find(|&c| fits(&occupied, row, c, s.span)) {
+            Some(column) => {
+                take(&mut occupied, (row, column, s.span));
+                row_cursors.insert(row, column + s.span);
+                *slot = Some((row, column, s.span));
+            }
+            // Grille ajustée : une ligne imposée que la largeur a remplie n'est pas une
+            // erreur, l'élément est placé automatiquement.
+            None if fitted => {}
+            None => return Err(invalid("grid too large")),
+        }
+    }
+    let mut cursor = (0usize, 0usize);
+    for (s, slot) in flow.iter().zip(&mut placed) {
+        if slot.is_some() {
             continue;
         }
-        // Première place libre de l'étendue, dans la ligne ou la colonne imposée.
-        let free = |row: Option<usize>, column: Option<usize>| {
-            row.map_or(0..4096, |r| r - 1..r).find_map(|row| {
-                column
-                    .map_or(0..=columns - s.span, |c| c - 1..=c - 1)
-                    .find(|&column| {
-                        (column..column + s.span).all(|c| !occupied.contains(&(row, c)))
-                    })
-                    .map(|column| (row, column, s.span))
-            })
+        let position = match s.column {
+            // Colonne imposée à gauche du curseur : ligne suivante.
+            Some(c) => {
+                let column = c - 1;
+                (cursor.0 + usize::from(column < cursor.1)..4096)
+                    .find(|&row| fits(&occupied, row, column, s.span))
+                    .map(|row| (row, column))
+            }
+            None => (cursor.0..4096).find_map(|row| {
+                let start = if row == cursor.0 { cursor.1 } else { 0 };
+                (start..=columns - s.span)
+                    .find(|&column| fits(&occupied, row, column, s.span))
+                    .map(|column| (row, column))
+            }),
         };
-        // Grille ajustée : une ligne imposée que la largeur a remplie n'est pas une erreur.
-        let position = free(s.row, s.column)
-            .or_else(|| fitted.then(|| free(None, None)).flatten())
-            .ok_or_else(|| invalid("grid too large"))?;
-        for c in position.1..position.1 + s.span {
-            occupied.insert((position.0, c));
-        }
-        result.push(position);
+        let (row, column) = position.ok_or_else(|| invalid("grid too large"))?;
+        take(&mut occupied, (row, column, s.span));
+        cursor = (row, column + s.span);
+        *slot = Some((row, column, s.span));
     }
+    result.extend(placed.into_iter().flatten());
     Ok(result)
 }

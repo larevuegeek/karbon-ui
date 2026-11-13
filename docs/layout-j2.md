@@ -78,7 +78,9 @@ La grille possède ici douze colonnes de même largeur. Un span de quatre occupe
 un tiers d’une rangée, un span de six la moitié. `at(2, 1)` désigne la deuxième
 ligne et la première colonne, avec des positions comptées à partir de 1.
 `column_start` fixe uniquement la colonne de départ. Les autres éléments sont
-placés automatiquement dans les premières cellules disponibles.
+placés automatiquement comme en CSS sans `dense` : ceux dont la ligne est imposée
+d’abord, puis les autres dans l’ordre, chacun dans la première place libre après le
+précédent (un trou laissé plus haut reste vide).
 
 Les positions explicites réservent leurs cellules avant l’auto-placement.
 Les conflits, spans invalides et colonnes inexistantes produisent une erreur.
