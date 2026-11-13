@@ -82,12 +82,28 @@ thread_local! {
     static SHEETS: RefCell<HashMap<String, Rc<Sheet>>> = RefCell::new(HashMap::new());
 }
 fn sheet(meta: &str) -> std::result::Result<Rc<Sheet>, String> {
-    if let Some(sheet) = SHEETS.with(|s| s.borrow().get(meta).cloned()) {
+    if let Some(sheet) = SHEETS.with(|s| s.borrow().get(meta).cloned())
+        && fresh(&sheet, meta)
+    {
         return Ok(sheet);
     }
     let sheet = Rc::new(Sheet::parse(meta)?);
     SHEETS.with(|s| s.borrow_mut().insert(meta.to_owned(), sheet.clone()));
     Ok(sheet)
+}
+/// `false` quand la feuille de framework en cache a changé sur le disque : la description
+/// ne nomme que son chemin, et un processus qui dure (rust-analyzer) garderait sinon la
+/// cascade de la première lecture. `framework::load` compare taille et date du fichier.
+fn fresh(sheet: &Sheet, meta: &str) -> bool {
+    let path = meta
+        .lines()
+        .find_map(|line| line.strip_prefix("framework "));
+    match (&sheet.framework, path) {
+        (Some(cached), Some(path)) => {
+            css::framework::load(path).is_ok_and(|now| Rc::ptr_eq(&now, cached))
+        }
+        _ => true,
+    }
 }
 /// Littéral chaîne, éventuellement dans un groupe invisible (valeur transmise par
 /// macro), avec son span.
@@ -445,4 +461,21 @@ pub fn compile(input: TokenStream) -> Result<TokenStream> {
     let mut result = out.finish(&code)?;
     result.extend(errors);
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    /// Une feuille de framework modifiée est relue : la cascade en cache suivait son
+    /// chemin seul.
+    #[test]
+    fn a_modified_framework_sheet_is_read_again() {
+        let path = std::env::temp_dir().join(format!("karbon-classes-{}.css", std::process::id()));
+        let meta = format!("karbon-sheet 1\ntailwind 0\nframework {}\n", path.display());
+        std::fs::write(&path, ".first { color: red; }").unwrap();
+        assert!(super::sheet(&meta).unwrap().classes.contains("first"));
+        std::fs::write(&path, ".second-name { color: blue; }").unwrap();
+        let sheet = super::sheet(&meta).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        assert!(sheet.classes.contains("second-name") && !sheet.classes.contains("first"));
+    }
 }
