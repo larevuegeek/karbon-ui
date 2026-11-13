@@ -130,13 +130,19 @@ pub fn compile(e: &Element) -> Result<Compiled> {
         title: builder.title,
     })
 }
-/// Retire le prologue XML, le doctype et les commentaires de tête d'un fichier `.svg`.
+/// Retire le prologue XML, le doctype et les commentaires de tête d'un fichier `.svg`
+/// (Illustrator écrit `<?xml …?>`, `<!-- Generator: … -->` puis `<!DOCTYPE svg …>`).
 pub fn strip_prolog(text: &str) -> &str {
     let mut rest = text.trim_start_matches('\u{feff}').trim_start();
     loop {
         if rest.starts_with("<?") {
             match rest.find("?>") {
                 Some(end) => rest = rest[end + 2..].trim_start(),
+                None => return rest,
+            }
+        } else if rest.starts_with("<!--") {
+            match rest[4..].find("-->") {
+                Some(end) => rest = rest[4 + end + 3..].trim_start(),
                 None => return rest,
             }
         } else if rest.starts_with("<!DOCTYPE") || rest.starts_with("<!doctype") {
@@ -147,5 +153,17 @@ pub fn strip_prolog(text: &str) -> &str {
         } else {
             return rest;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// Un commentaire entre le prologue et le doctype arrêtait le nettoyage : le doctype
+    /// restait du texte à côté de la racine `<svg>`.
+    #[test]
+    fn the_prolog_comments_and_doctype_are_stripped() {
+        let file = "\u{feff}<?xml version=\"1.0\"?>\n<!-- Generator: x -->\n<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"x\">\n<svg/>";
+        assert_eq!(super::strip_prolog(file), "<svg/>");
+        assert_eq!(super::strip_prolog("<!-- open"), "<!-- open");
     }
 }

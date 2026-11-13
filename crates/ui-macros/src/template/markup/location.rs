@@ -4,7 +4,8 @@ use proc_macro::Span;
 use std::cell::RefCell;
 
 thread_local! {
-    /// Fichiers lus par l'invocation de macro en cours (index = `Loc::file`).
+    /// Fichiers lus par les invocations de macro du processus (index = `Loc::file`) :
+    /// jamais vidée, un nom déjà vu garde son index d'une invocation à l'autre.
     static FILES: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
 }
 /// Enregistre un nom de fichier pour les diagnostics et renvoie son index.

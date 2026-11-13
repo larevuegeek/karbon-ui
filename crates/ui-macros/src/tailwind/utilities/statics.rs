@@ -5,9 +5,8 @@ use super::{
     composed::{FILTER, SHADOW, TRANSITION_COLORS, TRANSITION_DEFAULT, transition},
     decls, out,
 };
-use crate::tailwind::Config;
 /// Utilitaires sans valeur (`flex`, `items-center`, `truncate`…).
-pub(super) fn statics(name: &str, cfg: &Config) -> Option<Out> {
+pub(super) fn statics(name: &str) -> Option<Out> {
     let d = |list: &[(&str, &str)]| Some(out(list));
     match name {
         "block" => d(&[("display", "block")]),
@@ -261,7 +260,6 @@ pub(super) fn statics(name: &str, cfg: &Config) -> Option<Out> {
             d(&[("list-style-type", &name[5..])])
         }
         "underline-offset-auto" => d(&[("text-underline-offset", "auto")]),
-        "sticky-0" => None,
         _ => {
             if let Some(cursor) = name.strip_prefix("cursor-")
                 && !cursor.starts_with('[')
@@ -269,7 +267,6 @@ pub(super) fn statics(name: &str, cfg: &Config) -> Option<Out> {
             {
                 return d(&[("cursor", cursor)]);
             }
-            let _ = cfg;
             None
         }
     }

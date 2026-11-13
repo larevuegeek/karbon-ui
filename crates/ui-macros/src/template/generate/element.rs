@@ -12,7 +12,6 @@ use crate::{
         markup::{Attr, Element, Loc, Node, Value},
     },
 };
-use proc_macro::TokenStream;
 
 pub(super) fn kind_of(e: &Element) -> Result<Kind> {
     html::kind(&e.name).map_err(|m| e.loc.error(m))
@@ -272,10 +271,6 @@ impl Generator {
         ))
     }
     fn property(&mut self, name: &str, value: String, loc: Loc) -> Result<String> {
-        let tokens = value
-            .parse::<TokenStream>()
-            .map_err(|_| loc.error("Internal error: default style"))?;
-        let _ = tokens;
         let attr = StyleProp {
             name: name.into(),
             value: self.out.finish(&value)?,

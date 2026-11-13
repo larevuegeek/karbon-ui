@@ -27,6 +27,15 @@ impl Source {
         }
     }
 }
+/// Sorte d'un fichier lu, pour les messages : le lecteur sert aux templates, aux
+/// feuilles (`css_file!`, `@import`) et aux SVG (`<svg src>`).
+fn kind(path: &str) -> &'static str {
+    match Path::new(path).extension().and_then(|e| e.to_str()) {
+        Some("css") => "stylesheet",
+        Some("svg") => "SVG file",
+        _ => "template",
+    }
+}
 pub struct Reader {
     pub source: Source,
     pub stack: Vec<PathBuf>,
@@ -43,6 +52,7 @@ impl Reader {
         }
     }
     pub fn text(&mut self, path: &str, span: Span) -> Result<(String, Source, PathBuf)> {
+        let kind = kind(path);
         let target = self.source.dir.join(path).canonicalize().map_err(|e| {
             Error::new(
                 format!("{}: include {path:?}: {e}", self.source.display),
@@ -56,22 +66,25 @@ impl Reader {
             .map_err(|e| Error::new(e.to_string(), span))?;
         if !target.starts_with(&package) {
             return Err(Error::new(
-                "Template includes must stay inside their Cargo package",
+                format!("Included {kind}s must stay inside their Cargo package"),
                 span,
             ));
         }
         if self.stack.contains(&target) {
             return Err(Error::new(
-                format!("Circular template include: {}", target.display()),
+                format!("Circular {kind} include: {}", target.display()),
                 span,
             ));
         }
         if self.stack.len() >= 32 {
-            return Err(Error::new("Template include depth exceeds 32", span));
+            return Err(Error::new(
+                format!("Include depth exceeds 32 (reading {kind} {path:?})"),
+                span,
+            ));
         }
         let text = std::fs::read_to_string(&target).map_err(|e| {
             Error::new(
-                format!("Cannot read template {}: {e}", target.display()),
+                format!("Cannot read {kind} {}: {e}", target.display()),
                 span,
             )
         })?;
@@ -83,7 +96,12 @@ impl Reader {
             .replace("\r\n", "\n");
         self.bytes += text.len();
         if self.bytes > 2 * 1024 * 1024 {
-            return Err(Error::new("Templates exceed the 2 MiB source limit", span));
+            return Err(Error::new(
+                format!(
+                    "Files read by this macro exceed the 2 MiB source limit (at {kind} {path:?})"
+                ),
+                span,
+            ));
         }
         let display = target
             .strip_prefix(&package)

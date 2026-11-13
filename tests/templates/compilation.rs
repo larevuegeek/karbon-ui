@@ -318,6 +318,11 @@ fn main() {
             "CSS property 'mix-blend-mode'",
         ),
         (
+            "css_cycle",
+            "@import \"css_cycle.css\";\n.card { padding: 1px; }",
+            "Circular stylesheet include",
+        ),
+        (
             "css_selector",
             ".card Text {color:red;}",
             "Use class selectors on native template elements",

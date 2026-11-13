@@ -319,7 +319,7 @@ pub(super) fn parse(value: &str) -> Result<Selector> {
     let mut context: Option<String> = None;
     let mut all_classes = Vec::new();
     let (last, left) = chain.split_last().unwrap();
-    for (index, (combinator, text)) in left.iter().enumerate() {
+    for (combinator, text) in left {
         let (classes, state) = compound(text)?;
         let mut predicate = matching(&classes, &state)?;
         if let Some(previous) = context.take() {
@@ -328,7 +328,6 @@ pub(super) fn parse(value: &str) -> Result<Selector> {
                 relation(*combinator, previous)
             );
         }
-        let _ = index;
         all_classes.extend(classes);
         context = Some(predicate);
     }

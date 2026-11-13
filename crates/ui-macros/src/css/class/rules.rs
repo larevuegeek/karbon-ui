@@ -235,8 +235,6 @@ pub(in crate::css) fn add_rule(
                     .push((predicate.clone(), props, *declaration_order));
                 continue;
             }
-            // Validate even a declaration replaced by a later rule.
-            values::declaration(&d.name, &d.value, vars).map_err(error)?;
             let states = if state == "hover" {
                 &mut class.hover
             } else {

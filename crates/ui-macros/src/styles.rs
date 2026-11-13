@@ -34,7 +34,6 @@ pub fn compile(root: TokenStream, input: TokenStream) -> Result<TokenStream> {
         let mut body = Cursor::new(group.stream(), &source);
         let mut seen = BTreeSet::new();
         let mut properties = String::new();
-        let mut bounds = BTreeSet::new();
         while !body.done() {
             let span = body.span();
             let mut property = body.ident()?;
@@ -67,16 +66,6 @@ pub fn compile(root: TokenStream, input: TokenStream) -> Result<TokenStream> {
             if ["extends", "painter"].contains(&property.as_str()) {
                 return Err(body.error("Use class={[BASE, OTHER]} to compose styles; painter belongs directly on a layout"));
             }
-            if let Some(ty) = match codegen::canonical(&property) {
-                "font_size" => Some("TextSize"),
-                "color" => Some("TextColor"),
-                "font" => Some("TextFont"),
-                "font_family" => Some("TextFamily"),
-                "weight" => Some("TextWeight"),
-                _ => None,
-            } {
-                bounds.insert(ty);
-            }
             properties += &codegen::property(
                 &StyleProp {
                     name: property,
@@ -89,18 +78,15 @@ pub fn compile(root: TokenStream, input: TokenStream) -> Result<TokenStream> {
                 "__ui_node",
             )?;
         }
-        bounds.clear(); // Typography is now shared by containers and controls.
-        let bounds = bounds
-            .iter()
-            .map(|b| format!("+ __ui_root::ui::template::typography::{b}"))
-            .collect::<String>();
+        // La typographie est commune aux conteneurs et aux contrôles ; seules les
+        // propriétés de mise en page demandent un conteneur.
         let bounds = if seen.contains("flex_direction")
             || seen.contains("columns")
             || seen.contains("grid_tracks")
         {
-            format!("{bounds}+__ui_root::ui::template::ContainerStyle")
+            "+__ui_root::ui::template::ContainerStyle"
         } else {
-            bounds
+            ""
         };
         code += &format!(
             "#[allow(non_snake_case)] {visibility}fn {name}<R,W:__ui_root::ui::element::Widget+'static {bounds}>(__ui_node:__ui_root::ui::template::Node<W>,cx:&__ui_root::ui::template::TemplateContext<'_,R>)->__ui_root::ui::template::Node<W>{{{properties}__ui_node}}"

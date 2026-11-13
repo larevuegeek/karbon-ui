@@ -4,10 +4,7 @@ use super::{Dest, Generator, R};
 use crate::{
     Result,
     input::Source,
-    template::{
-        html::Kind,
-        markup::{self, Element, Node, Value},
-    },
+    template::markup::{self, Element, Node, Value},
 };
 
 /// Mots-clés de Rust (stricts et réservés, édition 2024) : un champ de ce nom s'écrit
@@ -158,8 +155,7 @@ impl Generator {
             "{R}::ui::template::Node::element({{let mut __ui_component_slots={R}::ui::template::Slots::new();{children}#[allow(unused_mut)] let mut __ui_component={R}::ui::template::Component::render({props},&__ui_context.child(__ui_id),__ui_component_slots);{set_id}__ui_component}})"
         );
         // Les attributs restants sont des props : on ne valide que les communs.
-        let kind = Kind::Component;
-        self.finish_component(e, kind, &id, &constructor)
+        self.finish_component(e, &id, &constructor)
     }
     /// Survol, appui, focus, double clic et menu contextuel : posés sur l'élément, ou sur
     /// la racine d'un composant, qui voit ainsi ce qui arrive à ses descendants.
@@ -179,13 +175,7 @@ impl Generator {
         }
         Ok(code)
     }
-    fn finish_component(
-        &mut self,
-        e: &Element,
-        kind: Kind,
-        id: &str,
-        constructor: &str,
-    ) -> Result<String> {
+    fn finish_component(&mut self, e: &Element, id: &str, constructor: &str) -> Result<String> {
         // `onclick` d'un composant est une prop : ne pas l'appliquer au nœud.
         let mut props = String::new();
         props += &self.classes(e)?;
@@ -195,7 +185,6 @@ impl Generator {
             props += &self.style_attribute(e)?;
         }
         props += &self.style_directives(e)?;
-        let _ = kind;
         let mut post = self.listeners(e)?;
         if let Some(a) = e.attr("data-exit") {
             post += &format!("__ui_el=__ui_el.exit_animation({});", self.exit(a)?);

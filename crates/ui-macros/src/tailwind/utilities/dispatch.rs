@@ -235,7 +235,7 @@ pub fn compile(c: &Candidate, cfg: &Config) -> Result<Out, String> {
         return Ok(decls(vec![(property, decode(value))]));
     }
     if !c.negative && c.modifier.is_none() {
-        if let Some(o) = statics(base, cfg) {
+        if let Some(o) = statics(base) {
             return Ok(o);
         }
         if base == "group" || base == "peer" || base == "dark" {
@@ -286,14 +286,12 @@ pub fn compile(c: &Candidate, cfg: &Config) -> Result<Out, String> {
     }
     let shown = format!("{}{base}", if c.negative { "-" } else { "" });
     let mut names = STATICS.to_vec();
-    let with_value = ROOTS.iter().map(|r| format!("{r}-")).collect::<Vec<_>>();
     if let Some(s) = html::suggest(base, &names) {
         return Err(format!("Unknown utility '{shown}'; did you mean '{s}'?"));
     }
     let root = &base[..base.rfind('-').unwrap_or(base.len())];
     names = ROOTS.to_vec();
     if let Some(s) = html::suggest(root, &names) {
-        let _ = with_value;
         return Err(format!(
             "Unknown utility '{shown}'; did you mean '{s}-{}'?",
             base[root.len()..].trim_start_matches('-')
