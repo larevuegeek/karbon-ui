@@ -77,7 +77,9 @@ impl Default for UnitContext {
 impl Expression {
     /// Evaluates the expression; percentages resolve against `reference` and variables are
     /// looked up in `variables`. The result may be non-finite: `NaN` when nesting exceeds 64
-    /// levels or a `min`/`max`/`clamp` operand is not finite, infinity on division by zero.
+    /// levels, when the evaluation visits more than 4096 nodes (a variable that refers to
+    /// itself several times) or a `min`/`max`/`clamp` operand is not finite, infinity on
+    /// division by zero.
     pub fn evaluate(
         self,
         c: UnitContext,
@@ -90,11 +92,16 @@ impl Expression {
             reference: f32,
             vars: Option<&crate::ui::styling::CssVariables>,
             depth: usize,
+            budget: &mut u32,
         ) -> f32 {
-            if depth > 64 {
+            // Budget de nœuds : une variable qui se référence deux fois
+            // (`calc(var(--a) + var(--a))`) doublerait le travail à chaque niveau.
+            if depth > 64 || *budget == 0 {
+                *budget = 0;
                 return f32::NAN;
             }
-            let value = |e: &Expression| eval(*e, c, reference, vars, depth + 1);
+            *budget -= 1;
+            let mut value = |e: &Expression| eval(*e, c, reference, vars, depth + 1, budget);
             match e {
                 Expression::Variable {
                     name,
@@ -122,6 +129,7 @@ impl Expression {
                                 reference,
                                 vars,
                                 depth + 1,
+                                budget,
                             ),
                             _ => value(fallback),
                         },
@@ -165,7 +173,7 @@ impl Expression {
                 }
             }
         }
-        eval(self, c, reference, variables, 0)
+        eval(self, c, reference, variables, 0, &mut 4096)
     }
     /// Returns `true` if all numbers are finite, variable names start with `--`, lists are
     /// non-empty and the tree stays within size limits (depth 32, 256 nodes).
@@ -247,5 +255,28 @@ impl ComputedLength {
     /// Returns `true` if the scale is finite and positive and the expression is valid.
     pub fn valid(self) -> bool {
         self.scale.is_finite() && self.scale > 0. && self.expression.valid()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ui::{element::Length, styling::CssVariables};
+
+    #[test]
+    fn a_variable_referencing_itself_twice_stops_early() {
+        // `--a: calc(var(--a) + var(--a))` : sans budget, 2^32 nœuds avant la profondeur.
+        static A: Expression = Expression::Variable {
+            name: "--a",
+            fallback: &Expression::Px(1.),
+            length: true,
+        };
+        static SUM: Expression = Expression::Add(&A, &A);
+        let mut vars = CssVariables::default();
+        vars.set_length("--a", Length::Computed(ComputedLength::new(&SUM)));
+        let start = std::time::Instant::now();
+        let n = SUM.evaluate(UnitContext::default(), 100., Some(&vars));
+        assert!(n.is_nan());
+        assert!(start.elapsed() < std::time::Duration::from_secs(1));
     }
 }
