@@ -1,11 +1,17 @@
 //! Collection DirectWrite privée ; WOFF/WOFF2 décompressés par Windows.
 use super::graphics::Checked;
 use crate::ui::font::FontAsset;
-use std::ffi::c_void;
+use std::{
+    ffi::c_void,
+    sync::atomic::{AtomicU64, Ordering},
+};
 use windows::Win32::Graphics::DirectWrite::*;
 use windows::core::{HSTRING, Interface, PCWSTR};
 pub(super) struct FontCollection {
     pub collection: Option<IDWriteFontCollection>,
+    /// Identité unique dans le processus, clé du cache de [`resolve`] : l'adresse d'une
+    /// collection libérée peut être reprise par celle d'une autre fenêtre, pas ce numéro.
+    id: u64,
     loader: IDWriteInMemoryFontFileLoader,
     factory: IDWriteFactory6,
 }
@@ -24,8 +30,10 @@ impl FontCollection {
             .check("CreateInMemoryFontFileLoader")?;
         // SAFETY: chargeur valide ; désenregistré dans Drop.
         unsafe { factory.RegisterFontFileLoader(&loader) }.check("RegisterFontFileLoader")?;
+        static NEXT_ID: AtomicU64 = AtomicU64::new(1);
         let mut owned = Self {
             collection: None,
+            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
             loader,
             factory,
         };
@@ -175,7 +183,7 @@ pub(super) fn resolve(
     fonts: Option<&FontCollection>,
     family: &'static str,
 ) -> crate::Result<&'static str> {
-    type Cache = std::collections::HashMap<(usize, usize, usize), &'static str>;
+    type Cache = std::collections::HashMap<(usize, usize, u64), &'static str>;
     thread_local! {
         static CACHE: std::cell::RefCell<Cache> = Default::default();
     }
@@ -185,7 +193,8 @@ pub(super) fn resolve(
     let key = (
         family.as_ptr() as usize,
         family.len(),
-        fonts.map_or(0, |f| f as *const FontCollection as usize),
+        // 0 : polices système seules ; les collections sont numérotées à partir de 1.
+        fonts.map_or(0, |f| f.id),
     );
     if let Some(found) = CACHE.with(|c| c.borrow().get(&key).copied()) {
         return Ok(found);
