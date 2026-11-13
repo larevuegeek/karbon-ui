@@ -1,5 +1,5 @@
 //! Application de sonde et scénario.
-use crate::appkit::{appearance, ax_text, click, collect, key};
+use crate::appkit::{appearance, ax_text, click, collect, cpu_ms, key};
 use crate::layers::{drawable_width, metal_shown};
 use karbon_ui::{
     Error,
@@ -14,7 +14,10 @@ use karbon_ui::{
         rendering::filter::{Filter, Filters},
         template::Node,
     },
-    window::{ExitPolicy, RenderMode, WindowCommand, WindowDescriptor, WindowId, WindowOptions},
+    window::{
+        ExitPolicy, RenderMode, WindowChange, WindowCommand, WindowDescriptor, WindowId,
+        WindowOptions,
+    },
 };
 use objc2::{MainThreadMarker, msg_send, rc::Retained, runtime::AnyObject, sel};
 use objc2_app_kit::{NSApplication, NSWindow};
@@ -52,8 +55,13 @@ struct Log {
     dark: Vec<bool>,
     /// Largeur des drawables Metal pendant que la fenêtre est dans le Dock.
     docked: Option<f64>,
+    /// Temps processeur du processus pendant le séjour dans le Dock (ms) : la boucle doit
+    /// dormir, l'écran ne bat plus pour la fenêtre.
+    docked_cpu: Option<u64>,
     /// Calque Metal visible et à la taille de la vue après le retour du Dock.
     restored: Option<bool>,
+    /// Taille de la vue après `WindowChange::Size`, et image refaite à cette taille.
+    resized: (Option<(f64, f64)>, Option<bool>),
 }
 #[derive(Clone)]
 enum Msg {
@@ -253,8 +261,14 @@ impl Application for Probe {
                 deferred(move || appearance(&window, step == 9));
             }
             // Dans le Dock, puis de retour : drawables abandonnés, puis image refaite.
-            11 => deferred(move || window.miniaturize(None)),
+            11 => {
+                self.log.lock().unwrap().docked_cpu = Some(cpu_ms());
+                deferred(move || window.miniaturize(None));
+            }
             12 => {
+                let mut log = self.log.lock().unwrap();
+                log.docked_cpu = log.docked_cpu.map(|start| cpu_ms() - start);
+                drop(log);
                 self.log.lock().unwrap().docked = Some(window.isMiniaturized())
                     .filter(|m| *m)
                     .and(drawable_width(&window));
@@ -262,6 +276,20 @@ impl Application for Probe {
             }
             13 => {
                 self.log.lock().unwrap().restored = metal_shown(&window);
+                // Taille demandée par l'application : AppKit signale le redimensionnement
+                // pendant l'appel, la boucle doit le traiter (M2 de la revue).
+                self.commands.push(WindowCommand::Change(
+                    WindowId::MAIN,
+                    WindowChange::Size {
+                        width: 500,
+                        height: 360,
+                    },
+                ));
+            }
+            14 => {
+                let size = window.contentView().map(|v| v.bounds().size);
+                self.log.lock().unwrap().resized =
+                    (size.map(|s| (s.width, s.height)), metal_shown(&window));
                 let nested = platform::run_windows(
                     vec![WindowDescriptor::new(WindowId(9), options("x"), Second)],
                     ExitPolicy::LastWindowClosed,
@@ -441,7 +469,19 @@ pub fn run() {
             "Metal (vue filtrée), puis Core Graphics (repli forcé), puis Metal (émoji rempli compris)"
         );
         assert_eq!(log.docked, Some(1.), "drawables abandonnés dans le Dock");
+        // ~0,9 s dans le Dock : quelques millisecondes si la boucle dort, toute la durée
+        // si elle attend un battement qui ne vient pas (M1 de la revue).
+        assert!(
+            log.docked_cpu.is_some_and(|ms| ms < 300),
+            "boucle endormie dans le Dock : {:?} ms de processeur",
+            log.docked_cpu
+        );
         assert_eq!(log.restored, Some(true), "image refaite au retour du Dock");
+        assert_eq!(
+            log.resized,
+            (Some((500., 360.)), Some(true)),
+            "taille demandée appliquée et image refaite à cette taille"
+        );
         assert_eq!(
             log.backends,
             ["GPU · Metal", "CPU · Core Graphics", "GPU · Metal"],

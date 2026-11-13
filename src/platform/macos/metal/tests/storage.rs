@@ -192,3 +192,31 @@ fn trimming_releases_idle_resources_and_everything_when_hidden() {
     let again = metal.render(&mut cg, &full, 170, 115, 2.).unwrap();
     assert!(again == reference);
 }
+/// Image traduite sans être rendue (pas de drawable, M3 de la revue) : l'image chargée
+/// pendant la traduction attend ses mipmaps de l'encodage ; gardée, elle servirait ensuite
+/// sans eux. Elle est oubliée et la traduction suivante redemande ses mipmaps.
+#[test]
+fn an_image_translated_but_not_rendered_asks_again_for_its_mipmaps() {
+    let Some(mut metal) = metal() else {
+        return;
+    };
+    let mut cg = CgRenderer::new().unwrap();
+    let image = image();
+    let full = scene(&image);
+    let built = metal.build(&mut cg, &full, (170, 115), 1.).unwrap();
+    assert_eq!(
+        built.mipmaps.len(),
+        1,
+        "image nouvelle : mipmaps à calculer"
+    );
+    metal.resources.discard_unrendered(&built.mipmaps);
+    metal.resources.end();
+    assert_eq!(
+        metal.resources.counts()[0],
+        0,
+        "texture sans mipmaps oubliée"
+    );
+    let again = metal.build(&mut cg, &full, (170, 115), 1.).unwrap();
+    assert_eq!(again.mipmaps.len(), 1, "mipmaps redemandés");
+    metal.resources.end();
+}

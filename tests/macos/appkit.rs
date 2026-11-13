@@ -83,3 +83,15 @@ pub fn key(window: &NSWindow, characters: &str, code: u16) {
         send(window, event);
     }
 }
+
+/// Temps processeur consommé par le processus (utilisateur et système), en ms.
+pub fn cpu_ms() -> u64 {
+    // SAFETY : structure valide en écriture, processus courant.
+    let usage = unsafe {
+        let mut usage: libc::rusage = std::mem::zeroed();
+        libc::getrusage(libc::RUSAGE_SELF, &mut usage);
+        usage
+    };
+    let ms = |t: libc::timeval| t.tv_sec as u64 * 1000 + t.tv_usec as u64 / 1000;
+    ms(usage.ru_utime) + ms(usage.ru_stime)
+}

@@ -193,7 +193,11 @@ impl Renderer {
         });
         let wait = std::time::Instant::now();
         let Some(drawable) = surface.next() else {
+            // Traduite mais pas rendue : rien de ce qu'elle a mis en cache sans le remplir
+            // ne doit servir à l'image suivante (M3 de la revue).
+            self.resources.discard_unrendered(&built.mipmaps);
             self.resources.end();
+            self.keep(built);
             return Ok(Presented::NoDrawable);
         };
         self.timings[2] = ms(wait);

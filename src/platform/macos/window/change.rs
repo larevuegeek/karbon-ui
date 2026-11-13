@@ -76,24 +76,26 @@ fn bounded(window: &NSWindow, width: f64, height: f64) -> (f64, f64) {
     )
 }
 
-impl Session {
-    pub fn change(&mut self, change: WindowChange, mtm: MainThreadMarker) {
-        let window = self.window.clone();
+/// Applique `change` à `window`. À appeler hors de tout emprunt des sessions : AppKit
+/// envoie des notifications synchrones (fenêtre devenue clé, taille) que la boucle doit
+/// pouvoir traiter (M2 de la revue).
+pub(super) fn apply(window: &NSWindow, change: WindowChange, mtm: MainThreadMarker) {
+    {
         match change {
             WindowChange::Size { width, height } => {
-                let (width, height) = bounded(&window, f64::from(width), f64::from(height));
-                set_content_size(&window, width, height);
+                let (width, height) = bounded(window, f64::from(width), f64::from(height));
+                set_content_size(window, width, height);
             }
             WindowChange::MinSize(size) => {
                 let (width, height) = size.unwrap_or((1, 1));
                 window.setContentMinSize(NSSize::new(f64::from(width), f64::from(height)));
-                self.enforce_bounds();
+                enforce_bounds(window);
             }
             WindowChange::MaxSize(size) => {
                 let (width, height) =
                     size.map_or((f64::MAX, f64::MAX), |(w, h)| (f64::from(w), f64::from(h)));
                 window.setContentMaxSize(NSSize::new(width, height));
-                self.enforce_bounds();
+                enforce_bounds(window);
             }
             WindowChange::AspectRatio(Some((width, height))) => {
                 window.setContentAspectRatio(NSSize::new(f64::from(width), f64::from(height)));
@@ -108,7 +110,6 @@ impl Session {
                 window.setStyleMask(style);
             }
             WindowChange::Topmost(topmost) => {
-                self.options.topmost = topmost;
                 window.setLevel(if topmost {
                     NSFloatingWindowLevel
                 } else {
@@ -117,11 +118,11 @@ impl Session {
             }
             WindowChange::Position { x, y } => {
                 if let Some(area) = primary_area(mtm) {
-                    move_top_left(&window, area, (x + area.origin.x.round() as i32, y));
+                    move_top_left(window, area, (x + area.origin.x.round() as i32, y));
                 }
             }
             WindowChange::Center | WindowChange::KeepOnScreen => {
-                let Some(area) = window_area(&window, mtm) else {
+                let Some(area) = window_area(window, mtm) else {
                     return;
                 };
                 let rect = downward(window.frame(), area);
@@ -137,7 +138,7 @@ impl Session {
                     keep_on_screen(rect, bounds)
                 };
                 if target != (rect.x, rect.y) {
-                    move_top_left(&window, area, target);
+                    move_top_left(window, area, target);
                 }
             }
             WindowChange::Maximized(maximized) => {
@@ -166,18 +167,25 @@ impl Session {
                     .activateIgnoringOtherApps(true);
             }
         }
-        self.report(mtm);
     }
-    /// Taille actuelle ramenée dans les bornes (après un changement de borne).
-    fn enforce_bounds(&self) {
-        let content = self
-            .window
-            .contentRectForFrameRect(self.window.frame())
-            .size;
-        let (width, height) = bounded(&self.window, content.width, content.height);
-        if (width, height) != (content.width, content.height) {
-            set_content_size(&self.window, width, height);
+}
+/// Taille actuelle ramenée dans les bornes (après un changement de borne).
+fn enforce_bounds(window: &NSWindow) {
+    let content = window.contentRectForFrameRect(window.frame()).size;
+    let (width, height) = bounded(window, content.width, content.height);
+    if (width, height) != (content.width, content.height) {
+        set_content_size(window, width, height);
+    }
+}
+
+impl Session {
+    /// Suite d'un changement appliqué par [`apply`] : options gardées par la session et
+    /// nouvel état remis à l'application.
+    pub fn changed(&mut self, change: WindowChange, mtm: MainThreadMarker) {
+        if let WindowChange::Topmost(topmost) = change {
+            self.options.topmost = topmost;
         }
+        self.report(mtm);
     }
     /// État actuel de la fenêtre.
     pub fn snapshot(&self, mtm: MainThreadMarker) -> WindowState {
@@ -273,6 +281,11 @@ pub(super) fn grip_drag(id: WindowId, window: &NSWindow) -> bool {
     };
     window.setFrame_display(frame, true);
     true
+}
+/// Fin de la boucle : plus aucun geste (une boucle relancée ne doit pas retrouver celui
+/// d'une ancienne fenêtre de même identité).
+pub(super) fn grip_reset() {
+    GRIP.with(|g| g.set(None));
 }
 /// Bouton relâché : fin du geste ; `false` sans geste en cours.
 pub(super) fn grip_end(id: WindowId) -> bool {

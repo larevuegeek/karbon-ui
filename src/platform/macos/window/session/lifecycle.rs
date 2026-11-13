@@ -186,13 +186,6 @@ impl Session {
             frame_clock: false,
         })
     }
-    pub fn show(&self) {
-        if self.options.activate {
-            self.window.makeKeyAndOrderFront(None);
-        } else {
-            self.window.orderFront(None);
-        }
-    }
     /// Contexte de vue, taille en pixels et échelle de la zone de contenu.
     pub(super) fn context(&self) -> (ViewContext, usize, usize, f32) {
         let bounds = self.view.bounds();

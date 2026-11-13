@@ -22,11 +22,57 @@ const TICK_TIMEOUT: Duration = Duration::from_millis(50);
 
 pub(in crate::platform::macos) struct FrameLink {
     link: Retained<CADisplayLink>,
+    beat: Beat,
+}
+
+/// Attente du battement, sans AppKit (testée seule) : la dernière image présentée, les
+/// battements à vide et l'état de pause du lien.
+#[derive(Debug)]
+struct Beat {
     paused: bool,
     /// Instant de la dernière image présentée, tant que le battement suivant n'est pas
     /// arrivé.
     awaiting: Option<Instant>,
     idle: u32,
+}
+
+impl Beat {
+    /// Une image vient d'être présentée ; `true` si le lien doit reprendre.
+    fn presented(&mut self, now: Instant) -> bool {
+        self.awaiting = Some(now);
+        self.idle = 0;
+        std::mem::replace(&mut self.paused, false)
+    }
+    fn ready(&self, now: Instant) -> bool {
+        self.awaiting
+            .is_none_or(|since| now >= since + TICK_TIMEOUT)
+    }
+    fn timeout(&self) -> Option<Instant> {
+        self.awaiting.map(|since| since + TICK_TIMEOUT)
+    }
+    fn expire(&mut self, now: Instant) -> bool {
+        let expired = self
+            .awaiting
+            .is_some_and(|since| now >= since + TICK_TIMEOUT);
+        if expired {
+            self.awaiting = None;
+        }
+        expired
+    }
+    /// Battement ; `true` si le lien doit se mettre en pause.
+    fn tick(&mut self, busy: bool) -> bool {
+        self.awaiting = None;
+        if busy {
+            self.idle = 0;
+            return false;
+        }
+        self.idle += 1;
+        if self.idle >= IDLE_TICKS && !self.paused {
+            self.paused = true;
+            return true;
+        }
+        false
+    }
 }
 
 impl FrameLink {
@@ -54,56 +100,41 @@ impl FrameLink {
         unsafe { link.addToRunLoop_forMode(&NSRunLoop::mainRunLoop(), NSRunLoopCommonModes) };
         Some(Self {
             link,
-            paused: true,
-            awaiting: None,
-            idle: 0,
+            beat: Beat {
+                paused: true,
+                awaiting: None,
+                idle: 0,
+            },
         })
     }
 
     /// Une image vient d'être présentée : la suivante attend le prochain battement.
     pub fn presented(&mut self, now: Instant) {
-        self.awaiting = Some(now);
-        self.idle = 0;
-        if self.paused {
-            self.paused = false;
+        if self.beat.presented(now) {
             self.link.setPaused(false);
         }
     }
 
     /// Une image peut partir maintenant.
     pub fn ready(&self, now: Instant) -> bool {
-        self.awaiting
-            .is_none_or(|since| now >= since + TICK_TIMEOUT)
+        self.beat.ready(now)
     }
 
     /// Échéance au-delà de laquelle l'image part sans battement, tant qu'il est attendu.
     pub fn timeout(&self) -> Option<Instant> {
-        self.awaiting.map(|since| since + TICK_TIMEOUT)
+        self.beat.timeout()
     }
 
     /// Abandonne l'attente d'un battement qui n'est pas venu dans le délai (fenêtre
     /// couverte, écran en veille) ; `true` si elle vient d'être abandonnée.
     pub fn expire(&mut self, now: Instant) -> bool {
-        let expired = self
-            .awaiting
-            .is_some_and(|since| now >= since + TICK_TIMEOUT);
-        if expired {
-            self.awaiting = None;
-        }
-        expired
+        self.beat.expire(now)
     }
 
     /// Battement de l'écran ; `busy` : la fenêtre a une image à faire ou une animation
     /// imminente. Après quelques battements sans rien, le lien se met en pause.
     pub fn tick(&mut self, busy: bool) {
-        self.awaiting = None;
-        if busy {
-            self.idle = 0;
-            return;
-        }
-        self.idle += 1;
-        if self.idle >= IDLE_TICKS && !self.paused {
-            self.paused = true;
+        if self.beat.tick(busy) {
             self.link.setPaused(true);
         }
     }
@@ -113,5 +144,56 @@ impl Drop for FrameLink {
     fn drop(&mut self) {
         // Le lien relâche sa cible (la vue) et quitte la boucle.
         self.link.invalidate();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn beat() -> Beat {
+        Beat {
+            paused: true,
+            awaiting: None,
+            idle: 0,
+        }
+    }
+
+    /// M1 de la revue : un battement qui ne vient pas (fenêtre couverte, écran en veille)
+    /// laissait une échéance dans le passé, et la boucle ne dormait plus.
+    #[test]
+    fn an_awaited_beat_that_never_comes_expires_and_leaves_no_deadline() {
+        let start = Instant::now();
+        let mut beat = beat();
+        assert!(beat.presented(start), "le lien reprend à la première image");
+        assert!(!beat.ready(start));
+        assert_eq!(beat.timeout(), Some(start + TICK_TIMEOUT));
+        assert!(!beat.expire(start + TICK_TIMEOUT / 2));
+        let late = start + TICK_TIMEOUT * 2;
+        assert!(beat.ready(late), "l'image part sans battement");
+        assert!(beat.expire(late));
+        assert_eq!(
+            beat.timeout(),
+            None,
+            "plus d'échéance passée qui réveille la boucle"
+        );
+        assert!(!beat.expire(late), "abandonnée une seule fois");
+    }
+
+    #[test]
+    fn the_link_pauses_after_idle_beats_and_resumes_on_the_next_image() {
+        let now = Instant::now();
+        let mut beat = beat();
+        beat.presented(now);
+        for _ in 1..IDLE_TICKS {
+            assert!(!beat.tick(false));
+        }
+        assert!(beat.tick(false), "pause après quatre battements à vide");
+        assert!(!beat.tick(false), "une seule demande de pause");
+        assert!(beat.presented(now), "reprise à l'image suivante");
+        assert!(
+            !beat.tick(true),
+            "un battement occupé remet le compte à zéro"
+        );
     }
 }

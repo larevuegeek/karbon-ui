@@ -235,6 +235,8 @@ pub(super) fn command(command: WindowCommand) {
     PENDING.with(|p| p.borrow_mut().push(command));
 }
 pub(super) fn closed(id: WindowId) {
+    // Fenêtre fermée pendant le geste d'une poignée : il se termine avec elle.
+    change::grip_end(id);
     CLOSED.with(|c| c.borrow_mut().push(id));
 }
 /// Taille ou échelle changée : peinte tout de suite (la boucle ne tourne pas pendant un
@@ -317,10 +319,15 @@ pub(super) fn open(descriptor: WindowDescriptor, mtm: MainThreadMarker) -> crate
     let id = session.id;
     SESSIONS.with(|s| s.borrow_mut().push(session));
     with(id, |s| s.paint());
-    with(id, |s| {
-        s.show();
-        Ok(())
-    });
+    // Hors de l'emprunt des sessions : la fenêtre devenue clé le signale aussitôt.
+    let activate = with(id, |s| Ok(s.options.activate)).unwrap_or(false);
+    if let Some(window) = window_of(id) {
+        if activate {
+            window.makeKeyAndOrderFront(None);
+        } else {
+            window.orderFront(None);
+        }
+    }
     Ok(())
 }
 pub(super) fn execute(command: WindowCommand, mtm: MainThreadMarker) {
@@ -348,9 +355,10 @@ pub(super) fn execute(command: WindowCommand, mtm: MainThreadMarker) {
         WindowCommand::Change(id, change) => {
             if let Some(reason) = crate::window::change::invalid_change(&change) {
                 record_error(crate::Error::invalid_window_options(reason));
-            } else {
+            } else if let Some(window) = window_of(id) {
+                change::apply(&window, change, mtm);
                 with(id, |s| {
-                    s.change(change, mtm);
+                    s.changed(change, mtm);
                     Ok(())
                 });
             }
@@ -447,6 +455,7 @@ impl Drop for RunGuard {
         drop(dialog::take_finished());
         EXIT.with(|e| e.set(false));
         EXECUTOR.with(|e| e.borrow_mut().take());
+        change::grip_reset();
         RUNNING.with(|r| r.set(false));
     }
 }

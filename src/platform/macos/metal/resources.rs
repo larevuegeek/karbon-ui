@@ -94,6 +94,9 @@ pub(super) struct Resources {
     taken: Vec<Pooled>,
     filtered: HashMap<ElementId, Filtered>,
     used_filtered: HashSet<ElementId>,
+    /// Groupes filtrés enregistrés par l'image en cours (leur texture n'est remplie qu'à
+    /// l'encodage).
+    stored_filtered: Vec<ElementId>,
     /// Texture 1 × 1 liée aux lots sans texture.
     pub blank: Texture,
     frame: u64,
@@ -115,6 +118,7 @@ impl Resources {
             taken: Vec::new(),
             filtered: HashMap::new(),
             used_filtered: HashSet::new(),
+            stored_filtered: Vec::new(),
             blank,
             frame: 0,
         })
@@ -136,7 +140,19 @@ impl Resources {
     pub fn begin(&mut self) {
         self.frame += 1;
         self.used_filtered.clear();
+        self.stored_filtered.clear();
         self.layers.append(&mut self.taken);
+    }
+    /// L'image traduite n'est pas rendue (pas de drawable) : ce qu'elle a mis en cache sans
+    /// le remplir est oublié, la suivante le refait. Images nouvelles (mipmaps calculés à
+    /// l'encodage, `mipmaps`) et groupes filtrés enregistrés (dessinés à l'encodage).
+    pub fn discard_unrendered(&mut self, mipmaps: &[Texture]) {
+        let unrendered = |t: &Texture| mipmaps.iter().any(|m| std::ptr::eq(&**m, &**t));
+        self.images.retain(|_, u| !unrendered(&u.texture));
+        self.image_bytes = self.images.values().map(|u| size(&u.texture)).sum();
+        for id in self.stored_filtered.drain(..) {
+            self.filtered.remove(&id);
+        }
     }
     /// Libère ce que les images récentes n'ont plus utilisé (voir le module).
     pub fn end(&mut self) {
@@ -293,6 +309,7 @@ impl Resources {
         commands: &[DrawCommand],
     ) {
         self.used_filtered.insert(id);
+        self.stored_filtered.push(id);
         self.filtered.insert(
             id,
             Filtered {
