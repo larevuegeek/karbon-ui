@@ -1,4 +1,12 @@
 use super::*;
+/// `node` est un `Split` redimensionnable dont le séparateur est affiché : ses deux volets
+/// sont dans le flux. Un volet masqué ou positionné laisse toute la place à l'autre, sans
+/// séparateur à atteindre au clavier ni à exposer aux lecteurs d'écran.
+pub(crate) fn resizable_divider(node: &Element) -> bool {
+    matches!(node.layout, Layout::Split(split) if split.resizable)
+        && node.children.len() == 2
+        && !node.children.iter().any(super::position::out_of_flow)
+}
 pub(super) fn place(
     node: &mut Element,
     area: RectF,

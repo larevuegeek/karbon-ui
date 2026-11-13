@@ -185,7 +185,11 @@ impl Interaction {
             // Sous-arbres `display: none` : hors de l'ordre de tabulation.
             fn hidden(node: &Element, out: &mut Vec<ElementId>, inside: bool) {
                 let inside = inside || crate::ui::layout::hidden(node);
-                if inside {
+                // Séparateur d'un split dont un volet est masqué : il n'est pas affiché.
+                if inside
+                    || matches!(node.layout, Layout::Split(split) if split.resizable)
+                        && !crate::ui::layout::resizable_divider(node)
+                {
                     out.push(node.id);
                 }
                 for child in &node.children {

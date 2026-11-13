@@ -19,6 +19,7 @@ mod validation;
 pub mod virtual_list;
 pub use arrange::arrange;
 pub use measure::measure;
+pub(crate) use split::resizable_divider;
 pub use split::split_extent;
 pub(crate) use validation::duplicate_id;
 pub use validation::{MAX_ELEMENTS, validate};

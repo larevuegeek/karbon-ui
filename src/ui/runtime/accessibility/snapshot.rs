@@ -102,9 +102,7 @@ impl UiRuntime {
                     current: node.aria.current,
                 });
             }
-            if let Layout::Split(split) = node.layout
-                && split.resizable
-            {
+            if layout::resizable_divider(node) {
                 let (bounds, clipped) =
                     place(node.divider.unwrap_or(node.rect), node.clip, deferred);
                 descriptor = Some(AccessibleElement {

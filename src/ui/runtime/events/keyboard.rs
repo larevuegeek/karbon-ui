@@ -10,7 +10,7 @@ impl UiRuntime {
             && let Some(node) = self.root.as_ref().and_then(|r| r.find(id))
         {
             if let Layout::Split(split) = node.layout {
-                if split.resizable {
+                if layout::resizable_divider(node) {
                     let available = (if split.axis == Axis::Horizontal {
                         layout::width(node.rect)
                     } else {
