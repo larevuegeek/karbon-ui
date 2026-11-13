@@ -313,8 +313,17 @@ impl Session {
     pub fn drag_region_at(&self, point: crate::ui::scene::PointF) -> bool {
         self.runtime.drag_region_at(point)
     }
+    /// Affichée mais entièrement couverte (autres fenêtres, autre bureau) : rien à
+    /// peindre ni à animer ; l'image est refaite quand elle redevient visible.
+    pub(super) fn covered(&self) -> bool {
+        self.window.isVisible()
+            && !self
+                .window
+                .occlusionState()
+                .contains(objc2_app_kit::NSWindowOcclusionState::Visible)
+    }
     pub fn next_wake(&self) -> Option<Instant> {
-        if self.window.isMiniaturized() || !self.window.isVisible() {
+        if self.window.isMiniaturized() || !self.window.isVisible() || self.covered() {
             return None;
         }
         // Image présentée, battement attendu : il réveillera la boucle (ou son délai).
@@ -446,12 +455,7 @@ impl Session {
                 }
             );
         }
-        let visible = self.window.isVisible()
-            && !self.window.isMiniaturized()
-            && self
-                .window
-                .occlusionState()
-                .contains(objc2_app_kit::NSWindowOcclusionState::Visible);
+        let visible = self.window.isVisible() && !self.window.isMiniaturized() && !self.covered();
         if critical && !visible {
             self.hidden();
             return;

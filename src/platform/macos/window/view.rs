@@ -167,10 +167,6 @@ define_class!(
         fn select_all(&self, _sender: Option<&AnyObject>) {
             super::edit(self.ivars().id, EditCommand::SelectAll);
         }
-        #[unsafe(method(karbonQuit:))]
-        fn quit(&self, _sender: Option<&AnyObject>) {
-            super::command(WindowCommand::Exit);
-        }
         #[unsafe(method(karbonMinimize:))]
         fn minimize(&self, _sender: Option<&AnyObject>) {
             super::command(WindowCommand::Action(self.ivars().id, WindowAction::Minimize));

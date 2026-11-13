@@ -56,6 +56,15 @@ impl Ring {
                 slot.reader = None;
             }
         }
+        // Dernière image terminée sans erreur : plus rien à en lire (M6 de la revue). Une
+        // image en erreur reste, pour que la suivante passe à Core Graphics.
+        if self
+            .last
+            .as_ref()
+            .is_some_and(|cb| cb.status() == objc2_metal::MTLCommandBufferStatus::Completed)
+        {
+            self.last = None;
+        }
     }
     /// Attend la fin de tout le travail soumis (avant de vider l'atlas).
     pub fn idle(&mut self) {

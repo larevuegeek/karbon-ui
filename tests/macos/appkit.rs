@@ -95,3 +95,35 @@ pub fn cpu_ms() -> u64 {
     let ms = |t: libc::timeval| t.tv_sec as u64 * 1000 + t.tv_usec as u64 / 1000;
     ms(usage.ru_utime) + ms(usage.ru_stime)
 }
+
+/// Boucle AppKit imbriquée pendant `seconds` (comme le suivi d'un menu) : elle consomme et
+/// distribue tous les événements, réveils du moteur compris, puis poste un événement
+/// anodin pour relancer la boucle principale.
+pub fn nested_loop(seconds: f64) {
+    let mtm = objc2::MainThreadMarker::new().expect("thread principal");
+    let app = objc2_app_kit::NSApplication::sharedApplication(mtm);
+    let until = objc2_foundation::NSDate::dateWithTimeIntervalSinceNow(seconds);
+    // SAFETY : constante de Foundation.
+    let mode = unsafe { objc2_foundation::NSDefaultRunLoopMode };
+    while let Some(event) = app.nextEventMatchingMask_untilDate_inMode_dequeue(
+        objc2_app_kit::NSEventMask::Any,
+        Some(&until),
+        mode,
+        true,
+    ) {
+        app.sendEvent(&event);
+    }
+    let poke = NSEvent::otherEventWithType_location_modifierFlags_timestamp_windowNumber_context_subtype_data1_data2(
+        NSEventType::ApplicationDefined,
+        NSPoint::new(0., 0.),
+        NSEventModifierFlags(0),
+        0.,
+        0,
+        None,
+        1,
+        0,
+        0,
+    )
+    .expect("événement application");
+    app.postEvent_atStart(&poke, false);
+}

@@ -1,5 +1,5 @@
 //! Application de sonde et scénario.
-use crate::appkit::{appearance, ax_text, click, collect, cpu_ms, key};
+use crate::appkit::{appearance, ax_text, click, collect, cpu_ms, key, nested_loop};
 use crate::layers::{drawable_width, metal_shown};
 use karbon_ui::{
     Error,
@@ -62,6 +62,11 @@ struct Log {
     restored: Option<bool>,
     /// Taille de la vue après `WindowChange::Size`, et image refaite à cette taille.
     resized: (Option<(f64, f64)>, Option<bool>),
+    /// Application au premier plan juste après l'ouverture.
+    active_at_start: Option<bool>,
+    /// Fenêtre principale couverte : encore visible pour AppKit, et largeur de ses
+    /// drawables après une invalidation.
+    covered: Option<(bool, Option<f64>)>,
 }
 #[derive(Clone)]
 enum Msg {
@@ -169,10 +174,17 @@ impl Application for Probe {
     fn task_completed(&mut self, result: TaskResult) -> bool {
         assert!(result.into_value::<()>().is_ok());
         let step = self.step;
+        PROGRESS.store(step as u32, std::sync::atomic::Ordering::SeqCst);
         self.log.lock().unwrap().steps = step as u32;
         let window = window(WindowId::MAIN);
         match step {
-            1 => click(&window, self.ok),
+            1 => {
+                // Fenêtres toutes ouvertes avec `activate: false` : l'application ne prend
+                // pas le premier plan (M7 de la revue).
+                self.log.lock().unwrap().active_at_start =
+                    Some(NSApplication::sharedApplication(mtm()).isActive());
+                click(&window, self.ok);
+            }
             2 => {
                 click(&window, self.field);
                 for (c, code) in [("a", 0u16), ("b", 11)] {
@@ -290,12 +302,43 @@ impl Application for Probe {
                 let size = window.contentView().map(|v| v.bounds().size);
                 self.log.lock().unwrap().resized =
                     (size.map(|s| (s.width, s.height)), metal_shown(&window));
+                // Fenêtre opaque plus grande par-dessus : la fenêtre principale est
+                // entièrement couverte (M5 de la revue).
+                self.commands
+                    .push(WindowCommand::Open(WindowDescriptor::new(
+                        WindowId(3),
+                        WindowOptions {
+                            width: 900,
+                            height: 700,
+                            ..options(COVER)
+                        },
+                        Second,
+                    )));
+            }
+            // L'étape 15 invalide la vue (comme toutes) ; la 16 regarde ce qui a été peint.
+            // Pendant ce temps, une boucle imbriquée consomme le réveil de la tâche de
+            // l'étape : les suivantes doivent encore réveiller la boucle (M9 de la revue).
+            15 => deferred(|| nested_loop(0.4)),
+            16 => {
+                // Une fenêtre couverte ne peint pas la vue invalidée : ses drawables
+                // restent ceux d'un pixel.
+                self.log.lock().unwrap().covered = Some((
+                    window
+                        .occlusionState()
+                        .contains(objc2_app_kit::NSWindowOcclusionState::Visible),
+                    drawable_width(&window),
+                ));
+                self.commands.push(WindowCommand::Close(WindowId(3)));
+            }
+            17 => {
                 let nested = platform::run_windows(
                     vec![WindowDescriptor::new(WindowId(9), options("x"), Second)],
                     ExitPolicy::LastWindowClosed,
                 );
                 self.log.lock().unwrap().nested = nested.err().map(|e| format!("{e:?}"));
-                self.commands.push(WindowCommand::Exit);
+                // « Quitter » du Dock ou du menu : `terminate:`, que le délégué de
+                // l'application change en fin de boucle (M4 de la revue).
+                deferred(|| NSApplication::sharedApplication(mtm()).terminate(None));
                 return true;
             }
             _ => return true,
@@ -333,8 +376,13 @@ fn visible(title: &str) -> bool {
         .iter()
         .any(|w| w.isVisible() && w.title().to_string() == title)
 }
+/// Titre de la fenêtre opaque qui couvre la fenêtre principale (laissée visible).
+const COVER: &str = "couverture";
 fn hide_windows() {
-    for window in windows() {
+    for window in windows()
+        .into_iter()
+        .filter(|w| w.title().to_string() != COVER)
+    {
         window.setAlphaValue(0.);
     }
 }
@@ -389,6 +437,10 @@ fn options(title: &'static str) -> WindowOptions {
         min_height: 200,
         title_bar: false,
         activate: false,
+        // Au-dessus des fenêtres ordinaires des autres applications sans activer celle-ci
+        // (M7) : sinon, une fenêtre couverte par celles de l'utilisateur ne peint pas
+        // (M5) et le résultat dépendrait de son écran.
+        topmost: true,
         ..WindowOptions::DEFAULT
     }
 }
@@ -396,7 +448,40 @@ fn centre(app: &HeadlessApp<Probe>, id: &str) -> (f32, f32) {
     let r = app.bounds(id).expect("contrôle présent");
     ((r.left + r.right) / 2., (r.top + r.bottom) / 2.)
 }
+/// La sonde est allée au bout : sans cela, une sortie du processus en cours de route
+/// (`terminate:` qui ne rend pas la main) serait un faux succès.
+static FINISHED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Dernière étape atteinte, lue par le chien de garde.
+static PROGRESS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+/// Chien de garde : une boucle qui ne se réveille plus bloquerait le test pour toujours.
+fn watchdog() {
+    std::thread::spawn(|| {
+        let mut last = (0, std::time::Instant::now());
+        loop {
+            std::thread::sleep(Duration::from_millis(500));
+            if FINISHED.load(std::sync::atomic::Ordering::SeqCst) {
+                return;
+            }
+            let step = PROGRESS.load(std::sync::atomic::Ordering::SeqCst);
+            if step != last.0 {
+                last = (step, std::time::Instant::now());
+            } else if last.1.elapsed() > Duration::from_secs(20) {
+                eprintln!("sonde macOS : bloquée à l'étape {step} (boucle sans réveil)");
+                std::process::abort();
+            }
+        }
+    });
+}
+extern "C" fn unfinished() {
+    if !FINISHED.load(std::sync::atomic::Ordering::SeqCst) {
+        eprintln!("sonde macOS : processus terminé avant la fin de la sonde");
+        std::process::abort();
+    }
+}
 pub fn run() {
+    // SAFETY : fonction `extern "C"` sans argument, valide pendant toute la vie du processus.
+    unsafe { libc::atexit(unfinished) };
+    watchdog();
     // Erreurs de validation, avant toute fenêtre.
     assert!(matches!(
         platform::run_windows(Vec::new(), ExitPolicy::LastWindowClosed),
@@ -439,6 +524,11 @@ pub fn run() {
     println!("sonde macOS : {log:?}");
     assert!(result.is_ok(), "{result:?}");
     assert_eq!(log.loads, 1);
+    assert_eq!(
+        log.active_at_start,
+        Some(false),
+        "pas de premier plan sans fenêtre à activer"
+    );
     assert!(log.painted);
     assert_eq!(log.clicks, 2, "clic sur le bouton, puis appui accessible");
     assert!(log.ax_button, "bouton accessible (AXButton « OK »)");
@@ -478,6 +568,11 @@ pub fn run() {
         );
         assert_eq!(log.restored, Some(true), "image refaite au retour du Dock");
         assert_eq!(
+            log.covered,
+            Some((false, Some(1.))),
+            "fenêtre couverte : ni visible pour AppKit, ni repeinte"
+        );
+        assert_eq!(
             log.resized,
             (Some((500., 360.)), Some(true)),
             "taille demandée appliquée et image refaite à cette taille"
@@ -488,5 +583,6 @@ pub fn run() {
             "libellés du renderer vus par la vue"
         );
     }
+    FINISHED.store(true, std::sync::atomic::Ordering::SeqCst);
     println!("sonde macOS : ok");
 }

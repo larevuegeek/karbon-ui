@@ -21,9 +21,10 @@ impl Session {
     /// Prépare l'image et la présente comme contenu du calque de la vue.
     pub fn paint(&mut self) -> crate::Result<()> {
         self.dirty = false;
-        // Fenêtre dans le Dock : rien n'est dessiné (les ressources libérées par `hidden`
-        // ne sont pas recréées) ; l'image est refaite à la sortie du Dock.
-        if self.window.isMiniaturized() {
+        // Fenêtre dans le Dock ou entièrement couverte : rien n'est dessiné (les
+        // ressources libérées par `hidden` ne sont pas recréées) ; l'image est refaite à
+        // la sortie du Dock ou quand la fenêtre redevient visible (M5 de la revue).
+        if self.window.isMiniaturized() || self.covered() {
             self.presented = None;
             return Ok(());
         }

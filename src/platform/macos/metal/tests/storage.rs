@@ -189,6 +189,8 @@ fn trimming_releases_idle_resources_and_everything_when_hidden() {
     metal.trim(Trim::Hidden);
     assert_eq!(metal.resources.counts(), [0, 0, 0]);
     assert_eq!(metal.resources.usage(), [0; 5]);
+    // Plus de tampon de commandes terminé qui retienne les cibles de la dernière image.
+    assert!(metal.ring.last.is_none());
     let again = metal.render(&mut cg, &full, 170, 115, 2.).unwrap();
     assert!(again == reference);
 }

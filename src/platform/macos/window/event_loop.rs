@@ -468,13 +468,30 @@ pub(crate) fn run_windows(windows: Vec<WindowDescriptor>, policy: ExitPolicy) ->
     if RUNNING.with(|r| r.replace(true)) {
         return Err(crate::Error::AlreadyRunning);
     }
-    let _guard = RunGuard;
+    let guard = RunGuard;
+    let app = NSApplication::sharedApplication(mtm);
+    let delegate = super::app_delegate::AppDelegate::new(mtm);
+    app.setDelegate(Some(objc2::runtime::ProtocolObject::from_ref(&*delegate)));
+    let result = run_loop(&app, windows, policy, mtm);
+    // Sessions fermées et applications détruites avant qu'AppKit ne termine le processus
+    // (fermeture de session, voir `app_delegate.rs`).
+    drop(guard);
+    app.setDelegate(None);
+    delegate.finish(&app);
+    result
+}
+/// Ouvre les fenêtres et fait tourner la boucle jusqu'à la sortie.
+fn run_loop(
+    app: &NSApplication,
+    windows: Vec<WindowDescriptor>,
+    policy: ExitPolicy,
+    mtm: MainThreadMarker,
+) -> crate::Result<()> {
     // Détruite avant le garde : plus de rappel une fois les sessions fermées.
     let _pressure = super::memory::MemoryPressure::watch(relieve_memory);
     ERROR.with(|e| e.borrow_mut().take());
-    let app = NSApplication::sharedApplication(mtm);
     app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
-    menu::install(&app, mtm);
+    menu::install(app, mtm);
     app.finishLaunching();
     // Des fenêtres toutes ouvertes sans activation ne prennent pas le premier plan.
     let activate = windows.iter().any(|window| window.options.activate);
@@ -488,6 +505,10 @@ pub(crate) fn run_windows(windows: Vec<WindowDescriptor>, policy: ExitPolicy) ->
     // SAFETY : constante de Foundation.
     let mode = unsafe { NSDefaultRunLoopMode };
     while autoreleasepool(|_| {
+        // Un réveil consommé par une boucle AppKit imbriquée (menu, dialogue) laisserait
+        // l'indicateur levé et ferait ignorer tous les suivants (M9 de la revue) : chaque
+        // tour repart de zéro, avant de livrer les tâches.
+        WAKE_PENDING.store(false, Ordering::Release);
         if !service(policy, mtm) {
             return false;
         }

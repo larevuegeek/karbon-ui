@@ -10,6 +10,7 @@
 //! emprunt des sessions n'est tenu pendant un appel AppKit qui peut ré-entrer (fermeture,
 //! zoom, déplacement de la fenêtre).
 pub(super) mod accessible;
+mod app_delegate;
 mod change;
 mod dialog;
 mod event_loop;

@@ -181,7 +181,10 @@ impl Resources {
     /// Libère ce qui peut l'être entre deux dessins (voir `Trim`) ; le GPU retient les
     /// textures encore lues par une image en vol.
     pub fn trim(&mut self, what: Trim) {
+        // Réserve et cibles prises par la dernière image (M6 de la revue) : le GPU retient
+        // celles qu'une image encore en vol lit.
         self.layers.clear();
+        self.taken.clear();
         let frame = self.frame;
         match what {
             Trim::Idle => {

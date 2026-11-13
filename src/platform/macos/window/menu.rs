@@ -3,7 +3,8 @@
 //! fermer). Libellés en français ou en anglais selon la langue préférée du système.
 //!
 //! Les actions sont envoyées sans cible : AppKit les remet au premier répondeur, la vue
-//! de la fenêtre active (`view.rs`), qui les transmet au moteur.
+//! de la fenêtre active (`view.rs`), qui les transmet au moteur ; « Quitter » remonte au
+//! délégué de l'application (`app_delegate.rs`), actif même sans fenêtre.
 use objc2::{MainThreadMarker, MainThreadOnly, runtime::Sel, sel};
 use objc2_app_kit::{NSApplication, NSEventModifierFlags, NSMenu, NSMenuItem};
 use objc2_foundation::{NSLocale, NSProcessInfo, NSString};
