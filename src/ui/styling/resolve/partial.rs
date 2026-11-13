@@ -8,7 +8,8 @@ use crate::ui::core::hash::FastMap;
 use crate::ui::element::{Element, ElementId};
 use crate::ui::styling::StyleState;
 
-/// Éléments à résoudre de nouveau.
+/// Elements to resolve again in a partial pass ([`StyleEnvironment::partial`](super::StyleEnvironment::partial)):
+/// the touched elements with their subtrees, and the path from the root to them.
 pub struct Partial {
     /// Éléments touchés : eux et tout leur sous-arbre.
     full: FastMap<ElementId, ()>,
@@ -16,7 +17,7 @@ pub struct Partial {
     path: FastMap<ElementId, ()>,
 }
 impl Partial {
-    /// Ensemble des éléments `touched` de l'arbre `root`.
+    /// Set of the `touched` elements of the tree `root`.
     pub fn new(root: &Element, touched: impl IntoIterator<Item = ElementId>) -> Self {
         let full: FastMap<ElementId, ()> = touched.into_iter().map(|id| (id, ())).collect();
         let mut path = FastMap::default();
@@ -40,7 +41,7 @@ impl Partial {
         mark(root, &full, &mut path);
         Self { full, path }
     }
-    /// Rien à résoudre.
+    /// Returns `true` when nothing is to be resolved.
     pub fn is_empty(&self) -> bool {
         self.path.is_empty()
     }

@@ -22,7 +22,7 @@ pub mod tokens;
 pub use properties::*;
 mod scheme;
 pub use resolve::{
-    AnimatedSizes, ElementColors, ElementSizes, StyleChanges, StyleEnvironment, resolve,
+    AnimatedSizes, ElementColors, ElementSizes, Partial, StyleChanges, StyleEnvironment, resolve,
 };
 pub use scheme::color_scheme;
 pub(crate) use scheme::set_color_scheme;

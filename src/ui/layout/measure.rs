@@ -61,14 +61,14 @@ pub fn measure(
             node.intrinsic = natural;
             return Ok(size);
         }
-        let size = measure_unmemoized(node, available, text)?;
+        let size = measure_in_pass(node, available, text)?;
         super::memo::record(node, available, size);
         return Ok(size);
     }
-    measure_unmemoized(node, available, text)
+    measure_in_pass(node, available, text)
 }
 /// Mesure avec la mémoire de la passe (mêmes contraintes plus tôt dans la passe).
-fn measure_unmemoized(
+fn measure_in_pass(
     node: &mut Element,
     available: SizeF,
     text: &mut dyn TextMeasurer,

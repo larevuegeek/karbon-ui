@@ -113,6 +113,49 @@ fn reused_subtrees_are_placed_like_a_full_rebuild() {
 }
 
 #[test]
+fn carried_measures_are_kept_once_per_constraint() {
+    // Une mesure reprise plusieurs fois dans la passe (mêmes contraintes) n'est retenue
+    // qu'une fois, comme une mesure calculée.
+    fn duplicates(node: &Element) -> usize {
+        let own = node.layout_cache.as_deref().map_or(0, |cache| {
+            let keys = &cache.current;
+            (0..keys.len())
+                .filter(|&i| keys[..i].iter().any(|k| k.0 == keys[i].0))
+                .count()
+        });
+        own + node.children.iter().map(duplicates).sum::<usize>()
+    }
+    let mut ui = view_runtime(|| {
+        let card = |id: u64| {
+            lazy(id, &0u8, move || {
+                Element::column(id, vec![widgets::text(id + 1, "Une ligne de texte")])
+                    .width(Length::Fill(1.))
+            })
+        };
+        Element::column(
+            1,
+            vec![
+                Element::row(
+                    2,
+                    vec![
+                        card(10),
+                        card(20),
+                        box_node(3, Length::Px(40.), Length::Auto),
+                    ],
+                ),
+                Element::row(4, vec![card(30)]).height(Length::Fill(1.)),
+            ],
+        )
+    });
+    let mut measure = Measure::default();
+    for _ in 0..3 {
+        ui.invalidate();
+        prepare(&mut ui, &mut measure);
+        assert_eq!(duplicates(ui.root().unwrap()), 0);
+    }
+}
+
+#[test]
 fn without_incremental_memories_every_subtree_is_built() {
     let built = Rc::new(Cell::new(0));
     let mut ui = list(true, Rc::new(Cell::new(0)), built.clone());

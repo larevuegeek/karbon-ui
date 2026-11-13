@@ -77,9 +77,6 @@ pub(super) struct Frame<'a> {
     pub(super) corners: [f32; 4],
 }
 impl Frame<'_> {
-    /// Empreinte de ce que la cascade lit de ce cadre et de ses ancêtres pour les
-    /// descendants : faits de chaque élément (états, classes, conteneur), règles pour les
-    /// enfants et rayons hérités (reprise des styles d'un sous-arbre mémorisé).
     /// Empreinte des faits du frère `sibling` (rang `index` parmi `siblings`) que lit une
     /// règle `[.a+&]` de l'élément suivant ; sans son rang sauf `positions`.
     pub(super) fn sibling_fingerprint(
@@ -107,6 +104,9 @@ impl Frame<'_> {
         };
         frame.fingerprint(h, positions);
     }
+    /// Empreinte de ce que la cascade lit de ce cadre et de ses ancêtres pour les
+    /// descendants : faits de chaque élément (états, classes, conteneur), règles pour les
+    /// enfants et rayons hérités (reprise des styles d'un sous-arbre mémorisé).
     pub(super) fn fingerprint(&self, h: &mut impl std::hash::Hasher, positions: bool) {
         use std::hash::Hash;
         let mut frame = Some(self);

@@ -182,6 +182,8 @@ pub(super) fn carried(node: &mut Element, available: SizeF) -> Option<(SizeF, Si
         memo.missed = true;
         return None;
     };
+    // Une seule entrée par contrainte, à la place de la dernière mesure (voir `record`).
+    memo.current.retain(|(k, ..)| *k != key);
     memo.current.push((key, size, natural, available));
     memo.hit = true;
     Some((size, natural))

@@ -346,6 +346,17 @@ fn invalid_dimensions_duplicate_ids_and_recursive_lazy_lists_are_rejected() {
             VirtualList::new(10, 32., |_| Element::column(2, vec![])).overscan(100)
         )
     )));
+    // L'étendue se calcule avec l'espacement entre lignes (`row-gap`), comme le placement.
+    let gaps = |gap: f32, row_gap: f32| {
+        Element::virtual_list(
+            1,
+            VirtualList::new(10_000, 32., |_| Element::column(2, vec![])),
+        )
+        .gap(gap)
+        .row_gap(row_gap)
+    };
+    assert!(layout::validate(&gaps(10_000., 4.)).is_ok());
+    assert!(crate::error::rejected(layout::validate(&gaps(4., 10_000.))));
     for kind in 0..3 {
         let mut ui = view_runtime(move || {
             Element::virtual_list(

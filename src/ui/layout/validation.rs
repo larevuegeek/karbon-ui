@@ -301,7 +301,7 @@ pub fn validate(root: &Element) -> crate::Result<()> {
             node.virtual_list
                 .as_ref()
                 .ok_or_else(|| invalid("virtual list without an item builder"))?
-                .validate(s.gap)?;
+                .validate(s.vertical_gap())?;
         }
         if let Layout::Grid { columns } = node.layout {
             placements(node, columns)?;

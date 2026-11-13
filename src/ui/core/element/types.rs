@@ -8,7 +8,7 @@ pub enum Length {
     Auto,
     /// Fixed size in pixels.
     Px(f32),
-    /// Percentage of the parent, from 0 to 100.
+    /// Percentage of the parent (`50.` is half; values above 100 overflow it).
     Percent(f32),
     /// Share of the remaining space, like a CSS `fr` fraction.
     Fill(f32),
