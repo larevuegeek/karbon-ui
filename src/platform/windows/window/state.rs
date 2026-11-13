@@ -45,6 +45,9 @@ pub(crate) struct WindowState {
     pub grip: Cell<Option<grip::Grip>>,
     /// Dernière synchronisation UI Automation et focus alors annoncé.
     pub accessibility_synced: Cell<accessibility::Synced>,
+    /// Élément focalisé lors de la dernière publication UI Automation de cette fenêtre
+    /// (`None` : rien de publié encore).
+    pub accessibility_focus: Cell<Option<Option<crate::ui::element::ElementId>>>,
     /// Une synchronisation UI Automation attend son minuteur.
     pub accessibility_pending: Cell<bool>,
     pub tasks: RefCell<Option<tasks::NativeTasks>>,
@@ -82,6 +85,7 @@ impl WindowState {
             sizing: Cell::new(false),
             grip: Cell::new(None),
             accessibility_synced: Cell::new(None),
+            accessibility_focus: Cell::new(None),
             accessibility_pending: Cell::new(false),
             tasks: RefCell::new(None),
             poisoned: Cell::new(false),

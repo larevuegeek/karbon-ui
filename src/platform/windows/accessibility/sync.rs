@@ -35,12 +35,12 @@ static SYNCED: super::state::WindowLocal<std::cell::Cell<Synced>> =
     super::state::WindowLocal::new(|state| &state.accessibility_synced);
 static PENDING: super::state::WindowLocal<std::cell::Cell<bool>> =
     super::state::WindowLocal::new(|state| &state.accessibility_pending);
-thread_local! {
-    /// Élément focalisé lors de la dernière publication (défilement : rien à republier
-    /// tant qu'il ne change pas).
-    static PUBLISHED_FOCUS: std::cell::Cell<Option<Option<crate::ui::element::ElementId>>> =
-        const { std::cell::Cell::new(None) };
-}
+/// Élément focalisé lors de la dernière publication de la fenêtre courante (défilement :
+/// rien à republier tant qu'il ne change pas). Propre à chaque fenêtre : le focus publié
+/// par l'une ne doit pas retenir ni déclencher la publication d'une autre.
+static PUBLISHED_FOCUS: super::state::WindowLocal<
+    std::cell::Cell<Option<Option<crate::ui::element::ElementId>>>,
+> = super::state::WindowLocal::new(|state| &state.accessibility_focus);
 /// Publie l'arbre aux clients UI Automation, au plus dix fois par seconde : le reconstruire
 /// à chaque image (glisser un curseur, redimensionner) coûtait ~10 ms par image. Un
 /// changement de focus part tout de suite (les lecteurs d'écran l'annoncent).
