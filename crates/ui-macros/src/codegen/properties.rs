@@ -10,6 +10,9 @@ pub struct StyleProp {
     pub name: String,
     pub value: TokenStream,
     pub span: Span,
+    /// Valeur Rust d'un template (`style:nom={…}`) : un identifiant seul y est une
+    /// variable de l'appelant, jamais un mot-clé CSS (`style:align={alignment}`).
+    pub expression: bool,
 }
 pub fn canonical(name: &str) -> &str {
     match name {
@@ -27,7 +30,7 @@ pub fn property(a: &StyleProp, out: &mut Output, cx: &str, node: &str) -> Result
     let name = canonical(&a.name);
     let call = match name {
         "width" | "height" => {
-            let value = keyword(&a.value)
+            let value = keyword(a)
                 .and_then(|s| match s.as_str() {
                     "fill" => Some("__ui_root::ui::view::FILL"),
                     "auto" => Some("__ui_root::ui::view::AUTO"),
@@ -63,7 +66,12 @@ pub fn property(a: &StyleProp, out: &mut Output, cx: &str, node: &str) -> Result
             };
             format!(".offset({edge},{cx}.length({expr}))")
         }
-        "overflow" => format!(".overflow({expr},{expr})"),
+        "overflow" => {
+            // Valeur de l'appelant évaluée une seule fois pour les deux axes.
+            return Ok(format!(
+                "let {node}={{let __ui_overflow={expr};{node}.overflow(__ui_overflow,__ui_overflow)}};"
+            ));
+        }
         "overflow_x" | "overflow_y" => format!(".overflow_axis({}, {expr})", name == "overflow_x"),
         "flex_grow" | "flex_shrink" | "box_sizing" | "css_flex" | "flex_wrap" | "flex_reverse"
         | "align_self" => format!(".{name}({expr})"),
@@ -92,7 +100,7 @@ pub fn property(a: &StyleProp, out: &mut Output, cx: &str, node: &str) -> Result
             format!(".{name}((({expr}) as f32)*{cx}.scale)")
         }
         "align" | "justify" => {
-            let value = if let Some(k) = keyword(&a.value) {
+            let value = if let Some(k) = keyword(a) {
                 let variant = match (name, k.as_str()) {
                     ("align", "start" | "flex-start") => "Start",
                     ("align", "center") => "Center",
@@ -124,7 +132,7 @@ pub fn property(a: &StyleProp, out: &mut Output, cx: &str, node: &str) -> Result
         "effect" | "hover" | "pressed" | "transform" => format!(".{name}({cx}.effect({expr}))"),
         "animate" => format!(".animate({cx}.animation({expr}))"),
         "color" | "background" | "background_color" | "border_color" | "accent_color" => {
-            let value = if let Some(value) = keyword(&a.value) {
+            let value = if let Some(value) = keyword(a) {
                 if value.starts_with('#') {
                     let color = color(&value, a.span)?;
                     format!("__ui_root::ui::theme::Color::hex({color})")
@@ -175,11 +183,15 @@ fn color(value: &str, span: Span) -> Result<u32> {
     }
     u32::from_str_radix(hex, 16).map_err(|_| Error::new("Invalid hexadecimal color", span))
 }
-fn keyword(value: &TokenStream) -> Option<String> {
-    let tokens = value.clone().into_iter().collect::<Vec<_>>();
+/// Mot-clé écrit à la place d'une valeur : chaîne littérale, ou identifiant seul hors
+/// d'une expression de template.
+fn keyword(a: &StyleProp) -> Option<String> {
+    let tokens = a.value.clone().into_iter().collect::<Vec<_>>();
     match tokens.as_slice() {
         [TokenTree::Literal(l)] => files::string(&l.to_string()).ok(),
-        [TokenTree::Ident(i)] if !["true", "false"].contains(&i.to_string().as_str()) => {
+        [TokenTree::Ident(i)]
+            if !a.expression && !["true", "false"].contains(&i.to_string().as_str()) =>
+        {
             Some(i.to_string())
         }
         _ => None,
@@ -189,7 +201,7 @@ fn axis(a: Option<&StyleProp>, out: &mut Output) -> Result<String> {
     match a {
         None => Ok("__ui_root::ui::element::Axis::Vertical".into()),
         Some(a) => {
-            if let Some(value) = keyword(&a.value) {
+            if let Some(value) = keyword(a) {
                 let v = match value.as_str() {
                     "vertical" | "column" => "Vertical",
                     "horizontal" | "row" => "Horizontal",

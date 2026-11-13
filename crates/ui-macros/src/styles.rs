@@ -82,6 +82,7 @@ pub fn compile(root: TokenStream, input: TokenStream) -> Result<TokenStream> {
                     name: property,
                     value,
                     span,
+                    expression: false,
                 },
                 &mut out,
                 "cx",

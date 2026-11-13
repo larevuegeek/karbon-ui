@@ -87,7 +87,17 @@ pub(in crate::css) fn emit(
         let expr = out.value(&value);
         return Ok(format!("let {node}={node}{};", call.replace("{}", &expr)));
     }
-    codegen::property(&StyleProp { name, value, span }, out, cx, node)
+    codegen::property(
+        &StyleProp {
+            name,
+            value,
+            span,
+            expression: false,
+        },
+        out,
+        cx,
+        node,
+    )
 }
 pub(super) fn side_index(name: &str) -> usize {
     match name.rsplit('_').next() {

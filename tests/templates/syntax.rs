@@ -252,3 +252,39 @@ fn an_empty_title_shows_no_tooltip() {
     // Le constructeur Rust garde son contrôle : une infobulle vide y est une erreur.
     assert!(layout::validate(&Element::column(9, Vec::new()).tooltip("")).is_err());
 }
+
+#[test]
+fn a_braced_identifier_is_a_rust_value_evaluated_once() {
+    // `style:nom={identifiant}` : la variable de l'appelant, pas un mot-clé CSS.
+    let alignment = Align::Center;
+    let justify = Justify::End;
+    let direction = Axis::Horizontal;
+    let calls = std::cell::Cell::new(0);
+    let overflow = || {
+        calls.set(calls.get() + 1);
+        Overflow::Hidden
+    };
+    let value = |n: u64| {
+        calls.set(calls.get() + 1);
+        n
+    };
+    let mut node = ui! {
+        <div style:align={alignment} style:justify={justify} style:flex-direction={direction}
+             style:overflow={overflow()}>
+            <select onchange={|_| Msg::Click(0)}>
+                <option value={value(3)}>Trois</option>
+                <option value={value(4)} selected>Quatre</option>
+            </select>
+        </div>
+    };
+    assert_eq!(node.style.align, Align::Center);
+    assert_eq!(node.style.justify, Justify::End);
+    assert!(matches!(node.layout, Layout::Row));
+    let rules = node.layout_rules();
+    assert_eq!(
+        (rules.overflow_x, rules.overflow_y),
+        (Overflow::Hidden, Overflow::Hidden)
+    );
+    // Une évaluation pour `overflow` (deux axes), une par option (même `selected`).
+    assert_eq!(calls.get(), 3);
+}

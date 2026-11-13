@@ -85,9 +85,7 @@ impl Generator {
                                     "option value must be a u64 identifier, or value={expr}"
                                 ))?
                             ),
-                            Value::Expr(t) => {
-                                format!("{{let __ui_v:u64={};__ui_v}}", self.out.value(t))
-                            }
+                            Value::Expr(t) => self.out.value(t),
                             Value::Bool => return Err(a.loc.error("option value needs a value")),
                         },
                         None => {
@@ -98,19 +96,25 @@ impl Generator {
                     };
                     let label =
                         self.plain_text(&o.children.iter().collect::<Vec<_>>(), "an <option>")?;
+                    // Valeur liée une fois : l'option et `selected` lisent la même.
                     let mut option =
-                        format!("{R}::ui::widgets::SelectOption::new({value},{label})");
+                        format!("{R}::ui::widgets::SelectOption::new(__ui_option_value,{label})");
                     if let Some(a) = o.attr("disabled") {
                         let d = self.boolean(a)?;
                         option = format!(
                             "{{let __ui_o={option};if {d}{{__ui_o.disabled()}}else{{__ui_o}}}}"
                         );
                     }
-                    code += &format!("__ui_options.push({option});");
-                    if let Some(a) = o.attr("selected") {
-                        let s = self.boolean(a)?;
-                        code += &format!("if {s}{{__ui_selected=Some({value});}}");
-                    }
+                    let selected = match o.attr("selected") {
+                        Some(a) => {
+                            let s = self.boolean(a)?;
+                            format!("if {s}{{__ui_selected=Some(__ui_option_value);}}")
+                        }
+                        None => String::new(),
+                    };
+                    code += &format!(
+                        "{{let __ui_option_value:u64={value};__ui_options.push({option});{selected}}}"
+                    );
                 }
                 Node::If {
                     branches,

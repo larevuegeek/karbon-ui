@@ -280,6 +280,7 @@ impl Generator {
             name: name.into(),
             value: self.out.finish(&value)?,
             span: loc.span,
+            expression: false,
         };
         codegen::property(&attr, &mut self.out, "__ui_context", "__ui_node")
     }

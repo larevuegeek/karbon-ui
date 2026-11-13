@@ -278,6 +278,7 @@ impl Generator {
                     name,
                     value: t.clone(),
                     span: a.loc.span,
+                    expression: true,
                 };
                 code += &codegen::property(&attr, &mut self.out, "__ui_context", "__ui_node")
                     .map_err(|err| a.loc.error(err.message))?;
