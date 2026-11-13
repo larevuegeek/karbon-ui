@@ -297,6 +297,21 @@ pub(crate) fn resolve_inherited(
             node.layout_rules();
         }
         if let Some(r) = &mut node.rules {
+            // Longueurs en unités relatives (`vw`, `vh`, `em`, `rem`) évaluées par le
+            // layout : un contexte changé (fenêtre redimensionnée) annule les mesures
+            // retenues, même quand la place offerte n'a pas changé (sous-arbre mémorisé
+            // dans une case de taille fixe).
+            let computed = |l: &Option<crate::ui::element::Length>| {
+                matches!(l, Some(crate::ui::element::Length::Computed(_)))
+            };
+            if r.unit_context != context
+                && (computed_lengths
+                    || matches!(node.layout, crate::ui::element::Layout::VirtualList)
+                    || r.offsets.iter().any(computed)
+                    || r.relative_limits.iter().any(computed))
+            {
+                changes.layout = true;
+            }
             r.unit_context = context;
         }
         if let Some(widget) = node.widget.as_mut() {

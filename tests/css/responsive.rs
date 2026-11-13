@@ -240,3 +240,41 @@ fn colour_preferences_of_the_application_drive_the_media_features() -> karbon_ui
     assert_eq!(themed_color(&app), Some(Color::hex(0x00ff00)));
     Ok(())
 }
+
+struct ViewportUnits;
+
+impl Application for ViewportUnits {
+    type Message = Msg;
+    fn view(&self, _: &ViewContext) -> Element {
+        let cx = TemplateContext::default();
+        ui! { @context(cx); @styles(css);
+            <div>
+                <div style="width:200px; height:100px">
+                    <div id="memo" memo={0u8}><div id="vh" style="height:50vh"></div></div>
+                </div>
+            </div>
+        }
+    }
+    fn update(&mut self, _: Msg) -> bool {
+        false
+    }
+}
+
+#[test]
+fn a_memoized_subtree_in_viewport_units_follows_the_window() -> karbon_ui::Result<()> {
+    // Sous-arbre mémorisé dans une case fixe : la place offerte ne change pas avec la
+    // fenêtre, seule l'unité `vh` le fait ; ses mesures retenues ne servent plus.
+    let mut app = HeadlessApp::with_options(ViewportUnits, options(800., 400.))?;
+    let height = |app: &HeadlessApp<ViewportUnits>, id| {
+        let r = app.bounds(id).unwrap();
+        r.bottom - r.top
+    };
+    assert_eq!(height(&app, "vh"), 200.);
+    assert_eq!(height(&app, "memo"), 200.);
+    app.resize(800., 600.)?;
+    assert_eq!(height(&app, "vh"), 300.);
+    assert_eq!(height(&app, "memo"), 300.);
+    app.resize(800., 400.)?;
+    assert_eq!(height(&app, "memo"), 200.);
+    Ok(())
+}
