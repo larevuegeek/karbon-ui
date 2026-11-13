@@ -412,6 +412,10 @@ impl UiRuntime {
             self.event(press);
             self.interaction.replaying = false;
             self.interaction.replay_release = true;
+            // L'appui change ce qui est peint (`:active`, focus) : l'image est refaite tout
+            // de suite plutôt qu'au prochain événement. Un appui rejoué n'en rejoue pas
+            // d'autre (`replaying`) : un seul tour de plus.
+            return self.prepare_frame(context, chrome, text, now);
         }
         Ok(())
     }

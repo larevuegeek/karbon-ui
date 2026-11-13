@@ -49,6 +49,22 @@ fn outside_click_closes_the_popup_and_reaches_the_control_underneath() {
 }
 
 #[test]
+fn the_press_replayed_after_closing_a_popup_is_painted_in_the_same_frame() {
+    let mut f = Fixture::new();
+    f.open(true);
+    let p = center(&f.ui, 3);
+    f.event(UiEvent::PointerDown(p));
+    assert!(f.m.borrow().popup.is_none());
+    assert!(f.ui.has_capture());
+    // L'image rendue montre déjà l'appui (`:active`) : rien à repeindre ensuite.
+    let paints = f.ui.stats().paints;
+    f.prepare();
+    assert_eq!(f.ui.stats().paints, paints);
+    assert!(f.event(UiEvent::PointerUp(p)).release);
+    assert!(f.m.borrow().actions.contains(&9));
+}
+
+#[test]
 fn tab_closes_popup_and_advances_from_the_restored_owner() {
     let mut f = Fixture::new();
     f.open(false);
