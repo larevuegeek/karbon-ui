@@ -4,7 +4,7 @@
 //! fenêtre (dessin, minuteries).
 use super::super::ffi::Hwnd;
 use crate::window::{FileDialog, FileDialogKind};
-use std::path::PathBuf;
+use std::{ffi::OsString, os::windows::ffi::OsStringExt, path::PathBuf};
 use windows::{
     Win32::{
         Foundation::{ERROR_CANCELLED, HWND},
@@ -143,10 +143,11 @@ pub(super) fn show(window: Hwnd, dialog: &FileDialog) -> crate::Result<Vec<PathB
                 let name = item
                     .GetDisplayName(SIGDN_FILESYSPATH)
                     .map_err(|e| failure("IShellItem::GetDisplayName", e))?;
-                let path = name.to_string();
+                // Copie exacte des unités UTF-16 : un nom NTFS peut contenir un demi-codet
+                // isolé, que `OsString` garde là où une `String` le refuserait.
+                let path = PathBuf::from(OsString::from_wide(name.as_wide()));
                 CoTaskMemFree(Some(name.0 as *const _));
-                path.map(PathBuf::from)
-                    .map_err(|_| crate::Error::invalid_input("file dialog path is not UTF-16"))
+                Ok(path)
             })
             .collect()
     }
