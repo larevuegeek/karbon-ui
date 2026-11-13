@@ -85,7 +85,7 @@ fn strip_comments(source: &str) -> String {
 pub fn parse(source: &str) -> Vec<Node> {
     let text = strip_comments(source);
     let mut cursor = 0;
-    let block = block(&text, &mut cursor, true);
+    let block = block(&text, &mut cursor, 0);
     // Au niveau de la feuille, une « déclaration » isolée est du texte invalide.
     let mut nodes = block.children;
     for d in block.declarations {
@@ -139,8 +139,36 @@ fn skip_space(text: &str, mut i: usize) -> usize {
     i
 }
 
-/// Contenu d'un bloc jusqu'à `}` (consommée) ou la fin du texte.
-fn block(text: &str, cursor: &mut usize, top: bool) -> Block {
+/// Profondeur maximale des blocs imbriqués (règles et at-rules) : la lecture et le
+/// parcours de l'arbre sont récursifs.
+const MAX_DEPTH: usize = 64;
+/// Bloc ouvert à `at` (`{` déjà consommée) lu à la profondeur `depth`, ou sauté et
+/// signalé au-delà de [`MAX_DEPTH`].
+fn nested(text: &str, cursor: &mut usize, depth: usize, at: usize) -> Result<Block, Node> {
+    if depth < MAX_DEPTH {
+        return Ok(block(text, cursor, depth + 1));
+    }
+    // Saut sans récursion jusqu'à l'accolade fermante correspondante.
+    let bytes = text.as_bytes();
+    let mut open = 1;
+    while open > 0 && *cursor < bytes.len() {
+        let stop = scan(text, *cursor, b"{}");
+        open = match bytes.get(stop) {
+            Some(b'{') => open + 1,
+            Some(_) => open - 1,
+            None => 0,
+        };
+        *cursor = (stop + 1).min(bytes.len());
+    }
+    Err(Node::Invalid {
+        at,
+        reason: format!("blocks nested deeper than {MAX_DEPTH} levels"),
+    })
+}
+/// Contenu d'un bloc jusqu'à `}` (consommée) ou la fin du texte ; `depth` vaut 0 pour
+/// la feuille elle-même.
+fn block(text: &str, cursor: &mut usize, depth: usize) -> Block {
+    let top = depth == 0;
     let mut out = Block::default();
     let bytes = text.as_bytes();
     loop {
@@ -169,12 +197,14 @@ fn block(text: &str, cursor: &mut usize, top: bool) -> Block {
             let prelude = text[name_end..stop].trim().to_owned();
             if stop < bytes.len() && bytes[stop] == b'{' {
                 *cursor = stop + 1;
-                let inner = block(text, cursor, false);
-                out.children.push(Node::At {
-                    name,
-                    prelude,
-                    block: Some(inner),
-                    at,
+                out.children.push(match nested(text, cursor, depth, at) {
+                    Ok(inner) => Node::At {
+                        name,
+                        prelude,
+                        block: Some(inner),
+                        at,
+                    },
+                    Err(invalid) => invalid,
                 });
             } else {
                 *cursor = if stop < bytes.len() && bytes[stop] == b';' {
@@ -198,12 +228,14 @@ fn block(text: &str, cursor: &mut usize, top: bool) -> Block {
             // pas dans les feuilles visées : c'est une règle.
             let prelude = text[at..stop].trim().to_owned();
             *cursor = stop + 1;
-            let inner = block(text, cursor, false);
-            out.children.push(Node::Rule {
-                prelude,
-                declarations: inner.declarations,
-                children: inner.children,
-                at,
+            out.children.push(match nested(text, cursor, depth, at) {
+                Ok(inner) => Node::Rule {
+                    prelude,
+                    declarations: inner.declarations,
+                    children: inner.children,
+                    at,
+                },
+                Err(invalid) => invalid,
             });
             continue;
         }
@@ -309,5 +341,33 @@ mod tests {
         };
         assert_eq!(declarations[0].value, "\"}{;\"");
         assert_eq!(children.len(), 2);
+    }
+    /// Au-delà de la profondeur maximale, le bloc est sauté et signalé, et la lecture
+    /// reprend après lui (des milliers d'accolades faisaient déborder la pile).
+    #[test]
+    fn deeply_nested_blocks_are_skipped() {
+        let nest = |n: usize| format!("{}x:y{}.b{{c:d}}", ".a{".repeat(n), "}".repeat(n));
+        // Niveaux de règles lus, puis le nœud qui termine la descente.
+        let depth = |nodes: &[Node]| {
+            let mut node = nodes[0].clone();
+            let mut levels = 0;
+            while let Node::Rule { children, .. } = &node {
+                levels += 1;
+                match children.first() {
+                    Some(child) => node = child.clone(),
+                    None => return (levels, None),
+                }
+            }
+            (levels, Some(node))
+        };
+        assert_eq!(depth(&parse(&nest(MAX_DEPTH))).0, MAX_DEPTH);
+        let (levels, last) = depth(&parse(&nest(MAX_DEPTH + 1)));
+        assert_eq!(levels, MAX_DEPTH);
+        assert!(
+            matches!(&last, Some(Node::Invalid { reason, .. }) if reason.contains("deeper than 64")),
+            "{last:?}"
+        );
+        let nodes = parse(&nest(10_000));
+        assert!(matches!(nodes.last(), Some(Node::Rule { prelude, .. }) if prelude == ".b"));
     }
 }

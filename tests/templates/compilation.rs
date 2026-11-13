@@ -110,7 +110,18 @@ fn main() {
         "{error}"
     );
     write(&root, "src/views/palette.css", palette);
+    // Blocs imbriqués : comptés avec les éléments dans la profondeur bornée.
+    let deep_if = format!(
+        "<div>{}<span>a</span>{}</div>",
+        "{#if true}".repeat(130),
+        "{/if}".repeat(130)
+    );
     let cases = [
+        (
+            "deep_if",
+            deep_if.as_str(),
+            "Template nesting exceeds 128 levels",
+        ),
         (
             "attribute",
             r#"<div mystery="1"></div>"#,

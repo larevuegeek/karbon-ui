@@ -54,8 +54,24 @@ pub(super) fn error(at: usize, message: impl Into<String>) -> Error {
         message: message.into(),
     }
 }
+/// Profondeur maximale des blocs `@media`, `@container` et `@keyframes` imbriqués : la
+/// lecture et la compilation de la feuille sont récursives.
+const MAX_DEPTH: usize = 32;
 /// Règles et at-rules d'une feuille, dans l'ordre du texte.
 pub fn parse(source: &str) -> Result<Vec<Item>> {
+    read(source, 0)
+}
+/// Profondeur du bloc ouvert à `at` dans un bloc de profondeur `depth`.
+fn deeper(depth: usize, at: usize) -> Result<usize> {
+    if depth + 1 > MAX_DEPTH {
+        return Err(error(
+            at,
+            format!("CSS blocks nest deeper than {MAX_DEPTH} levels"),
+        ));
+    }
+    Ok(depth + 1)
+}
+fn read(source: &str, depth: usize) -> Result<Vec<Item>> {
     // Replace comments with spaces without changing byte offsets used in diagnostics.
     let mut bytes = source.as_bytes().to_vec();
     let mut i = 0;
@@ -133,7 +149,8 @@ pub fn parse(source: &str) -> Result<Vec<Item>> {
             let open = scan(&text, cursor, '{')?;
             let end = block_end(&text, open)?;
             let query = conditional_query(&text[cursor..open]);
-            let mut items = parse(&text[open + 1..end]).map_err(|mut e| {
+            let inner = deeper(depth, at)?;
+            let mut items = read(&text[open + 1..end], inner).map_err(|mut e| {
                 e.at += open + 1;
                 e
             })?;
@@ -148,7 +165,8 @@ pub fn parse(source: &str) -> Result<Vec<Item>> {
             class_name(name).map_err(|m| error(at, m))?;
             let end = block_end(&text, open)?;
             // Positions des étapes relatives au texte, comme celles des blocs `@media`.
-            let mut frames = parse(&text[open + 1..end]).map_err(|mut e| {
+            let inner = deeper(depth, at)?;
+            let mut frames = read(&text[open + 1..end], inner).map_err(|mut e| {
                 e.at += open + 1;
                 e
             })?;
@@ -246,7 +264,7 @@ pub fn parse(source: &str) -> Result<Vec<Item>> {
                     " ".repeat(padding),
                     &text[inner_open + 1..inner_end]
                 );
-                let items = parse(&body)?;
+                let items = read(&body, deeper(depth, at)?)?;
                 nested.push(Item::Media { query, items, at });
                 cursor = inner_end + 1;
                 continue;

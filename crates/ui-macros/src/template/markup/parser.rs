@@ -10,6 +10,10 @@ use proc_macro::{TokenStream, TokenTree};
 
 /// Éléments vides (sans balise fermante), comme en HTML.
 const VOID: &[&str] = &["input", "img", "br", "hr", "meta", "link", "source", "wbr"];
+/// Profondeur d'imbrication maximale (éléments et blocs `{#if}` / `{#each}`) : la
+/// lecture et la génération sont récursives.
+const MAX_DEPTH: usize = 128;
+const NESTING: &str = "Template nesting exceeds 128 levels (elements, {#if} and {#each})";
 
 pub(super) enum Stop {
     Eof,
@@ -174,8 +178,8 @@ impl Parser {
         Ok(Attr { name, value, loc })
     }
     fn element(&mut self) -> Result<Element> {
-        if self.depth >= 128 {
-            return Err(self.error("Template nesting exceeds 128 elements"));
+        if self.depth >= MAX_DEPTH {
+            return Err(self.error(NESTING));
         }
         let loc = self.loc();
         self.expect('<')?;
@@ -285,7 +289,17 @@ impl Parser {
                             }
                             nodes.push(Node::Expr(tokens, loc));
                         }
-                        Some('#') => nodes.push(self.block(rest, loc)?),
+                        Some('#') => {
+                            // Un bloc compte comme un niveau : la lecture et la génération
+                            // descendent récursivement dans son corps.
+                            if self.depth >= MAX_DEPTH {
+                                return Err(loc.error(NESTING));
+                            }
+                            self.depth += 1;
+                            let block = self.block(rest, loc);
+                            self.depth -= 1;
+                            nodes.push(block?);
+                        }
                         Some(':') => {
                             let (word, tail) = split_word(rest);
                             if word.as_deref() != Some("else") {
