@@ -15,6 +15,8 @@
 #[cfg(target_os = "macos")]
 mod appkit;
 #[cfg(target_os = "macos")]
+mod harness;
+#[cfg(target_os = "macos")]
 mod layers;
 #[cfg(target_os = "macos")]
 mod probe;

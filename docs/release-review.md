@@ -21,7 +21,7 @@ n'ont pas été reproduits.
 | P5 | Corrigé | README de `karbon-ui-macros` (page crates.io) en français et interne : remplacé par une page en anglais, la carte du compilateur est devenue [compiler.md](compiler.md). |
 | P6 | Corrigé | CI : `actions/checkout@v5`, `actions/upload-artifact@v6` (Node 24), une poussée annule l'exécution précédente de la branche. |
 | P7 | Corrigé | README : logo, badges, captures (`docs/screenshots/`, exports des exemples), exemples manquants (`kit_gallery`, `system_dialogs`), nombres de tests. |
-| P8 | À faire | Six fichiers dépassent 500 lignes : `styling/resolve/cascade.rs` 577 (extraire l'empreinte des sous-arbres mémorisés, les déclarations dynamiques, les surcharges d'animation), `macos/window/session/lifecycle.rs` 540 (cadence vers `session/pacing.rs`), `ui-macros/css/framework/element.rs` 509, `macos/window/event_loop.rs` 505 (`Pointer`, `pointer()`, `key()` vers `window/input.rs`), `ui-macros/template/generate/tree.rs` 505, `linux/wayland/display.rs` 503. |
+| P8 | Corrigé | Fichiers de plus de 500 lignes découpés, code déplacé tel quel : `styling/resolve/cascade.rs` (`memoized.rs`, `dynamic.rs`, `motion.rs`), `macos/window/session/lifecycle.rs` (`pacing.rs`), `macos/window/event_loop.rs` (`input.rs`), `linux/wayland/display.rs` (`dispatch.rs`), `ui-macros/template/generate/tree.rs` (`each.rs`), `ui-macros/css/framework/element.rs` (`reveal.rs`). |
 
 ## Moteur : exécution et composants (`src/ui/runtime`, `components`, `kit`…)
 
@@ -32,12 +32,12 @@ n'ont pas été reproduits.
 | E3 | bug | Corrigé | `runtime/events/pointer.rs` | Double clic d'un champ compté avec l'horloge des animations, qui n'avance pas sans animation : deux clics à dix secondes d'écart sélectionnaient le mot. |
 | E4 | bug | Corrigé | `runtime/smooth_scroll.rs` | Un seul glissement à la fois : le reste d'un cran passé au conteneur englobant écrasait le glissement du conteneur intérieur, qui n'atteignait jamais son bout. L'autre glissement arrive maintenant à sa cible. |
 | E5 | bug | Corrigé | `runtime/interaction.rs` | Appui annulé après une reconstruction pour un bouton hors de l'ordre de tabulation (`tabindex="-1"`) : le clic ne partait pas. |
-| E6 | bug probable | À faire | `components/text_input/events.rs` | Les touches lisent `e.line`, rafraîchie par `prepare` seulement : avec `UiRuntime::event` appelé sans `prepare` entre deux entrées (API publique, les backends fournis préparent toujours), un retour arrière peut couper hors d'une frontière de caractère, et `WordRight` boucler. Borner aux frontières de `e.text`, garde de progression, contrat à écrire dans la doc de `UiRuntime`. |
+| E6 | bug probable | Corrigé, test ajouté | `components/text_input/events.rs` | Arrêts du curseur lus dans la ligne mesurée seulement si elle correspond au texte actuel, sinon d’un caractère ; progression garantie (plus de boucle de `WordRight`) ; `move_to` borné aux frontières (Fin d’un champ multiligne mesuré en retard paniquait aussi). Contrat écrit dans la rustdoc de `UiRuntime` et `event`. |
 | E7 | bug | Corrigé | `kit/feedback.rs` | `Progress` avec une valeur non numérique (0 / 0) : la mise en page refusait l'arbre et la fenêtre se fermait. |
 | E8 | nettoyage | Corrigé | `select`, `slider`, `text_input`, `runtime/accessibility/snapshot.rs`, `windows/accessibility/sync.rs` | Textes par défaut en français dans une API anglaise (« Choisir… », « Champ de saisie », « Zone de défilement », boutons de la barre de titre pour les lecteurs d'écran) : en anglais, comme `DEFAULT_MENU_LABELS`. |
 | E9 | nettoyage | Corrigé | `text_input/menu.rs` | Rustdoc public en français. |
 | E10 | nettoyage | Corrigé | `slider/widget.rs` | `Slider::snapped` paniquait sur une plage invalide. |
-| E11 | mineur | À faire | `runtime/prepare.rs` | L'appui rejoué après la fermeture d'un popover arrive après la peinture : l'état `:active` n'apparaît qu'à l'événement suivant. |
+| E11 | mineur | Corrigé, test ajouté | `runtime/prepare.rs` | Après l’appui rejoué, `prepare_frame` refait un tour (un seul, `replaying`) : `:active` peint dans la même image. |
 
 ## Moteur : mise en page et styles (`src/ui/layout`, `styling`, `core`)
 
@@ -49,18 +49,18 @@ cascade ; les valeurs écrites ensuite par une règle d'état (`md:`, `hover:`, 
 | --- | --- | --- | --- | --- |
 | L1 | bug | Corrigé | `layout/virtual_list.rs:172` | `refresh` fait `node.scroll.unwrap()` sur une liste virtuelle jamais placée (dans un conteneur `display: none`, onglet inactif) : panique. |
 | L2 | bug | Corrigé | `layout/engine.rs` (`limits`) | `min-width` supérieur à `max-width` par une règle d'état (`min-w-[320px] md:max-w-[240px]`) : `f32::clamp` panique. Le minimum doit gagner. |
-| L3 | bug | Corrigé, test ajouté | `layout/validation.rs`, `measure.rs`, `scrolling.rs`, `split.rs` | Enfant `hidden` d'un `Split` ou d'un `Scroll` : refusé par la validation (erreur fatale au message trompeur), et indexé après son retrait du flux. Désormais permis : l'autre volet occupe toute la place, sans séparateur ; la zone de défilement reste vide. Reste : le séparateur d'un `Split` redimensionnable à volet masqué garde sa place dans l'ordre de tabulation et l'arbre d'accessibilité. Une couche masquée (`Layers`) reste refusée. |
+| L3 | bug | Corrigé, test ajouté | `layout/validation.rs`, `measure.rs`, `scrolling.rs`, `split.rs` | Enfant `hidden` d’un `Split` ou d’un `Scroll` permis : l’autre volet occupe toute la place, sans séparateur ; la zone de défilement reste vide. Le séparateur d’un `Split` redimensionnable à volet masqué quitte l’ordre de tabulation et l’arbre d’accessibilité (`layout::resizable_divider`). Une couche masquée (`Layers`) reste refusée. |
 | L4 | bug | Corrigé, test ajouté | `layout/grid.rs` | Étendue de colonne supérieure au nombre courant de colonnes (`auto-fill` dans une fenêtre étroite) : erreur fatale selon la largeur. Dans une grille `auto-fill`/`auto-fit`, l'étendue est bornée, une colonne explicite qui n'y tient plus revient au placement automatique, une ligne imposée déjà pleine aussi. Dépassement d'entier pour une colonne énorme corrigé. Une grille au nombre de colonnes fixe refuse toujours une étendue trop large à la validation. |
-| L5 | bug probable | À faire | `layout/tracks.rs:387` | `min-content` d'une feuille non textuelle lu avant sa mesure (0) : colonne `min-content` réduite au padding. |
-| L6 | bug probable | À faire | `layout/lazy.rs:36` | Conteneur repris et déplacé : un descendant absolu ancré hors du sous-arbre est déplacé aussi. |
-| L7 | bug probable | À faire | `layout/expression.rs:94` | Variable qui se référence deux fois (`calc(var(--a) + var(--a))`) : 2^32 nœuds évalués avant l'erreur. Budget de nœuds. |
-| L8 | bug rare | À faire | `layout/arrange.rs:116` | Ligne de liste virtuelle hors flux : lignes et indices décalés, insertion hors bornes. |
-| L9 | bug probable | À faire | `layout/grid.rs:281` | Placement automatique depuis la ligne 0 pour chaque enfant : comportement `dense`, coût quadratique. |
-| L10 | bug probable | À faire | `styling/tokens/shadow.rs` | Listes d'ombres calculées gardées à vie ; après 4 096 listes différentes l'ombre n'est plus appliquée (ombre animée par une variable). |
+| L5 | bug probable | Corrigé, test ajouté | `layout/tracks.rs:387` | Feuille non textuelle mesurée à largeur 0 au lieu de relire `intrinsic` avant sa mesure (colonne de 8 px au lieu de 58 à la première mise en page). |
+| L6 | bug probable | Corrigé, test ajouté | `layout/lazy.rs:36` | Conteneur repris et déplacé : placement refait quand un descendant `absolute` est ancré hors de lui. |
+| L7 | bug probable | Corrigé, test ajouté | `layout/expression.rs:94` | Budget de 4 096 nœuds par évaluation (`calc(var(--a) + var(--a))` : plus de 3 min avant, immédiat après). |
+| L8 | bug rare | Corrigé, test ajouté | `layout/arrange.rs:116` | Lignes d’une liste virtuelle jamais retirées du flux ; une ligne `display: none` devient une boîte vide à sa place. |
+| L9 | bug probable | Corrigé, test ajouté | `layout/grid.rs:281` | Placement automatique « sparse » de CSS (lignes imposées d’abord, puis un curseur qui ne recule pas) : 16 384 enfants en 4,1 s avant, 66 ms après ; [layout-j2.md](layout-j2.md) à jour. |
+| L10 | bug probable | À décider | `styling/tokens/shadow.rs` | Listes d’ombres internées à vie, ombre plus appliquée après 4 096 listes. `Shadows { values: &’static [BoxShadow] }` est public et `Copy`, porté par `Properties` (`Copy`) : une correction exacte à mémoire bornée demande une liste possédée (`Arc`), donc un changement de l’API publique. Fuir sans borne ou arrondir les valeurs (rendus changés) serait pire. |
 | L11 | bug probable | Corrigé | `layout/split.rs:56` | `split_extent` (public) : `clamp` peut paniquer par arrondi ou sur une valeur non numérique. |
-| L12 | performance | À faire | `core/hash.rs` | `finish` rend l'état brut : des identifiants qui ne diffèrent que par les bits hauts tombent dans le même groupe. `rotate_left(26)` ; commentaire à corriger (les clés viennent aussi de l'application). |
-| L13 | bug mineur | À faire | `styling/resolve/cascade.rs:445` | `unit_context` changé sans invalider la mise en page : un sous-arbre mémorisé en `vw`/`vh` garde sa mesure après un redimensionnement. |
-| L14 | nettoyage | À faire | divers | Doc de `fingerprint` collée sur `sibling_fingerprint` (`resolve/matching.rs:80`) ; `measure_unmemoized` mal nommée ; `Length::Percent` documenté « 0 à 100 » ; `validation.rs:300` valide la liste avec `gap` au lieu de `vertical_gap()` ; champ public `StyleEnvironment::partial` de type non exporté ; `memo.rs:185` empile des doublons. |
+| L12 | performance | Corrigé, test ajouté | `core/hash.rs` | `finish` fait `rotate_left(26)` : 4 096 clés `i << 32` dans 1 groupe avant, 1 985 après ; commentaire corrigé. |
+| L13 | bug mineur | Corrigé, test ajouté | `styling/resolve/cascade.rs:445` | `unit_context` changé : mise en page demandée quand l’élément évalue des longueurs relatives (sous-arbre mémorisé en `50vh` : 200 px gardés avant, 300 après). |
+| L14 | nettoyage | Corrigé, tests ajoutés | divers | Validation de la liste virtuelle avec `vertical_gap()`, doublons de `memo.rs` retirés, `styling::Partial` exporté, doc de `fingerprint` remise en place, `measure_unmemoized` devenu `measure_in_pass`, doc de `Length::Percent` corrigée. |
 
 ## Backend Windows et socle (`src/platform/windows`, `task`, `resources`, `window`)
 

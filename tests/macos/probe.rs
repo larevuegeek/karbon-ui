@@ -1,5 +1,6 @@
 //! Application de sonde et scénario.
 use crate::appkit::{appearance, ax_text, click, collect, cpu_ms, key, nested_loop};
+use crate::harness::*;
 use crate::layers::{drawable_width, metal_shown};
 use karbon_ui::{
     Error,
@@ -19,19 +20,19 @@ use karbon_ui::{
         WindowOptions,
     },
 };
-use objc2::{MainThreadMarker, msg_send, rc::Retained, runtime::AnyObject, sel};
-use objc2_app_kit::{NSApplication, NSWindow};
-use objc2_foundation::{NSObjectNSDelayedPerforming, NSString};
+use objc2::{msg_send, sel};
+use objc2_app_kit::NSApplication;
+use objc2_foundation::NSString;
 use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
 
-const WIDTH: i32 = 420;
-const HEIGHT: i32 = 300;
+pub(crate) const WIDTH: i32 = 420;
+pub(crate) const HEIGHT: i32 = 300;
 
 #[derive(Default, Debug)]
-struct Log {
+pub(crate) struct Log {
     loads: u32,
     painted: bool,
     clicks: u32,
@@ -348,135 +349,9 @@ impl Application for Probe {
         true
     }
 }
-/// Seconde fenêtre, sans contenu interactif.
-struct Second;
-impl Application for Second {
-    type Message = ();
-    fn view(&self, _: &ViewContext) -> Element {
-        hide_windows();
-        column("second", [text("t", "Seconde fenêtre")])
-    }
-    fn update(&mut self, _: ()) -> bool {
-        false
-    }
-}
-thread_local! {
-    static LOG: std::cell::RefCell<Option<Arc<Mutex<Log>>>> = const { std::cell::RefCell::new(None) };
-}
-fn mtm() -> MainThreadMarker {
-    MainThreadMarker::new().expect("la sonde tourne sur le thread principal")
-}
-fn windows() -> Vec<Retained<NSWindow>> {
-    NSApplication::sharedApplication(mtm()).windows().to_vec()
-}
-/// Fenêtre visible de ce titre (`NSApp.windows` liste aussi des fenêtres d'AppKit et des
-/// fenêtres fermées pas encore libérées).
-fn visible(title: &str) -> bool {
-    windows()
-        .iter()
-        .any(|w| w.isVisible() && w.title().to_string() == title)
-}
-/// Titre de la fenêtre opaque qui couvre la fenêtre principale (laissée visible).
-const COVER: &str = "couverture";
-fn hide_windows() {
-    for window in windows()
-        .into_iter()
-        .filter(|w| w.title().to_string() != COVER)
-    {
-        window.setAlphaValue(0.);
-    }
-}
-fn window(_: WindowId) -> Retained<NSWindow> {
-    windows()
-        .into_iter()
-        .find(|w| w.title().to_string() == "sonde")
-        .expect("fenêtre de la sonde")
-}
-type Job = Box<dyn FnOnce()>;
-thread_local! {
-    static QUEUE: std::cell::RefCell<Vec<Job>> = const { std::cell::RefCell::new(Vec::new()) };
-    static TIMER: Retained<Timer> = Timer::new(mtm());
-}
-objc2::define_class!(
-    // SAFETY : NSObject n'impose rien ; pas de `Drop`.
-    #[unsafe(super(objc2_foundation::NSObject))]
-    #[thread_kind = objc2::MainThreadOnly]
-    #[name = "KarbonUiProbeTimer"]
-    struct Timer;
-
-    impl Timer {
-        #[unsafe(method(fire:))]
-        fn fire(&self, _argument: Option<&AnyObject>) {
-            let jobs = QUEUE.with(|q| std::mem::take(&mut *q.borrow_mut()));
-            for job in jobs {
-                job();
-            }
-        }
-    }
-);
-impl Timer {
-    fn new(mtm: MainThreadMarker) -> Retained<Self> {
-        let this = objc2::MainThreadOnly::alloc(mtm).set_ivars(());
-        // SAFETY : initialiseur de NSObject.
-        unsafe { msg_send![super(this), init] }
-    }
-}
-/// Exécute `job` au prochain tour de la boucle AppKit, hors du rappel en cours (la
-/// session de la fenêtre y est libre), comme un événement du système.
-pub(crate) fn deferred(job: impl FnOnce() + 'static) {
-    QUEUE.with(|q| q.borrow_mut().push(Box::new(job)));
-    // SAFETY : `fire:` est défini ci-dessus ; aucun argument.
-    TIMER.with(|t| unsafe { t.performSelector_withObject_afterDelay(sel!(fire:), None, 0.) });
-}
-fn options(title: &'static str) -> WindowOptions {
-    WindowOptions {
-        title,
-        width: WIDTH,
-        height: HEIGHT,
-        min_width: 200,
-        min_height: 200,
-        title_bar: false,
-        activate: false,
-        // Au-dessus des fenêtres ordinaires des autres applications sans activer celle-ci
-        // (M7) : sinon, une fenêtre couverte par celles de l'utilisateur ne peint pas
-        // (M5) et le résultat dépendrait de son écran.
-        topmost: true,
-        ..WindowOptions::DEFAULT
-    }
-}
 fn centre(app: &HeadlessApp<Probe>, id: &str) -> (f32, f32) {
     let r = app.bounds(id).expect("contrôle présent");
     ((r.left + r.right) / 2., (r.top + r.bottom) / 2.)
-}
-/// La sonde est allée au bout : sans cela, une sortie du processus en cours de route
-/// (`terminate:` qui ne rend pas la main) serait un faux succès.
-static FINISHED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-/// Dernière étape atteinte, lue par le chien de garde.
-static PROGRESS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-/// Chien de garde : une boucle qui ne se réveille plus bloquerait le test pour toujours.
-fn watchdog() {
-    std::thread::spawn(|| {
-        let mut last = (0, std::time::Instant::now());
-        loop {
-            std::thread::sleep(Duration::from_millis(500));
-            if FINISHED.load(std::sync::atomic::Ordering::SeqCst) {
-                return;
-            }
-            let step = PROGRESS.load(std::sync::atomic::Ordering::SeqCst);
-            if step != last.0 {
-                last = (step, std::time::Instant::now());
-            } else if last.1.elapsed() > Duration::from_secs(20) {
-                eprintln!("sonde macOS : bloquée à l'étape {step} (boucle sans réveil)");
-                std::process::abort();
-            }
-        }
-    });
-}
-extern "C" fn unfinished() {
-    if !FINISHED.load(std::sync::atomic::Ordering::SeqCst) {
-        eprintln!("sonde macOS : processus terminé avant la fin de la sonde");
-        std::process::abort();
-    }
 }
 pub fn run() {
     // SAFETY : fonction `extern "C"` sans argument, valide pendant toute la vie du processus.

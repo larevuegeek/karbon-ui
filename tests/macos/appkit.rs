@@ -1,6 +1,6 @@
 //! Gestes AppKit de la sonde : apparence imposée, parcours accessible, événements souris
 //! et clavier remis à la fenêtre hors de tout rappel de l'application.
-use crate::probe::deferred;
+use crate::harness::deferred;
 use objc2::{Message, msg_send, rc::Retained, runtime::AnyObject};
 use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSWindow};
 use objc2_foundation::{NSPoint, NSString};
