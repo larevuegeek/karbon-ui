@@ -6,15 +6,17 @@
 //!
 //! `Generator` accumule le code Rust produit (texte relu en jetons par
 //! [`Output`]) ; ses méthodes sont réparties par sorte d'élément : parcours des
-//! enfants et blocs (`tree`), élément générique et finition (`element`), styles et
-//! classes (`styles`), attributs d'état et ARIA (`attributes`), animations
-//! (`motion`), texte (`text`, `runs`), conteneurs et mises en page (`layout`),
-//! champs (`inputs`), boutons (`buttons`), listes (`select`), images et SVG
-//! (`media`), surcouches (`overlays`), composants et inclusions (`components`).
+//! enfants et blocs (`tree`), boucles `{#each}` (`each`), élément générique et
+//! finition (`element`), styles et classes (`styles`), attributs d'état et ARIA
+//! (`attributes`), animations (`motion`), texte (`text`, `runs`), conteneurs et mises
+//! en page (`layout`), champs (`inputs`), boutons (`buttons`), listes (`select`),
+//! images et SVG (`media`), surcouches (`overlays`), composants et inclusions
+//! (`components`).
 mod aria;
 mod attributes;
 mod buttons;
 mod components;
+mod each;
 mod element;
 mod generator;
 mod inputs;

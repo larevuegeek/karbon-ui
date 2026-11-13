@@ -337,7 +337,7 @@ pub fn compile(input: TokenStream) -> Result<TokenStream> {
                         framework, &facts, &module, &mut class, &mut notes,
                     );
                     if let Some(name) = &reveal
-                        && !css::framework::element::reveal(framework, name, &mut class)
+                        && !css::framework::reveal(framework, name, &mut class)
                     {
                         reveal_error(format!(
                             "data-reveal=\".{name}\": the stylesheet declares no `transition` of height for .{name}"

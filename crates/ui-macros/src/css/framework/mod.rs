@@ -6,20 +6,23 @@
 //!
 //! Parcours : `syntax` lit le texte, `walker` aplatit règles et at-rules (conditions
 //! évaluées par `conditions`), `compile` construit la [`Sheet`] (classement des valeurs
-//! par `values`, sélecteurs par `selectors`), `keyframes` compile les animations et
-//! `element` calcule la cascade d'un élément de template.
+//! par `values`, sélecteurs par `selectors`), `keyframes` compile les animations,
+//! `element` calcule la cascade d'un élément de template et `reveal` lit la transition
+//! de hauteur d'une classe pour `data-reveal`.
 mod compile;
 mod conditions;
 pub mod element;
 pub mod images;
 mod keyframes;
 mod report;
+mod reveal;
 pub mod selectors;
 pub mod syntax;
 pub mod values;
 mod walker;
 
 pub use report::Report;
+pub(crate) use reveal::reveal;
 
 mod model;
 #[cfg(test)]
