@@ -418,3 +418,44 @@ fn viewport_resize_is_bounded_and_zero_size_releases_unfocused_rows() {
     prepare(&mut ui, &mut m);
     assert_eq!(counters.live.get(), 15);
 }
+
+/// Ligne masquée ou positionnée (`hidden`, `absolute` venus de ses classes) : la liste la
+/// place à son rang comme les autres, sans décaler les suivantes.
+#[test]
+fn out_of_flow_rows_keep_their_slot() {
+    let mut list = Element::virtual_list(
+        1,
+        VirtualList::new(1_000, 32., |index| {
+            let mut row = widgets::text(100 + index as u64, format!("Ligne {index}"));
+            match index % 7 {
+                0 => row.layout_rules().hidden = true,
+                3 => row.layout_rules().position = Position::Absolute,
+                _ => {}
+            }
+            row
+        }),
+    );
+    let check = |list: &Element| {
+        let s = list.scroll_metrics().unwrap();
+        let indices = list.virtual_list.as_ref().unwrap().indices.clone();
+        assert_eq!(indices.len(), list.children.len());
+        for (index, row) in indices.iter().zip(&list.children) {
+            assert_eq!(row.id, ElementId(100 + *index as u64));
+            if index % 7 == 0 {
+                // Masquée : boîte vide.
+                near(layout::height(row.bounds()), 0.);
+            } else {
+                near(
+                    row.bounds().top,
+                    s.viewport.top + *index as f32 * 32. - s.offset,
+                );
+            }
+        }
+    };
+    // Mises en page successives : les lignes déjà matérialisées sont reprises.
+    for (step, offset) in [0., 0., 75., 400., 130., 0.].into_iter().enumerate() {
+        list.scroll_offset = offset;
+        arrange(&mut list, 400. + step as f32 * 10., 300.);
+        check(&list);
+    }
+}

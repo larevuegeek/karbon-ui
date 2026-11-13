@@ -113,7 +113,13 @@ fn arrange_node(
     for child in &mut node.children {
         super::resolve_limits(child, size);
     }
-    let mut out = super::position::take(node);
+    // Les lignes d'une liste virtuelle sont placées par la liste, chacune à son rang :
+    // une ligne masquée ou positionnée garde sa place parmi les autres (`list.indices`).
+    let mut out = if matches!(node.layout, Layout::VirtualList) {
+        Vec::new()
+    } else {
+        super::position::take(node)
+    };
     let order = super::position::reorder(node);
     let result = (|| {
         match node.layout {

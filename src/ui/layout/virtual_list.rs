@@ -241,18 +241,18 @@ fn refresh(node: &mut Element, text: &mut dyn TextMeasurer, force: bool) -> crat
                     ..Default::default()
                 },
             )?;
-            layout::arrange(
-                &mut row,
-                RectF::new(
-                    s.viewport.left,
-                    s.viewport.top + index as f32 * list.stride(node.style.vertical_gap())
-                        - s.offset,
-                    layout::width(s.viewport),
-                    list.row_height,
-                ),
-                clip,
-                text,
-            )?;
+            let slot = RectF::new(
+                s.viewport.left,
+                s.viewport.top + index as f32 * list.stride(node.style.vertical_gap()) - s.offset,
+                layout::width(s.viewport),
+                list.row_height,
+            );
+            if layout::position::hidden(&row) {
+                // `display: none` : place vide, ni dessinée ni touchée.
+                layout::position::collapse(&mut row, slot.left, slot.top);
+            } else {
+                layout::arrange(&mut row, slot, clip, text)?;
+            }
         }
         children.push(row);
     }
