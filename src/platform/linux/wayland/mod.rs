@@ -8,6 +8,7 @@
 //! compositeur sont mis en file par un répartiteur unique (`display.rs`) puis traités ici,
 //! sans emprunt tenu pendant un appel à libwayland.
 mod clipboard;
+mod dispatch;
 mod display;
 mod event_loop;
 mod events;
