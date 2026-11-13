@@ -384,7 +384,21 @@ fn min_content_uncached(
                 }
                 widest
             }
-            _ => node.intrinsic.width,
+            // Autre feuille (icône, image, contrôle) : mesurée à la place la plus étroite,
+            // sans attendre une mesure du layout (sa taille naturelle valait 0 à la
+            // première mise en page, puis celle de la colonne qu'elle avait reçue).
+            Some(widget) => {
+                widget
+                    .measure(
+                        SizeF {
+                            width: 0.,
+                            height: f32::INFINITY,
+                        },
+                        text,
+                    )?
+                    .width
+            }
+            None => 0.,
         }
     } else {
         let row = matches!(node.layout, Layout::Row)

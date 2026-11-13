@@ -182,3 +182,34 @@ fn a_fitted_grid_keeps_wide_spans_and_explicit_columns_inside_its_columns() {
         vec![cell(2).span(2).column_start(usize::MAX)]
     ))));
 }
+
+/// Colonne `min-content` dont la cellule est une feuille non textuelle (icône, image de
+/// taille fixe) : sa largeur dès la première mise en page, pas après une mesure.
+#[test]
+fn a_min_content_column_measures_a_non_text_leaf_on_the_first_layout() {
+    struct Fixed;
+    impl Widget for Fixed {
+        fn measure(&self, _: SizeF, _: &mut dyn TextMeasurer) -> crate::Result<SizeF> {
+            Ok(SizeF {
+                width: 50.,
+                height: 20.,
+            })
+        }
+        fn paint(&self, _: &PaintContext, _: &mut Scene) {}
+    }
+    let mut root = Element::grid(
+        1,
+        2,
+        vec![
+            Element::custom(2, Fixed).padding(4.),
+            box_node(3, Length::Fill(1.), Length::Px(20.)),
+        ],
+    );
+    root.layout_rules().columns = Some(Arc::from([
+        layout::GridTrack::new(layout::TrackBreadth::MinContent),
+        layout::GridTrack::new(layout::TrackBreadth::Fr(1.)),
+    ]));
+    arrange(&mut root, 300., 100.);
+    near(layout::width(root.children[0].bounds()), 58.);
+    near(root.children[1].bounds().left, 58.);
+}
