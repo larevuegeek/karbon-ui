@@ -5,7 +5,7 @@ use crate::ui::styling::{
 };
 use crate::ui::{element::Insets, theme::Color};
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 /// Style declarations of one rule (a class or a state block), as produced by
 /// [`styles!`](crate::styles) and [`css_file!`](crate::css_file).
 ///
@@ -117,13 +117,13 @@ pub enum ColorTarget {
 impl Properties {
     /// Checks that every set value is finite and within range; returns an
     /// [`Error::InvalidInput`](crate::Error::InvalidInput) error otherwise.
-    pub fn validate(self) -> crate::Result<()> {
+    pub fn validate(&self) -> crate::Result<()> {
         if self.filters.is_some_and(|f| !f.valid()) || self.backdrop.is_some_and(|f| !f.valid()) {
             return Err(crate::Error::invalid_input(
                 "invalid native filter parameters",
             ));
         }
-        if self.shadows.is_some_and(|s| !s.valid()) {
+        if self.shadows.as_ref().is_some_and(|s| !s.valid()) {
             return Err(crate::Error::invalid_input("invalid component shadows"));
         }
         if !self.background_images.valid()
@@ -283,7 +283,7 @@ impl Properties {
         }
     }
     /// Sides drawn individually: one side has its own width or colour.
-    pub fn border_sides(self) -> bool {
+    pub fn border_sides(&self) -> bool {
         self.border_edges.iter().any(Option::is_some)
             || self.border_colors.iter().any(Option::is_some)
     }

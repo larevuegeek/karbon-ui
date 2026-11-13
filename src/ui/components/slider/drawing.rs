@@ -99,8 +99,10 @@ impl Slider {
         crate::ui::styling::ControlPart,
     )> {
         let css = self.css.as_ref()?;
-        (css.local.appearance_none == Some(true))
-            .then_some((css.local.slider_thumb, css.local.slider_track))
+        (css.local.appearance_none == Some(true)).then_some((
+            css.local.slider_thumb.clone(),
+            css.local.slider_track.clone(),
+        ))
     }
     /// Dessin `appearance: none` : piste sur toute la longueur, pouce centré sur la
     /// valeur, ombres réduites à leur décalage et leur étalement (anneaux de focus).

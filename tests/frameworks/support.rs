@@ -76,7 +76,7 @@ pub fn find<'a>(root: &'a Element, id: &str) -> &'a Element {
         .unwrap_or_else(|| panic!("element {id}"))
 }
 pub fn computed(e: &Element) -> styling::ComputedStyle {
-    *e.computed_style().expect("styles")
+    e.computed_style().expect("styles").clone()
 }
 
 /// Prépare `ui` à l'instant `now` (800 × 600, thème clair, sans barre de titre).

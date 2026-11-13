@@ -198,11 +198,11 @@ pub fn update(target: &mut Option<Box<ComputedStyle>>, value: &ComputedStyle) ->
     if target.as_deref() == Some(value) {
         return false;
     }
-    let layout = target.as_ref().is_none_or(|old| !old.metrics_eq(*value));
+    let layout = target.as_ref().is_none_or(|old| !old.metrics_eq(value));
     if *value == ComputedStyle::default() {
         *target = None;
     } else {
-        *target = Some(Box::new(*value));
+        *target = Some(Box::new(value.clone()));
     }
     layout
 }

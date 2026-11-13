@@ -23,22 +23,57 @@ pub struct BoxShadow {
     /// Draw inside the element's border box instead of outside.
     pub inset: bool,
 }
+/// Layers of a [`Shadows`] list: written in a stylesheet and compiled (`Static`), or
+/// computed while the view is built, with colours read from variables (`Shared`, freed
+/// with its last user). Compared by content.
+#[derive(Clone, Debug)]
+pub enum ShadowList {
+    /// Layers known at compile time.
+    Static(&'static [BoxShadow]),
+    /// Layers computed at run time.
+    Shared(Arc<[BoxShadow]>),
+}
+impl std::ops::Deref for ShadowList {
+    type Target = [BoxShadow];
+    fn deref(&self) -> &[BoxShadow] {
+        match self {
+            Self::Static(values) => values,
+            Self::Shared(values) => values,
+        }
+    }
+}
+impl PartialEq for ShadowList {
+    fn eq(&self, other: &Self) -> bool {
+        **self == **other
+    }
+}
 /// List of [`BoxShadow`] layers applied to an element.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Shadows {
     /// Shadow layers (at most 16).
-    pub values: &'static [BoxShadow],
+    pub values: ShadowList,
     /// Multiplier for all lengths (layout scale); `1.0` by default.
     pub scale: f32,
 }
 impl Shadows {
-    /// Shadow list at scale `1.0`.
+    /// Shadow list known at compile time, at scale `1.0`.
     pub const fn new(values: &'static [BoxShadow]) -> Self {
-        Self { values, scale: 1. }
+        Self {
+            values: ShadowList::Static(values),
+            scale: 1.,
+        }
+    }
+    /// Shadow list computed at run time (colours read from variables), at scale `1.0`;
+    /// freed with its last user.
+    pub fn shared(values: Vec<BoxShadow>) -> Self {
+        Self {
+            values: ShadowList::Shared(values.into()),
+            scale: 1.,
+        }
     }
     /// `true` if the list can be rendered: at most 16 layers with finite values and blur
     /// radii no larger than 512 px once scaled.
-    pub fn valid(self) -> bool {
+    pub fn valid(&self) -> bool {
         self.scale.is_finite()
             && self.scale > 0.
             && self.values.len() <= 16
@@ -48,35 +83,6 @@ impl Shadows {
                     && s.blur * self.scale <= 512.
             })
     }
-}
-/// Interns a shadow list built while a view is constructed (colours read from variables):
-/// a distinct list is leaked once, and their number is bounded by the application's themes.
-pub(crate) fn intern(values: Vec<BoxShadow>) -> &'static [BoxShadow] {
-    use std::collections::HashMap;
-    use std::sync::{Mutex, OnceLock};
-    type Key = Vec<(u32, u32, u32, u32, u32, bool)>;
-    static LISTS: OnceLock<Mutex<HashMap<Key, &'static [BoxShadow]>>> = OnceLock::new();
-    let key: Key = values
-        .iter()
-        .map(|s| {
-            let c = s.color;
-            (
-                s.x.to_bits(),
-                s.y.to_bits(),
-                s.blur.to_bits(),
-                s.spread.to_bits(),
-                u32::from_le_bytes([c.red, c.green, c.blue, c.alpha]),
-                s.inset,
-            )
-        })
-        .collect();
-    let mut lists = LISTS
-        .get_or_init(Default::default)
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    lists
-        .entry(key)
-        .or_insert_with(|| Box::leak(values.into_boxed_slice()))
 }
 /// What a shadow layer paints, relative to the element's top-left corner.
 #[derive(Clone)]
@@ -155,7 +161,7 @@ impl Cache {
             width: w.to_bits(),
             height: h.to_bits(),
             radii: radii.map(f32::to_bits),
-            shadows,
+            shadows: shadows.clone(),
         };
         if self.key.as_ref() == Some(&key) {
             return Ok(());
@@ -288,7 +294,7 @@ pub(crate) fn prepare(
         return Ok(());
     }
     if let Some(styles) = &mut node.styles {
-        if let Some(shadows) = styles.computed.local.shadows.filter(|_| {
+        if let Some(shadows) = styles.computed.local.shadows.clone().filter(|_| {
             visible
                 && layout::width(layout::intersect(node.rect, node_clip)) > 0.
                 && layout::height(layout::intersect(node.rect, node_clip)) > 0.

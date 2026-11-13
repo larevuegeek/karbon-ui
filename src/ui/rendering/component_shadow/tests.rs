@@ -53,11 +53,21 @@ fn cached_shadow_reuses_images_when_translated_and_shares_them_between_elements(
     let shadows = Shadows::new(&[SHADOW]);
     let mut cache = Cache::default();
     cache
-        .prepare(RectF::new(0., 0., 80., 50.), [10.; 4], shadows, false)
+        .prepare(
+            RectF::new(0., 0., 80., 50.),
+            [10.; 4],
+            shadows.clone(),
+            false,
+        )
         .unwrap();
     let first = Arc::downgrade(image(&cache.frames[0]));
     cache
-        .prepare(RectF::new(100., 200., 80., 50.), [10.; 4], shadows, false)
+        .prepare(
+            RectF::new(100., 200., 80., 50.),
+            [10.; 4],
+            shadows.clone(),
+            false,
+        )
         .unwrap();
     assert!(Arc::ptr_eq(
         &first.upgrade().unwrap(),
@@ -78,7 +88,12 @@ fn cached_shadow_reuses_images_when_translated_and_shares_them_between_elements(
     // toutes les pochettes d'une liste.
     let mut other = Cache::default();
     other
-        .prepare(RectF::new(5., 5., 80., 50.), [10.; 4], shadows, false)
+        .prepare(
+            RectF::new(5., 5., 80., 50.),
+            [10.; 4],
+            shadows.clone(),
+            false,
+        )
         .unwrap();
     assert!(Arc::ptr_eq(
         &first.upgrade().unwrap(),
@@ -238,7 +253,12 @@ fn live_resize_stretches_blurred_layers_and_redraws_vector_ones() {
     let shadows = Shadows::new(LAYERS);
     let mut cache = Cache::default();
     cache
-        .prepare(RectF::new(0., 0., 200., 100.), [12.; 4], shadows, false)
+        .prepare(
+            RectF::new(0., 0., 200., 100.),
+            [12.; 4],
+            shadows.clone(),
+            false,
+        )
         .unwrap();
     let image = |c: &Cache| {
         c.frames.iter().find_map(|f| match &f.paint {
@@ -249,7 +269,12 @@ fn live_resize_stretches_blurred_layers_and_redraws_vector_ones() {
     let before = image(&cache).unwrap();
     // Pendant le redimensionnement : même image, étirée ; anneau refait à la taille.
     cache
-        .prepare(RectF::new(0., 0., 260., 130.), [12.; 4], shadows, true)
+        .prepare(
+            RectF::new(0., 0., 260., 130.),
+            [12.; 4],
+            shadows.clone(),
+            true,
+        )
         .unwrap();
     assert!(Arc::ptr_eq(&before, &image(&cache).unwrap()));
     let mut scene = crate::ui::scene::Scene::new(Color::rgba(0, 0, 0, 0));
@@ -267,7 +292,12 @@ fn live_resize_stretches_blurred_layers_and_redraws_vector_ones() {
     assert_eq!((layout::width(ring), layout::height(ring)), (262., 132.));
     // Fin du redimensionnement : image exacte recalculée.
     cache
-        .prepare(RectF::new(0., 0., 260., 130.), [12.; 4], shadows, false)
+        .prepare(
+            RectF::new(0., 0., 260., 130.),
+            [12.; 4],
+            shadows.clone(),
+            false,
+        )
         .unwrap();
     assert!(!Arc::ptr_eq(&before, &image(&cache).unwrap()));
 }

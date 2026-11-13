@@ -1,26 +1,10 @@
-//! Ombres portées (`box-shadow`) et leur internement.
+//! Ombres portées (`box-shadow`) calculées à la résolution des styles.
 use super::{
     reader::{Evaluation, Reader},
     token::{Token, layers},
 };
 use crate::ui::rendering::component_shadow::{BoxShadow, Shadows};
 
-/// Ombres internées : la liste de `Shadows` est statique ; les listes calculées sont
-/// conservées pour la durée du processus (au plus 4096 listes distinctes).
-fn intern_shadows(list: Vec<BoxShadow>) -> Option<&'static [BoxShadow]> {
-    use std::sync::Mutex;
-    static INTERNED: Mutex<Vec<&'static [BoxShadow]>> = Mutex::new(Vec::new());
-    let mut interned = INTERNED.lock().ok()?;
-    if let Some(found) = interned.iter().find(|s| **s == list.as_slice()) {
-        return Some(found);
-    }
-    if interned.len() >= 4096 {
-        return None;
-    }
-    let leaked: &'static [BoxShadow] = Box::leak(list.into_boxed_slice());
-    interned.push(leaked);
-    Some(leaked)
-}
 pub(super) fn shadows(tokens: &[Token], eval: &Evaluation, font: f32) -> Option<Shadows> {
     if tokens == [Token::Ident("none")] {
         return Some(Shadows::new(&[]));
@@ -71,5 +55,7 @@ pub(super) fn shadows(tokens: &[Token], eval: &Evaluation, font: f32) -> Option<
     if list.len() > 16 {
         return None;
     }
-    Some(Shadows::new(intern_shadows(list)?))
+    // Liste partagée, libérée avec son dernier utilisateur : plus de listes gardées à vie
+    // ni de limite au-delà de laquelle l'ombre n'était plus appliquée (L10 de la revue).
+    Some(Shadows::shared(list))
 }

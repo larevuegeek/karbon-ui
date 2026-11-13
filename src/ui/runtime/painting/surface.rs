@@ -33,7 +33,7 @@ pub(super) fn outline(
     scene: &mut Scene,
     theme: crate::ui::theme::Theme,
 ) {
-    let local = styles.computed.local;
+    let local = &styles.computed.local;
     let Some(width) = local.outline_width.filter(|w| *w > 0.) else {
         return;
     };

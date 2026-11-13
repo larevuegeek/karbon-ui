@@ -172,3 +172,42 @@ fn tailwind_shadow_layers() {
     assert_eq!(s.values.len(), 1);
     assert_eq!(s.values[0].spread, 2.);
 }
+/// L10 de la revue : les listes d'ombres calculées étaient internées à vie, et au-delà de
+/// 4 096 listes différentes l'ombre n'était plus appliquée. Elles sont maintenant
+/// partagées et libérées avec leur dernier utilisateur.
+#[test]
+fn computed_shadow_lists_are_never_capped_and_are_freed() {
+    use crate::ui::rendering::component_shadow::ShadowList;
+    let vars = CssVariables::default();
+    // `0 0 4px` sans couleur : celle du texte, différente à chaque tour.
+    static VALUE: [Token; 3] = [
+        Token::Number(0.),
+        Token::Number(0.),
+        Token::Dimension(4., Unit::Px),
+    ];
+    for i in 0..5_000u32 {
+        let mut eval = eval_with(&vars);
+        eval.current = Color::rgb((i % 256) as u8, (i / 256) as u8, 7);
+        let mut out = Properties::default();
+        evaluate(
+            &[DynamicDeclaration {
+                property: DynamicProperty::BoxShadow,
+                value: &VALUE,
+            }],
+            &eval,
+            &mut out,
+        );
+        let shadows = out
+            .shadows
+            .expect("ombre appliquée, même après 4 096 listes");
+        assert_eq!(shadows.values[0].color, eval.current);
+        let ShadowList::Shared(list) = &shadows.values else {
+            panic!("liste calculée partagée");
+        };
+        assert_eq!(
+            std::sync::Arc::strong_count(list),
+            1,
+            "libérée avec l'élément"
+        );
+    }
+}

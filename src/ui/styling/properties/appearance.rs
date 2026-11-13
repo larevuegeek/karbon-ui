@@ -18,7 +18,7 @@ pub enum ImageFit {
     ScaleDown,
 }
 /// Box of a native control part drawn from CSS (slider thumb or track).
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct ControlPart {
     /// Fill colour.
     pub background: Option<Color>,
@@ -53,7 +53,7 @@ impl ControlPart {
             .into_iter()
             .flatten()
             .all(|n| n.is_finite() && n >= 0.)
-            && self.shadows.is_none_or(|s| s.valid())
+            && self.shadows.as_ref().is_none_or(|s| s.valid())
     }
 }
 /// Visual effect of a matching state rule: which parts of [`effect`](Self::effect)

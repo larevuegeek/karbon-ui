@@ -93,7 +93,7 @@ pub(super) fn apply_computed(
             }
         }
         changes.paint = true;
-        changes.layout |= !computed.metrics_eq(styles.computed) || !styles.ready;
+        changes.layout |= !computed.metrics_eq(&styles.computed) || !styles.ready;
         styles.computed = computed;
         styles.ready = true;
     }
@@ -240,7 +240,7 @@ pub(crate) fn local(node: &mut Element) {
                     || r.overflow_y == crate::ui::element::Overflow::Visible
             }),
             text: styles.normal.text,
-            local: styles.normal,
+            local: styles.normal.clone(),
             element_background: styles.normal.background.is_some()
                 || node.gradient.is_some()
                 || node.backgrounds.is_some(),

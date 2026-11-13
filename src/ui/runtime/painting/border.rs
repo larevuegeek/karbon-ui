@@ -12,7 +12,7 @@ pub(super) fn border_sides(node: &Element, scene: &mut Scene, theme: crate::ui::
     let Some(styles) = &node.styles else {
         return;
     };
-    let local = styles.computed.local;
+    let local = &styles.computed.local;
     let fallback = local
         .border
         .or_else(|| {

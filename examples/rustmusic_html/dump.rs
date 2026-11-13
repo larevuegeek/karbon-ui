@@ -87,7 +87,7 @@ fn walk(node: &Element, path: &mut Vec<String>, out: &mut String, first: &mut bo
                     let _ = write!(out, ", \"color\": {}", string(&rgba(c)));
                 }
             }
-            let local = style.local;
+            let local = &style.local;
             if let Some(c) = local.background.or(node.style.background) {
                 let _ = write!(out, ", \"bg\": {}", string(&rgba(c)));
             }

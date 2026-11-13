@@ -32,7 +32,7 @@ fn rings_without_a_color_use_the_text_color_of_the_element() {
     };
     arrange(&mut page, 200., 200.);
     let shadow = |e: &Element| {
-        let s = e.computed_style().unwrap().local.shadows.unwrap();
+        let s = e.computed_style().unwrap().local.shadows.clone().unwrap();
         (s.values[0].spread, s.values[0].blur, s.values[0].color)
     };
     let (spread, _, color) = shadow(&page.children[0]);

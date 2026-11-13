@@ -50,7 +50,7 @@ fn ink(node: &Element) -> RectF {
     let mut r = union(node.rect, painted(node));
     if let Some(styles) = &node.styles {
         r = styles.shadow_cache.bounds(node.rect, r);
-        let local = styles.computed.local;
+        let local = &styles.computed.local;
         if let Some(width) = local.outline_width.filter(|w| *w > 0.) {
             r = inflate(r, local.outline_offset.unwrap_or(0.).abs() + width);
         }

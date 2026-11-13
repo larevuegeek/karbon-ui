@@ -441,8 +441,9 @@ Tous les constats « À faire » et « Corrigé (à valider) » de macOS de
 [release-review.md](release-review.md) sont clos sur le Mac, chacun avec son test quand il
 est observable (sonde native `tests/macos` : Dock, fenêtre couverte, `terminate:`, boucle
 imbriquée, taille demandée ; tests Metal) ; moteur, compilateur et fichiers de plus de
-500 lignes aussi. Restent : **L10** (à décider : listes d'ombres internées, une correction
-exacte change le type public `Shadows`) et **W4, W7, W8, W9, W14** à exécuter sous Windows
+500 lignes aussi. L10 fait ensuite (accord du 2026-11-13) : ombres calculées partagées
+(`ShadowList`), `Properties` et `Shadows` ne sont plus `Copy`. Restent **W4, W7, W8, W9,
+W14** à exécuter sous Windows
 (corrigés et vérifiés par clippy seulement, tests Windows ajoutés non lancés).
 
 ### Session du 2026-11-12 (MacBook Air M1, macOS 27)

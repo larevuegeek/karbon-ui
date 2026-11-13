@@ -89,12 +89,12 @@ pub(crate) fn resolve_inherited(
         let mut active = Vec::new();
         let mut dynamic = false;
         if let Some(styles) = &node.styles {
-            local = styles.normal;
+            local = styles.normal.clone();
             dynamic |= styles.normal.dynamic.is_some();
             let mut own: Vec<(&'static str, VariableValue)> = styles.class_custom.clone();
             for (i, (state, p, _)) in styles.states.iter().enumerate() {
                 if matches(*state, &frame, &env) {
-                    local = p.over(local);
+                    local = p.clone().over(local);
                     dynamic |= p.dynamic.is_some();
                     own.extend_from_slice(p.custom.unwrap_or_default());
                     active.push(i);
@@ -113,10 +113,10 @@ pub(crate) fn resolve_inherited(
             let mut rules = Properties::default();
             for (state, p, _) in parent.children {
                 if matches(*state, &frame, &env) {
-                    rules = p.over(rules);
+                    rules = p.clone().over(rules);
                 }
             }
-            local = local.over(rules);
+            local = local.over(rules.clone());
             child_rules = Some(rules);
         }
         // Faits détachés du nœud : ses classes sont prêtées aux descendants plus bas.
@@ -260,7 +260,7 @@ pub(crate) fn resolve_inherited(
                     || r.overflow_y == crate::ui::element::Overflow::Visible
             }),
             text: typography,
-            local,
+            local: local.clone(),
             element_background: local.background.is_some()
                 || node.gradient.is_some()
                 || node.backgrounds.is_some(),
@@ -283,7 +283,7 @@ pub(crate) fn resolve_inherited(
         }
         let base_border = node.border();
         let laid_out = [node.style.width, node.style.height];
-        apply_computed(node, &local, computed, base_border, &env, changes);
+        apply_computed(node, &local, computed.clone(), base_border, &env, changes);
         local.layout.apply(node);
         sample_sizes(node, &local, laid_out, &env, changes);
         keyframe_sizes(node, &local, laid_out, &env, changes);

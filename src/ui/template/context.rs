@@ -100,9 +100,8 @@ impl<'a, R> TemplateContext<'a, R> {
         &self,
         values: Vec<crate::ui::rendering::component_shadow::BoxShadow>,
     ) -> crate::ui::rendering::component_shadow::Shadows {
-        crate::ui::rendering::component_shadow::Shadows::new(
-            crate::ui::rendering::component_shadow::intern(values),
-        )
+        // Liste partagée, libérée avec son dernier utilisateur (L10 de la revue).
+        crate::ui::rendering::component_shadow::Shadows::shared(values)
     }
     /// Reads color variable `name`, or returns `fallback`.
     pub fn variable_color(

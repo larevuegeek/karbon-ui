@@ -42,7 +42,7 @@ pub(super) fn evaluate(
         parent_corners,
     };
     let run = |eval: &tokens::Evaluation| {
-        let mut out = styles.normal;
+        let mut out = styles.normal.clone();
         if let Some(d) = out.dynamic {
             tokens::evaluate(d, eval, &mut out);
             if out.corner_edges.iter().any(Option::is_some) {
@@ -51,14 +51,14 @@ pub(super) fn evaluate(
             }
         }
         for &i in active {
-            let mut block = styles.states[i].1;
+            let mut block = styles.states[i].1.clone();
             if let Some(d) = block.dynamic {
                 tokens::evaluate(d, eval, &mut block);
             }
             out = block.over(out);
         }
-        match child_rules {
-            Some(rules) => out.over(rules),
+        match &child_rules {
+            Some(rules) => out.over(rules.clone()),
             None => out,
         }
     };

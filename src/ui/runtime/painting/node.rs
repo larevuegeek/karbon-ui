@@ -123,7 +123,7 @@ pub(super) fn paint_inner(
             gradient: std::sync::Arc::clone(gradient),
         });
     }
-    let local = node.styles.as_ref().map(|s| s.computed.local);
+    let local = node.styles.as_ref().map(|s| &s.computed.local);
     let text_clip = local.is_some_and(|l| l.text_clip == Some(true));
     if let Some(styles) = &node.styles {
         styles.shadow_cache.paint(painted(node), false, scene);

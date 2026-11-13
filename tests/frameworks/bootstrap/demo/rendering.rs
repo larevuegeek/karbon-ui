@@ -15,7 +15,7 @@ fn last_list_item_inherits_the_card_corners() {
         .unwrap();
     let items = with_class(card, "list-group-item");
     let last = items.last().unwrap();
-    let local = last.computed_style().expect("styles").local;
+    let local = &last.computed_style().expect("styles").local;
     let mut corners = local
         .corner_radii
         .unwrap_or([local.radius.unwrap_or(0.); 4]);
@@ -203,7 +203,7 @@ fn outline_button_border_stays_crisp_after_the_offcanvas() {
         (now.top - r.top).abs() < 1e-3 && (now.left - r.left).abs() < 1e-3,
         "{now:?}"
     );
-    let style = with_class(app.root().unwrap(), "btn")[index]
+    let style = &with_class(app.root().unwrap(), "btn")[index]
         .computed_style()
         .unwrap()
         .local;

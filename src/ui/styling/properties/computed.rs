@@ -1,7 +1,7 @@
 //! Style calculé d'un élément, remis à son widget.
 use super::{Properties, Typography};
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 /// Result of style resolution for one element, handed to its widget.
 pub struct ComputedStyle {
     /// Overflow is visible on at least one axis.
@@ -20,7 +20,7 @@ pub struct ComputedStyle {
 impl ComputedStyle {
     /// Returns `true` when both styles produce the same layout metrics (colors and
     /// decorations ignored).
-    pub fn metrics_eq(self, other: Self) -> bool {
+    pub fn metrics_eq(&self, other: &Self) -> bool {
         let text = |mut t: Typography| {
             t.color = None;
             t.decoration = None;
