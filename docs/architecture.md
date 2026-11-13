@@ -219,7 +219,7 @@ animation de style est en cours, leurs sous-arbres et les frères suivants qui l
 un frère précédent, en passant par leurs ancêtres. Après une reconstruction, un
 sous-arbre mémorisé repris saute la cascade tant que l'empreinte de ses entrées
 (typographie héritée, variables, position, faits des ancêtres) est la même et qu'aucun
-de ses éléments n'a changé d'état (`MemoState::style_dirty`). Enfin, si le layout change
+de ses éléments n'a changé d'état (`MemoState::style_dirty`, `styling/resolve/memoized.rs`). Enfin, si le layout change
 ce que le pointeur touche (éléments d'une vue reconstruite, sans position lors de la
 résolution), les éléments touchés sont restylés dans la même image : le survol ne
 disparaît plus à chaque reconstruction.

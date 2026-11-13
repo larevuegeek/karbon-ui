@@ -1,8 +1,11 @@
 //! Résolution des styles : cascade des blocs dont les sélecteurs correspondent, héritage
 //! et application du style calculé à chaque élément de l'arbre.
 mod cascade;
+mod dynamic;
 mod environment;
 mod matching;
+mod memoized;
+mod motion;
 mod node;
 mod partial;
 mod scope;

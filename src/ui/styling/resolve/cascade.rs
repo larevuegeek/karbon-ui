@@ -1,8 +1,11 @@
 //! Parcours de l'arbre : cascade des blocs actifs, déclarations dynamiques, héritage de la
 //! typographie et calcul du style de chaque élément.
 use super::{
+    dynamic,
     environment::{StyleChanges, StyleEnvironment},
     matching::{Frame, clipped, facts, matches},
+    memoized::{self, TreePosition},
+    motion,
     node::{apply_computed, keyframe_sizes, record_container, reveal, sample_sizes},
     scope::declare,
 };
@@ -11,7 +14,7 @@ use crate::ui::{
     layout,
     styling::{
         ColorTarget, ComputedStyle, CssVariables, LetterSpacing, Properties, Typography,
-        VariableValue, tokens,
+        VariableValue,
     },
 };
 
@@ -27,13 +30,6 @@ pub(crate) fn resolve_inherited(
     inherited: Typography,
     environment: StyleEnvironment,
 ) -> crate::Result<StyleChanges> {
-    struct TreePosition {
-        root_font: f32,
-        root: bool,
-        index: usize,
-        siblings: usize,
-        pointer_clipped: bool,
-    }
     #[allow(clippy::too_many_arguments)]
     fn visit(
         node: &mut Element,
@@ -60,74 +56,9 @@ pub(crate) fn resolve_inherited(
             },
             _ => env,
         };
-        // Sous-arbre mémorisé remis en place par la reconstruction : ses styles restent
-        // ceux de la dernière résolution tant que rien de ce qu'il lit n'a changé. Son rang
-        // et ceux de ses ancêtres n'en font partie que si une règle du sous-arbre lit une
-        // position : une ligne d'une liste qui perd ses premières lignes (chargement de la
-        // page suivante), ou dont la liste gagne un frère (indicateur de chargement), garde
-        // ses styles et, par eux, ses mesures.
-        let memo_inputs = node.memo.as_ref().map(|_| {
-            use std::hash::{Hash, Hasher};
-            let mut h = std::hash::DefaultHasher::new();
-            (root_font.to_bits(), root, pointer_clipped).hash(&mut h);
-            // Règle `[.a+&]` de l'élément : les faits de son frère précédent, pas son rang
-            // (une liste qui lâche ses premières lignes garde les styles des suivantes).
-            if super::partial::reads_previous_facts(node) {
-                match previous.last() {
-                    Some(sibling) => {
-                        1u8.hash(&mut h);
-                        super::matching::Frame::sibling_fingerprint(
-                            sibling,
-                            &env,
-                            (index.saturating_sub(1), siblings),
-                            pointer_clipped,
-                            false,
-                            &mut h,
-                        );
-                    }
-                    None => 0u8.hash(&mut h),
-                }
-            }
-            let positions = super::partial::reads_position_beyond_previous(node)
-                || parent.is_some_and(|p| {
-                    p.children
-                        .iter()
-                        .any(|(state, ..)| super::partial::child_rule_reads_position(state))
-                });
-            if positions {
-                (index, siblings).hash(&mut h);
-            }
-            (env.viewport.width.to_bits(), env.viewport.height.to_bits()).hash(&mut h);
-            (
-                env.focus_visible,
-                env.reduced_motion,
-                env.dark,
-                env.high_contrast,
-                env.pixel_scale.to_bits(),
-            )
-                .hash(&mut h);
-            if let Some(parent) = parent {
-                parent.fingerprint(&mut h, positions);
-            }
-            h.finish()
-        });
-        if let (Some(inputs), Some(memo)) = (memo_inputs, node.memo.as_deref_mut()) {
-            let transplanted = std::mem::take(&mut memo.transplanted);
-            let same_scope = match (&memo.style_scope, declared) {
-                (Some(a), Some(b)) => a.same(b),
-                (None, None) => true,
-                _ => false,
-            };
-            if transplanted
-                && env.partial.is_none()
-                && !std::mem::take(&mut memo.style_dirty)
-                && memo.style_inputs == Some(inputs)
-                && memo.style_inherited == Some(inherited)
-                && same_scope
-                && !super::partial::reads_siblings_beyond_previous(node)
-            {
-                return Ok((false, false));
-            }
+        let memo_inputs = memoized::inputs(node, &tree, parent, previous, &env);
+        if memoized::unchanged(node, memo_inputs, declared, inherited, &env) {
+            return Ok((false, false));
         }
         // Layout incrémental : un changement de métrique dans le sous-arbre d'un conteneur
         // annule la reprise de ses mesures et de son placement (`LayoutCache::settled`).
@@ -216,97 +147,20 @@ pub(crate) fn resolve_inherited(
         // Déclarations dépendant de propriétés personnalisées (feuilles de frameworks) :
         // évaluées dans la portée calculée, à leur rang parmi les blocs actifs.
         if dynamic && let Some(styles) = node.styles.as_deref() {
-            let mut eval = tokens::Evaluation {
-                variables: styles.variables.as_ref(),
-                globals: styles.globals,
-                font: local.text.size.unwrap_or(inherited.size.unwrap_or(16.)),
-                parent_font: inherited.size.unwrap_or(16.),
-                root_font,
-                viewport: (env.viewport.width, env.viewport.height),
-                scale: if styles.scale > 0. { styles.scale } else { 1. },
-                current: local.text.color.or(inherited.color).unwrap_or(black),
-                parent_corners: parent.map_or([0.; 4], |p| p.corners),
-            };
-            let run = |eval: &tokens::Evaluation| {
-                let mut out = styles.normal;
-                if let Some(d) = out.dynamic {
-                    tokens::evaluate(d, eval, &mut out);
-                    if out.corner_edges.iter().any(Option::is_some) {
-                        // Coins isolés de la base : posés sur ses propres rayons.
-                        out = out.over(Properties::default());
-                    }
-                }
-                for &i in &active {
-                    let mut block = styles.states[i].1;
-                    if let Some(d) = block.dynamic {
-                        tokens::evaluate(d, eval, &mut block);
-                    }
-                    out = block.over(out);
-                }
-                match child_rules {
-                    Some(rules) => out.over(rules),
-                    None => out,
-                }
-            };
-            local = run(&eval);
-            // `em` suit la taille de police finale de l'élément.
-            let font = local.text.size.unwrap_or(eval.parent_font);
-            let current = local.text.color.or(inherited.color).unwrap_or(black);
-            if font != eval.font || current != eval.current {
-                eval.font = font;
-                eval.current = current;
-                local = run(&eval);
-            }
-            local.validate()?;
-        }
-        // `transition` évaluée par la feuille (composée, à travers `var()`) : remplace celle
-        // du template tant qu'une règle la déclare.
-        if let Some(styles) = node.styles.as_deref_mut()
-            && (local.transition.is_some() || styles.base_transition.is_some())
-        {
-            let motion = node.motion.get_or_insert_with(Default::default);
-            let base = *styles.base_transition.get_or_insert(motion.transition);
-            let transition = local.transition.or(base);
-            if motion.transition != transition {
-                motion.transition = transition;
-                changes.paint = true;
-            }
-        }
-        // Réglages d'animation d'une règle d'état (`animation-direction`, `-delay`,
-        // `-duration`, `-play-state`) : appliqués à l'animation du template tant qu'elle
-        // s'applique ; une pause ou une reprise ne redémarre pas l'animation.
-        if let Some(styles) = node.styles.as_deref_mut()
-            && let Some(motion) = node.motion.as_deref_mut()
-            && (!local.animation.is_empty() || styles.base_animation.is_some())
-        {
-            let base = match styles.base_animation {
-                Some((base, shown)) if shown == motion.animation => base,
-                _ => motion.animation,
-            };
-            let shown = base.and_then(|a| local.animation.apply(a));
-            styles.base_animation = Some((base, shown));
-            if motion.animation != shown {
-                motion.animation = shown;
-                changes.paint = true;
-            }
-        }
-        // Opacité/transformation des règles d'état combinées (déclarations dynamiques
-        // comprises), animées par la transition.
-        let state_effect = local.effect.map(|e| {
-            (
-                e.effect,
-                crate::ui::animation::ReplacedProperties {
-                    opacity: e.opacity,
-                    transform: e.transform,
+            local = dynamic::evaluate(
+                styles,
+                local,
+                &active,
+                child_rules,
+                dynamic::Surroundings {
+                    inherited,
+                    root_font,
+                    parent_corners: parent.map_or([0.; 4], |p| p.corners),
+                    env: &env,
                 },
-            )
-        });
-        if node.motion.as_ref().and_then(|m| m.state) != state_effect
-            && (state_effect.is_some() || node.motion.is_some())
-        {
-            node.motion.get_or_insert_with(Default::default).state = state_effect;
-            changes.paint = true;
+            )?;
         }
+        motion::apply(node, &local, changes);
         let variables = node.styles.as_ref().and_then(|s| s.variables.as_ref());
         if let Some(e) = local.color_expressions[ColorTarget::Text as usize] {
             local.text.color = Some(e.evaluate(inherited.color.unwrap_or(black), variables));
@@ -538,12 +392,7 @@ pub(crate) fn resolve_inherited(
             styles.attributes = attributes;
         }
         result?;
-        if let (Some(inputs), Some(memo)) = (memo_inputs, node.memo.as_deref_mut()) {
-            memo.style_inputs = Some(inputs);
-            memo.style_inherited = Some(inherited);
-            memo.style_scope = declared.cloned();
-            memo.style_dirty = false;
-        }
+        memoized::remember(node, memo_inputs, declared, inherited);
         if let Some(above) = layout_above {
             if changes.layout
                 && let Some(cache) = node.layout_cache.as_deref_mut()
