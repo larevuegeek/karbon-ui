@@ -59,6 +59,29 @@ impl<'a> Cursor<'a> {
             _ => Err(self.error("Expected a string literal")),
         }
     }
+    /// `[pub[(…)]] mod nom` : visibilité (avec son espace final) et nom du module généré
+    /// (`css_file!`, `icons_dir!`) ; `usage` est la forme rappelée en cas d'erreur.
+    pub fn module_declaration(&mut self, usage: &str) -> Result<(String, proc_macro::Ident)> {
+        let mut visibility = String::new();
+        let mut keyword = self.ident()?;
+        if keyword == "pub" {
+            visibility = "pub ".into();
+            if let Some(TokenTree::Group(g)) = self.tokens.get(self.at)
+                && g.delimiter() == Delimiter::Parenthesis
+            {
+                visibility += &format!("{g} ");
+                self.at += 1;
+            }
+            keyword = self.ident()?;
+        }
+        if keyword != "mod" {
+            return Err(self.error(&format!("Use {usage}")));
+        }
+        match self.next()? {
+            TokenTree::Ident(i) => Ok((visibility, i)),
+            _ => Err(self.error("Expected a module name")),
+        }
+    }
     pub fn value(&mut self) -> Result<TokenStream> {
         let token = self.next()?;
         if let TokenTree::Group(g) = &token {

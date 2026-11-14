@@ -38,5 +38,5 @@ pub use super::{
 pub use crate::{
     Error, Result,
     application::{Action, Application, ColorPreferences, ColorScheme, ViewContext},
-    css_file, styles, ui, ui_file,
+    css_file, icons_dir, styles, ui, ui_file,
 };

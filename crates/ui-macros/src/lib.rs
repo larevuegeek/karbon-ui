@@ -3,18 +3,20 @@
 //!
 //! This crate is an implementation detail of
 //! [`karbon-ui`](https://crates.io/crates/karbon-ui): use its `ui!`, `ui_file!`,
-//! `styles!` and `css_file!` macros instead of the entry points below. Each of them
+//! `styles!`, `css_file!` and `icons_dir!` macros instead of the entry points below. Each of them
 //! expects the path of the `karbon_ui` crate between parentheses as its first token,
 //! which those wrappers provide; their arguments may change in any release.
 // Organisation (voir `docs/compiler.md`) : `input` (arguments et fichiers), `codegen`
 // (assemblage du code produit), `template` (`ui!`, `ui_file!`), `styles` (`styles!`),
-// `css` (`css_file!`), `classes` (`__karbon_classes!`), `tailwind`, `bootstrap`, `svg`.
+// `css` (`css_file!`), `classes` (`__karbon_classes!`), `icons` (`icons_dir!`), `tailwind`,
+// `bootstrap`, `svg`.
 extern crate proc_macro;
 mod bootstrap;
 mod classes;
 mod codegen;
 mod css;
 mod error;
+mod icons;
 mod input;
 mod styles;
 mod svg;
@@ -32,7 +34,7 @@ fn root(input: TokenStream) -> Result<(TokenStream, TokenStream)> {
             Ok((g.stream(), tokens.collect()))
         }
         _ => Err(Error::new(
-            "Use the public ui!, ui_file!, styles! or css_file! macro",
+            "Use the public ui!, ui_file!, styles!, css_file! or icons_dir! macro",
             Span::call_site(),
         )),
     }
@@ -66,6 +68,14 @@ pub fn compile_styles(input: TokenStream) -> TokenStream {
 pub fn compile_css_file(input: TokenStream) -> TokenStream {
     root(input)
         .and_then(|(root, input)| css::compile(root, input))
+        .unwrap_or_else(Error::tokens)
+}
+/// Engine of `karbon_ui::icons_dir!`: compiles every SVG file of a folder into a module
+/// that returns an icon by name.
+#[proc_macro]
+pub fn compile_icons_dir(input: TokenStream) -> TokenStream {
+    root(input)
+        .and_then(|(root, input)| icons::compile(root, input))
         .unwrap_or_else(Error::tokens)
 }
 /// Engine of the `__karbon_classes!` macro generated in every `css_file!` module:

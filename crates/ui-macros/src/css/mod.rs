@@ -25,7 +25,7 @@ pub(crate) use class::{
     framework_drop_animated_opacity, render_framework_class, strip_container, utility_class,
 };
 pub use inline::inline;
-pub use module::compile;
+pub use module::{compile, module_tokens};
 pub use parser::class_symbol;
 
 mod conversions;

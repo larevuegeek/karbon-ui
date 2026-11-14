@@ -11,7 +11,8 @@
 //! - [`ui`](mod@ui): elements, components, layout, styling, animation and the runtime.
 //!   [`ui::prelude`] imports everything needed to write a view.
 //! - [`ui!`], [`ui_file!`], [`styles!`] and [`css_file!`]: compile-time templates and
-//!   stylesheets producing the same `Element` tree, with no runtime parser.
+//!   stylesheets producing the same `Element` tree, with no runtime parser;
+//!   [`icons_dir!`] compiles a folder of SVG icons.
 //! - [`window`] and [`platform`]: window options and the backend entry points
 //!   ([`platform::run`], [`platform::run_windows`]).
 //! - [`task`]: background work with cooperative cancellation.
@@ -85,8 +86,8 @@ pub use error::{Error, ImageError, Result};
 #[doc(hidden)]
 pub use karbon_ui_macros::{
     compile_classes as __compile_classes, compile_css_file as __compile_css_file,
-    compile_styles as __compile_styles, compile_ui as __compile_ui,
-    compile_ui_file as __compile_ui_file,
+    compile_icons_dir as __compile_icons_dir, compile_styles as __compile_styles,
+    compile_ui as __compile_ui, compile_ui_file as __compile_ui_file,
 };
 
 /// Compiled native UI written as HTML. Rust expressions stay between braces; no runtime
@@ -194,4 +195,35 @@ macro_rules! styles {
 #[macro_export]
 macro_rules! css_file {
     ($($tokens:tt)*) => {$crate::__compile_css_file!(($crate) $($tokens)*);};
+}
+/// Compile a folder of SVG icons into a module that returns an icon by name.
+///
+/// `icons_dir!(pub mod icons, "assets/icons");` reads the folder relative to the Rust
+/// source at compile time. Each `<set>/<name>.svg` becomes the icon `"set:name"` (the
+/// Iconify naming, e.g. `lucide/plus.svg` is `"lucide:plus"`), and a file at the root of
+/// the folder, `<name>.svg`, the icon `"name"`. Other files (a licence list, notes) are
+/// ignored. Every file is compiled like `<svg src="…">` in a template: an unsupported SVG
+/// element is a build error naming the file, and `currentColor` takes the CSS `color` of
+/// the element.
+///
+/// The module holds `NAMES`, the sorted list of names, and
+/// `svg(cx, name) -> Option<Element>`, for names known at run time only (data, settings):
+///
+/// ```ignore
+/// icons_dir!(pub mod icons, "assets/icons");
+///
+/// let cx = TemplateContext::default();
+/// let play = icons::svg(&cx, "lucide:play").expect("lucide/play.svg is in the folder");
+/// ```
+///
+/// Cargo rebuilds the crate when one of the files read changes, but not when a file is
+/// added to the folder. To pick up new icons without touching a Rust file, declare the
+/// folder in the build script of the package (`build.rs`):
+///
+/// ```ignore
+/// println!("cargo:rerun-if-changed=src/assets/icons");
+/// ```
+#[macro_export]
+macro_rules! icons_dir {
+    ($($tokens:tt)*) => {$crate::__compile_icons_dir!(($crate) $($tokens)*);};
 }

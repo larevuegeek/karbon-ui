@@ -12,25 +12,7 @@ use proc_macro::{Delimiter, Group, Span, TokenStream, TokenTree};
 pub fn compile(root: TokenStream, input: TokenStream) -> Result<TokenStream> {
     let source = Source::call(&input);
     let mut c = Cursor::new(input, &source);
-    let mut visibility = String::new();
-    let mut keyword = c.ident()?;
-    if keyword == "pub" {
-        visibility = "pub ".into();
-        if let Some(TokenTree::Group(g)) = c.tokens.get(c.at)
-            && g.delimiter() == Delimiter::Parenthesis
-        {
-            visibility += &format!("{g} ");
-            c.at += 1;
-        }
-        keyword = c.ident()?;
-    }
-    if keyword != "mod" {
-        return Err(c.error("Use css_file!(pub mod styles, \"styles.css\")"));
-    }
-    let module = match c.next()? {
-        TokenTree::Ident(i) => i,
-        _ => return Err(c.error("Expected a module name")),
-    };
+    let (visibility, module) = c.module_declaration("css_file!(pub mod styles, \"styles.css\")")?;
     c.expect(',')?;
     let span = c.span();
     let path = c.string()?;
@@ -82,7 +64,11 @@ pub fn compile(root: TokenStream, input: TokenStream) -> Result<TokenStream> {
     Ok(module_tokens(&visibility, module, body))
 }
 /// `{visibility}mod {module} { body }`.
-fn module_tokens(visibility: &str, module: proc_macro::Ident, body: TokenStream) -> TokenStream {
+pub fn module_tokens(
+    visibility: &str,
+    module: proc_macro::Ident,
+    body: TokenStream,
+) -> TokenStream {
     let mut result: TokenStream = format!("{visibility}mod").parse().unwrap();
     result.extend([
         TokenTree::Ident(module),

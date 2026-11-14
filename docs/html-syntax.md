@@ -356,6 +356,46 @@ d’un `clipPath`). Valeurs par défaut du SVG : `fill` noir, pas de trait, épa
   jonctions / limite d’onglet ; le headless aplatit les courbes et remplit/trace au
   centre des pixels (jonctions en onglet et biseau arrondies).
 
+### Dossier d’icônes : `icons_dir!`
+
+Pour un jeu d’icônes choisies par leur nom, souvent connu seulement à l’exécution
+(données, réglages), `icons_dir!` compile un dossier entier en un module :
+
+```rust
+use karbon_ui::ui::prelude::*;
+
+// assets/icons/lucide/plus.svg     → "lucide:plus"
+// assets/icons/material-symbols/home-outline-rounded.svg → "material-symbols:home-outline-rounded"
+// assets/icons/logo.svg            → "logo"
+icons_dir!(pub mod icons, "assets/icons");
+
+let cx = TemplateContext::default();
+let plus: Option<Element> = icons::svg(&cx, "lucide:plus");
+let tous: &[&str] = icons::NAMES; // triés
+```
+
+- Le chemin est relatif au fichier Rust, comme `css_file!`. Chaque
+  `<jeu>/<nom>.svg` devient l’icône `"jeu:nom"`, le nommage d’Iconify ; un fichier à
+  la racine du dossier, `<nom>.svg`, l’icône `"nom"`. Un niveau de sous-dossiers au
+  plus ; les autres fichiers (liste des licences, notes) sont ignorés. Les noms
+  s’écrivent en minuscules, chiffres, `-`, `_` et `.`.
+- Chaque fichier est compilé comme `<svg src="…">` : mêmes éléments acceptés, même
+  erreur de compilation qui nomme le fichier fautif, `currentColor` suivi. `svg`
+  renvoie un `Element` ordinaire, à dimensionner (`.width()`, `.height()`) ou à insérer
+  dans un template avec `{@element …}`.
+- Pour une variante (trait plus épais, autre couleur figée), un second dossier avec
+  les mêmes noms et un second module : `icons_dir!(pub mod thick, "assets/icons-thick")`.
+- **Ajout d’un fichier** : Cargo recompile quand un fichier lu change, pas quand un
+  fichier apparaît dans le dossier. Le script de construction de la crate le
+  surveille :
+
+  ```rust
+  // build.rs
+  fn main() {
+      println!("cargo:rerun-if-changed=src/assets/icons");
+  }
+  ```
+
 ## 11. Menus, listes de choix et infobulles
 
 Un menu déroulant s’écrit comme en HTML/ARIA : un déclencheur `aria-haspopup` +
