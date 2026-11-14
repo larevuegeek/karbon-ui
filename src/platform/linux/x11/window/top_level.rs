@@ -191,6 +191,14 @@ impl Window {
             32,
             &words(&[atoms.wm_delete_window, atoms.net_wm_ping]),
         );
+        // Icône de la fenêtre : plusieurs tailles en ARGB (Wayland n'a pas d'équivalent,
+        // l'entrée `.desktop` du nom de l'application donne l'icône).
+        if let Some(bytes) = options.icon {
+            match crate::platform::linux::tray::window_icon(bytes) {
+                Ok(icon) => set(atoms.net_wm_icon, XCB_ATOM_CARDINAL, 32, &words(&icon)),
+                Err(error) => eprintln!("karbon-ui: window icon unavailable ({error})"),
+            }
+        }
         self.size_hints(connection);
         if !options.title_bar {
             // `MWM_HINTS_DECORATIONS` seul, aucune décoration.

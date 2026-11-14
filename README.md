@@ -36,7 +36,8 @@ the binary contains no HTML parser, no CSS engine and no browser.
   at run time. An existing framework stylesheet is compiled leniently, with a report of
   what was skipped.
 - **Native where it matters.** System text shaping, input methods, screen readers,
-  clipboard, file dialogs, system colour scheme and reduced motion.
+  clipboard, file dialogs, window icons, a system tray icon with its menu (notification
+  area, macOS menu bar, Linux StatusNotifierItem), system colour scheme and reduced motion.
 - **No third-party crates.** Only the vendors' official bindings (`windows`, the `objc2`
   family, `libc`); on Linux the desktop libraries are bound by hand.
 
@@ -192,6 +193,7 @@ cargo run --example simple_ui                  # the Rust API
 cargo run --example multi_window               # several windows
 cargo run --example background_task            # a background task and its wake-up
 cargo run --example system_dialogs             # native file dialogs
+cargo run --example tray_icon                  # window icon, tray icon and its menu
 ```
 
 `kit_gallery`, `rustmusic_html`, `bootstrap_demo`, `simple_ui` and `system_dialogs` accept

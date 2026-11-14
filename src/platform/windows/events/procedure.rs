@@ -2,7 +2,7 @@ pub(super) use super::super::{
     accessibility,
     ffi::{Hwnd, invalidate},
     present::runtime,
-    window::{self, shadow, state, tasks, timer},
+    window::{self, shadow, state, tasks, timer, tray},
 };
 use super::*;
 pub(super) use crate::ui::runtime::UiEvent;
@@ -71,6 +71,7 @@ pub(crate) unsafe extern "system" fn window_proc(
 pub(super) fn teardown(window: Hwnd, run: impl Fn(&dyn Fn())) {
     run(&runtime::finish_profile);
     run(&tasks::close);
+    run(&|| tray::remove(window));
     run(&|| timer::shutdown(window));
     run(&|| text::shutdown(window));
     run(&accessibility::shutdown);

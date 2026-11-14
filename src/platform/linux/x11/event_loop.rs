@@ -193,6 +193,12 @@ impl X11 {
                 }
             }
             WindowCommand::Exit => self.exit = true,
+            WindowCommand::Tray(id, icon) => {
+                self.with(id, |w, _| {
+                    w.session.set_tray(icon);
+                    Ok(())
+                });
+            }
         }
     }
     /// Envoie `event` à la fenêtre `id` et applique sa réponse (presse-papiers, curseur).

@@ -67,6 +67,8 @@ pub(crate) struct Session {
     pub(super) link: Option<FrameLink>,
     /// Un battement de l'écran vient d'arriver : la prochaine image part de lui.
     pub(super) frame_clock: bool,
+    /// Icône de la barre des menus (`WindowCommand::Tray`), retirée avec la session.
+    pub(crate) tray: Option<super::super::tray::StatusTray>,
 }
 impl Session {
     /// Charge l'application, puis ouvre sa fenêtre (au centre de l'écran).
@@ -179,6 +181,7 @@ impl Session {
             reported: None,
             link,
             frame_clock: false,
+            tray: None,
         })
     }
     /// Contexte de vue, taille en pixels et échelle de la zone de contenu.

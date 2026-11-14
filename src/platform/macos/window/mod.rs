@@ -20,6 +20,7 @@ mod memory;
 mod menu;
 mod session;
 mod text;
+mod tray;
 mod view;
 pub(crate) use event_loop::*;
 pub(super) use input::*;

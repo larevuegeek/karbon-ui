@@ -9,7 +9,7 @@ use super::{
         imaging::DrawingEngine,
         present::{self, runtime},
     },
-    WINDOW_WAKE, create, dwm, startup, state, take_error, take_pending, tasks,
+    WINDOW_WAKE, create, dwm, icon, startup, state, take_error, take_pending, tasks,
 };
 use crate::window::{ExitPolicy, WindowCommand, WindowDescriptor};
 use std::ptr::null_mut;
@@ -69,6 +69,12 @@ impl Session {
         startup::mark("renderer ready (D3D11/D2D)");
         let (window, presenter) = create::create_presented_window(options, &mut renderer)?;
         startup::mark("window and presentation created");
+        if let Some(bytes) = options.icon {
+            match icon::set_window_icon(window, &self.decoder, bytes) {
+                Ok(icons) => *state.icons.borrow_mut() = icons,
+                Err(error) => eprintln!("karbon-ui: window icon unavailable ({error})"),
+            }
+        }
         state::register(window, state);
         tasks::initialize(window);
         let initialize = || -> crate::Result<()> {
@@ -175,6 +181,16 @@ impl Session {
                             runtime::complete_task(window, result);
                             tasks::defer_commands(window);
                         })?;
+                    }
+                }
+                WindowCommand::Tray(id, tray) => {
+                    if let Some((window, _)) = state::windows()
+                        .into_iter()
+                        .find(|(_, candidate)| *candidate == id)
+                        && let Err(error) =
+                            guard(window, || super::tray::set(window, &self.decoder, tray))?
+                    {
+                        eprintln!("karbon-ui: tray icon unavailable ({error})");
                     }
                 }
                 WindowCommand::Exit => {

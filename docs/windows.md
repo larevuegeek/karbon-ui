@@ -226,6 +226,158 @@ fn task_completed(&mut self, result: TaskResult) -> bool {
 | macOS | `NSOpenPanel`, `NSSavePanel` en feuille | Types par `UTType` (macOS 11 et plus) ; non essayé sur un Mac. |
 | Linux | Portail XDG `org.freedesktop.portal.FileChooser` | Appel et attente sur un thread (libdbus), choix rendu par le réveil des tâches ; parent `x11:<XID>` sous X11, `wayland:<poignée>` sous Wayland (`xdg-foreign` v2, sinon v1 comme GNOME 42) ; à essayer à la main (exemple `system_dialogs`). |
 
+## Icône de la fenêtre et zone de notification
+
+Deux choses distinctes :
+
+- l'**icône de la fenêtre** (`WindowOptions::icon`), celle de la barre des tâches,
+  d'Alt+Tab et du Dock ;
+- l'**icône de la zone de notification** (`WindowCommand::Tray`), avec son menu : la
+  zone de notification de Windows, la barre des menus de macOS, un `StatusNotifierItem`
+  sous Linux. Elle permet de garder l'application ouverte fenêtre masquée.
+
+Exemple complet : `cargo run --release --example tray_icon`
+([examples/tray_icon.rs](../examples/tray_icon.rs)).
+
+### En cinq étapes
+
+```rust,ignore
+use karbon_ui::window::{TrayEvent, TrayIcon, WindowChange, WindowCommand, WindowId, WindowOptions};
+
+const ICON: &[u8] = include_bytes!("../assets/icon.png");
+const SHOW: u32 = 1; // identifiants des entrées, choisis par l'application
+const QUIT: u32 = 2;
+
+// 1. L'icône de la fenêtre, à l'ouverture.
+platform::run(WindowOptions { icon: Some(ICON), ..WindowOptions::DEFAULT }, app)
+
+// 2. L'icône de la zone de notification : une commande, comme toutes les commandes de
+//    fenêtre (rendue par `take_window_commands`). La pousser dès la construction de
+//    l'application suffit : elle est lue après le chargement de la fenêtre.
+self.commands.push(WindowCommand::Tray(
+    WindowId::MAIN,
+    Some(TrayIcon::new(ICON).tooltip("Lecteur")
+        .item(SHOW, "Afficher")
+        .separator()
+        .item(QUIT, "Quitter")),
+));
+
+// 3. Les clics et les choix du menu arrivent ici, même fenêtre masquée.
+fn tray_event(&mut self, event: TrayEvent) -> bool {
+    match event {
+        TrayEvent::Activated | TrayEvent::MenuItem(SHOW) => self.commands.push(
+            WindowCommand::Change(WindowId::MAIN, WindowChange::Focus), // montrer, premier plan
+        ),
+        TrayEvent::MenuItem(QUIT) => self.commands.push(WindowCommand::Exit),
+        TrayEvent::MenuItem(_) => {}
+    }
+    false // `true` reconstruit la vue
+}
+
+// 4. « Fermer » masque au lieu de quitter (bouton de la barre de titre de l'application) :
+self.commands.push(WindowCommand::Change(WindowId::MAIN, WindowChange::Visible(false)));
+
+// 5. Changer un texte du menu ou l'infobulle : renvoyer la commande, l'icône est mise à
+//    jour sur place. La retirer : `WindowCommand::Tray(WindowId::MAIN, None)`.
+```
+
+### Ce que fait chaque plateforme
+
+Les règles sont les mêmes partout, pour qu'une application n'ait qu'un comportement à
+écrire : le **clic principal** remet `TrayEvent::Activated`, le **clic secondaire**
+ouvre le menu, le **choix d'une entrée** remet `TrayEvent::MenuItem(id)`. Une entrée
+grisée (`disabled_item`) ou un séparateur ne remettent rien.
+
+| | Windows | macOS | Linux |
+| --- | --- | --- | --- |
+| Où | Zone de notification (Windows 11 range les nouvelles icônes sous « ^ » ; l'utilisateur peut l'en sortir) | Barre des menus, à droite | Zone de l'hôte `StatusNotifierItem` : KDE Plasma, Xfce, Cinnamon, MATE, LXQt, Budgie ; GNOME avec l'extension AppIndicator (présente sous Ubuntu) |
+| Clic principal | `Activated` (aussi Entrée sur l'icône sélectionnée au clavier) | `Activated` | `Activated` (méthode `Activate`) |
+| Menu | Clic droit ; menu Win32 au thème du système (sombre si Windows l'est) | Clic droit ou Contrôle + clic, sous l'icône | Clic droit, dessiné par l'hôte (`com.canonical.dbusmenu`), à son thème |
+| Infobulle | 127 caractères au plus | Infobulle du bouton | Titre et infobulle de l'élément (le nom de l'application si vide) |
+| `template` | ignoré | Image « modèle » : seule la forme compte, teinte comme la barre des menus | ignoré |
+| Taille de l'image | 16 px à 100 %, 24 à 150 %, 32 à 200 % | 18 points (36 px sur Retina) | L'hôte choisit parmi 16, 22, 24, 32, 48, 64 px |
+| Explorateur ou hôte redémarré | Icône reposée (`TaskbarCreated`) | sans objet | Icône réinscrite quand le gardien `org.kde.StatusNotifierWatcher` revient |
+
+| | Windows | macOS | Linux X11 | Linux Wayland |
+| --- | --- | --- | --- | --- |
+| `WindowOptions::icon` | Barre des tâches, Alt+Tab, menu de la fenêtre (`WM_SETICON`, deux tailles au DPI de la fenêtre) | Icône du Dock hors paquet `.app` (un paquet garde la sienne) | `_NET_WM_ICON` (16 à 128 px) | sans effet : le compositeur prend l'icône de l'entrée `.desktop` dont le nom, ou `StartupWMClass`, est le nom de l'exécutable (`app_id`) |
+
+### Images
+
+- **Icône de la fenêtre** : une image carrée d'au moins 256 px. Sous macOS, l'icône du
+  Dock suit le dessin des icônes macOS (carré arrondi avec marge) : donner une image
+  propre à macOS (`#[cfg(target_os = "macos")]`) si celle des autres systèmes n'en a pas.
+- **Zone de notification** : une forme simple sur fond transparent, d'au moins 64 px,
+  lisible à 16 px. Un fond sombre ou clair plein se perd dans une barre de l'autre
+  couleur. Sous macOS, `.template(true)` sur une forme d'une seule couleur donne une
+  icône comme les autres de la barre des menus.
+- Formats : ceux du décodeur de la plateforme (PNG, JPEG, BMP partout). Une image
+  illisible est signalée sur la sortie d'erreur (`karbon-ui: tray icon unavailable`,
+  `karbon-ui: window icon unavailable`) et ignorée : l'icône précédente reste.
+
+### Icône de l'exécutable et paquets
+
+karbon-ui pose les icônes au lancement ; celle du fichier lui-même vient de la
+compilation ou du paquet :
+
+- **Windows** : une ressource `ICON` dans l'exécutable (Explorateur, raccourcis,
+  épinglage). Avec la crate `embed-resource` dans `build.rs` :
+
+  ```rust,ignore
+  // build.rs ; Cargo.toml : [build-dependencies] embed-resource = "3"
+  fn main() {
+      if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+          // app.rc : `1 ICON "assets/icon.ico"` (et un bloc VERSIONINFO, nom affiché
+          // dans le Gestionnaire des tâches).
+          embed_resource::compile("app.rc", embed_resource::NONE).manifest_optional().unwrap();
+      }
+  }
+  ```
+
+- **macOS** : `CFBundleIconFile` du paquet `.app` (fichier `.icns`).
+- **Linux** : une entrée `.desktop` (`Icon=`, `StartupWMClass=` nom de l'exécutable)
+  et l'icône installée dans `share/icons/hicolor/`. Sans entrée sous Wayland, la fenêtre
+  a l'icône générique.
+
+### Limites
+
+- Une icône par fenêtre. Plusieurs fenêtres peuvent en avoir chacune une.
+- Pas de sous-menus, de cases à cocher ni d'icônes dans le menu ; pas de notification
+  en bulle (voir les notifications du système, à venir).
+- Linux : sans hôte `StatusNotifierItem` (GNOME sans l'extension AppIndicator), rien ne
+  s'affiche ; un message l'indique sur la sortie d'erreur et l'icône apparaît dès qu'un
+  hôte démarre.
+- Windows : le menu sombre passe par trois fonctions non documentées d'`uxtheme.dll`
+  (celles de l'Explorateur, du Bloc-notes et de Windows Terminal) ; absentes, il reste
+  clair.
+
+### Fonctionnement et code
+
+- Types publics : `window/tray.rs` ; `WindowOptions::icon` dans `window/config.rs`.
+- Windows : `platform/windows/window/icon.rs` (`HICON` à alpha droit depuis l'image
+  décodée en BGRA prémultiplié), `tray.rs` (`Shell_NotifyIconW`, comportement de la
+  version 4, infobulle `NIF_SHOWTIP`, menu `TrackPopupMenuEx` de la fenêtre propriétaire,
+  `TaskbarCreated`), `menu_theme.rs` (`SetPreferredAppMode(AllowDark)`,
+  `AllowDarkModeForWindow`, `FlushMenuThemes`, ordinaux 135, 133 et 136).
+- macOS : `platform/macos/window/tray.rs` : `NSStatusItem` carré, image `NSImage`
+  (18 points, `template`), bouton qui envoie son action aux deux relâchements ; au clic
+  secondaire, le menu est attaché le temps d'un `performClick:` puis détaché. Icône du
+  Dock par `NSApplication.applicationIconImage` quand `NSBundle.mainBundle` n'a pas
+  d'identifiant.
+- Linux : `platform/linux/tray/` : un thread et une connexion privée au bus de session
+  par icône (`service.rs`) ; nom `org.kde.StatusNotifierItem-<pid>-<n>`, objets
+  `/StatusNotifierItem` (`item.rs`) et `/MenuBar` (`dbusmenu.rs`, version 3), inscription
+  auprès du gardien et de nouveau à son retour (`NameOwnerChanged`). Clics remis par un
+  canal et le réveil de la boucle, livrés par `Session::tasks`. Images en ARGB à alpha
+  droit (`pixmap.rs`), aussi pour `_NET_WM_ICON` (`x11/window/top_level.rs`).
+- Tests : `platform/windows/tests/tray.rs` (fenêtre cachée : icônes posées aux deux
+  tailles, conversion des pixels, clics remis à l'application ; l'icône n'est pas ajoutée
+  au vrai Shell), `platform/linux/tray/tests.rs` (pixels, identifiants du menu).
+  Essayé à la main sous Windows 11 (exemple `tray_icon`, RustMusic). macOS et Linux :
+  compilés et vérifiés par clippy depuis Windows, **pas encore essayés** sur un Mac ni sur
+  un bureau Linux ; à faire avec l'exemple `tray_icon` (clic principal, clic secondaire,
+  « Pause » qui change le texte du menu, « Quitter »).
+
 ## Choisir quand l’application s’arrête
 
 | Politique | Comportement |

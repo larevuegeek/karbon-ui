@@ -48,6 +48,7 @@ mod portal;
 mod shell;
 #[cfg(test)]
 mod tests;
+mod tray;
 // Renderer Vulkan : fenêtres (chemin par défaut) et rendus hors écran en mode `Gpu`.
 mod backend;
 mod vulkan;

@@ -65,6 +65,10 @@ pub(crate) struct WindowState {
     pub fullscreen: Cell<Option<super::change::Restore>>,
     /// Dernier état remis à `Application::window_changed`.
     pub reported: Cell<Option<crate::window::WindowState>>,
+    /// Icônes posées par `WM_SETICON` (`WindowOptions::icon`), détruites après la fenêtre.
+    pub icons: RefCell<Vec<super::icon::Icon>>,
+    /// Icône de la zone de notification (`WindowCommand::Tray`).
+    pub tray: RefCell<Option<super::tray::NativeTray>>,
 }
 impl WindowState {
     pub fn new(id: WindowId, options: WindowOptions) -> Rc<Self> {
@@ -98,6 +102,8 @@ impl WindowState {
             aspect: Cell::new(None),
             fullscreen: Cell::new(None),
             reported: Cell::new(None),
+            icons: RefCell::new(Vec::new()),
+            tray: RefCell::new(None),
         })
     }
 }

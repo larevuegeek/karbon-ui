@@ -100,6 +100,12 @@ unsafe extern "C" {
         sub: *mut Iter,
     ) -> c_uint;
     fn dbus_message_iter_close_container(iter: *mut Iter, sub: *mut Iter) -> c_uint;
+    fn dbus_message_iter_append_fixed_array(
+        iter: *mut Iter,
+        kind: c_int,
+        value: *const c_void,
+        count: c_int,
+    ) -> c_uint;
     fn dbus_message_iter_get_arg_type(iter: *mut Iter) -> c_int;
     fn dbus_message_iter_get_basic(iter: *mut Iter, value: *mut c_void);
     fn dbus_message_iter_next(iter: *mut Iter) -> c_uint;
@@ -414,6 +420,22 @@ impl Writer<'_> {
             }
         }
         self
+    }
+    /// Tableau d'octets `ay`, écrit d'un bloc (pixels d'une icône).
+    pub fn bytes(&mut self, value: &[u8]) -> &mut Self {
+        self.open(b'a', Some("y"));
+        let pointer = value.as_ptr();
+        // SAFETY : tableau ouvert ci-dessus ; libdbus lit `value.len()` octets à l'adresse
+        // passée par référence (convention de `append_fixed_array`).
+        unsafe {
+            dbus_message_iter_append_fixed_array(
+                self.top(),
+                c_int::from(b'y'),
+                (&raw const pointer).cast(),
+                c_int::try_from(value.len()).unwrap_or(0),
+            )
+        };
+        self.close()
     }
     /// Référence d'objet AT-SPI `(so)` : nom de bus et chemin.
     pub fn reference(&mut self, bus: &str, path: &str) -> &mut Self {

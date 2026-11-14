@@ -207,6 +207,43 @@ pub trait Application: 'static {
     fn window_changed(&mut self, _state: crate::window::WindowState) -> bool {
         false
     }
+    /// Receive a click or a menu choice on the window's
+    /// [`TrayIcon`](crate::window::TrayIcon), set with
+    /// [`WindowCommand::Tray`](crate::window::WindowCommand::Tray); delivered even while
+    /// the window is hidden. Return `true` to rebuild the view. Defaults to ignoring it.
+    ///
+    /// ```
+    /// use karbon_ui::{
+    ///     ui::prelude::*,
+    ///     window::{TrayEvent, WindowChange, WindowCommand, WindowId},
+    /// };
+    ///
+    /// #[derive(Default)]
+    /// struct Player {
+    ///     commands: Vec<WindowCommand>,
+    /// }
+    /// impl Application for Player {
+    ///     type Message = ();
+    ///     fn tray_event(&mut self, event: TrayEvent) -> bool {
+    ///         let command = match event {
+    ///             TrayEvent::Activated | TrayEvent::MenuItem(1) => {
+    ///                 WindowCommand::Change(WindowId::MAIN, WindowChange::Focus)
+    ///             }
+    ///             _ => WindowCommand::Exit,
+    ///         };
+    ///         self.commands.push(command);
+    ///         false
+    ///     }
+    ///     fn take_window_commands(&mut self) -> Vec<WindowCommand> {
+    ///         std::mem::take(&mut self.commands)
+    ///     }
+    ///     # fn view(&self, _: &ViewContext) -> Element { text("t", "") }
+    ///     # fn update(&mut self, _: ()) -> bool { false }
+    /// }
+    /// ```
+    fn tray_event(&mut self, _event: crate::window::TrayEvent) -> bool {
+        false
+    }
 }
 
 /// Façade objet d'une application : le runtime et les fenêtres ignorent son type de message.
@@ -222,6 +259,7 @@ pub(crate) trait DynApplication {
     fn has_frame_work(&self) -> bool;
     fn frame_work(&mut self) -> bool;
     fn window_changed(&mut self, state: crate::window::WindowState) -> bool;
+    fn tray_event(&mut self, event: crate::window::TrayEvent) -> bool;
     /// Accès typé pour le harnais headless, qui connaît le type concret.
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
@@ -283,6 +321,9 @@ impl<A: Application> DynApplication for A {
     }
     fn window_changed(&mut self, state: crate::window::WindowState) -> bool {
         Application::window_changed(self, state)
+    }
+    fn tray_event(&mut self, event: crate::window::TrayEvent) -> bool {
+        Application::tray_event(self, event)
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self

@@ -184,6 +184,9 @@ pub(super) fn open(descriptor: WindowDescriptor, mtm: MainThreadMarker) -> crate
     }
     let session = Session::open(descriptor, mtm)?;
     let id = session.id;
+    if let Some(bytes) = session.options.icon {
+        tray::dock_icon(bytes, mtm);
+    }
     SESSIONS.with(|s| s.borrow_mut().push(session));
     with(id, |s| s.paint());
     // Hors de l'emprunt des sessions : la fenêtre devenue clé le signale aussitôt.
@@ -236,7 +239,28 @@ pub(super) fn execute(command: WindowCommand, mtm: MainThreadMarker) {
             }
         }
         WindowCommand::Exit => EXIT.with(|e| e.set(true)),
+        WindowCommand::Tray(id, icon) => {
+            let built = match icon.map(|icon| tray::create(id, &icon, mtm)).transpose() {
+                Ok(built) => built,
+                Err(error) => {
+                    eprintln!("karbon-ui: tray icon unavailable ({error})");
+                    return;
+                }
+            };
+            // L'ancienne icône est retirée hors de l'emprunt des sessions.
+            let previous = with(id, |s| Ok(std::mem::replace(&mut s.tray, built)));
+            drop(previous);
+        }
     }
+}
+/// Clic ou choix de menu sur l'icône de la barre des menus (`tray.rs`) : remis à
+/// l'application ; ses commandes passent au tour suivant de la boucle.
+pub(super) fn tray_event(id: WindowId, event: crate::window::TrayEvent) {
+    with(id, |s| {
+        s.dirty |= s.runtime.tray_event(event);
+        Ok(())
+    });
+    wake();
 }
 /// Travail entre deux événements ; `false` quand la boucle doit s'arrêter.
 pub(super) fn service(policy: ExitPolicy, mtm: MainThreadMarker) -> bool {

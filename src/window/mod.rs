@@ -11,5 +11,7 @@ pub(crate) mod validation;
 pub use change::{WindowChange, WindowState};
 mod dialog;
 pub use dialog::{FileDialog, FileDialogKind, FileDialogResult, FileFilter};
+mod tray;
+pub use tray::{TrayEvent, TrayIcon, TrayMenuItem};
 mod config;
 pub use config::*;

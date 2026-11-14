@@ -20,6 +20,8 @@ pub(super) struct Atoms {
     pub net_wm_name: u32,
     pub utf8_string: u32,
     pub net_wm_pid: u32,
+    /// Icône de la fenêtre (`WindowOptions::icon`) : tailles successives en ARGB.
+    pub net_wm_icon: u32,
     /// Hôte du processus : EWMH ne donne un sens à `_NET_WM_PID` qu'avec lui.
     pub wm_client_machine: u32,
     pub motif_wm_hints: u32,
@@ -217,6 +219,7 @@ impl Connection {
             "_NET_ACTIVE_WINDOW",
             "_NET_WORKAREA",
             "_GTK_SHOW_WINDOW_MENU",
+            "_NET_WM_ICON",
         ];
         let xcb = self.xcb;
         // SAFETY : noms locaux lus pendant l'appel.
@@ -258,6 +261,7 @@ impl Connection {
             net_active_window,
             net_workarea,
             gtk_show_window_menu,
+            net_wm_icon,
         ] = values;
         Atoms {
             wm_protocols,
@@ -285,6 +289,7 @@ impl Connection {
             net_active_window,
             net_workarea,
             gtk_show_window_menu,
+            net_wm_icon,
         }
     }
     /// Disposition du clavier du serveur : lue telle quelle par l'extension XKB

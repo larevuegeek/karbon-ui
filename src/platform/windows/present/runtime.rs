@@ -334,6 +334,13 @@ pub(crate) fn window_changed(window: Hwnd, state: crate::window::WindowState) ->
     }
     delivered.is_some()
 }
+/// Remet un clic ou un choix de menu de l'icône de la zone de notification à
+/// l'application ; abandonné si le runtime n'est pas joignable (emprunté plus haut).
+pub(crate) fn tray_event(window: Hwnd, event: crate::window::TrayEvent) {
+    if exclusive(window, |drawing| drawing.runtime.tray_event(event)) == Some(true) {
+        invalidate(window);
+    }
+}
 /// Test de contenu pour WM_NCHITTEST. Seule la composition en a besoin : une fenêtre
 /// layered laisse déjà Windows ignorer ses pixels transparents. Sans scène lisible
 /// (peinture en cours, fenêtre non initialisée), le point est considéré couvert.

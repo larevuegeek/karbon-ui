@@ -36,8 +36,11 @@ pub(in crate::platform::linux) struct Session {
     /// Dialogues de fichiers ouverts (portail XDG) ; leurs choix sont remis avec les
     /// résultats des tâches.
     dialogs: Dialogs,
-    /// Réveil de la boucle depuis un autre thread (tâches, dialogues).
+    /// Réveil de la boucle depuis un autre thread (tâches, dialogues, icône).
     wake: Waker,
+    /// Icône de la zone de notification (`WindowCommand::Tray`) ; ses clics sont remis
+    /// par `tasks`.
+    tray: Option<crate::platform::linux::tray::Tray>,
     /// Taille logique de la surface.
     pub width: i32,
     pub height: i32,
@@ -113,6 +116,7 @@ impl Session {
             scope,
             dialogs: Dialogs::new(),
             wake,
+            tray: None,
             scale: 1.,
             physical: None,
             presented: None,
@@ -289,8 +293,17 @@ impl Session {
         self.dialogs
             .open(task, dialog, parent, Arc::clone(&self.wake));
     }
-    /// Lance, annule et livre les tâches de fond et les choix des dialogues de fichiers ;
-    /// `true` si l'application a changé.
+    /// Pose, remplace ou retire (`None`) l'icône de la zone de notification ; une image
+    /// illisible est signalée sur la sortie d'erreur et laisse l'icône précédente.
+    pub fn set_tray(&mut self, icon: Option<crate::window::TrayIcon>) {
+        if let Err(error) =
+            crate::platform::linux::tray::Tray::apply(&mut self.tray, icon, &self.wake)
+        {
+            eprintln!("karbon-ui: tray icon unavailable ({error})");
+        }
+    }
+    /// Lance, annule et livre les tâches de fond, les choix des dialogues de fichiers et
+    /// les clics sur l'icône de la zone de notification ; `true` si l'application a changé.
     pub fn tasks(&mut self, executor: &mut Option<TaskExecutor>) -> bool {
         let mut changed = false;
         loop {
@@ -328,6 +341,14 @@ impl Session {
                 break;
             };
             changed |= self.runtime.task_completed(result);
+        }
+        for event in self
+            .tray
+            .as_ref()
+            .map(|tray| tray.events())
+            .unwrap_or_default()
+        {
+            changed |= self.runtime.tray_event(event);
         }
         self.dirty |= changed;
         changed

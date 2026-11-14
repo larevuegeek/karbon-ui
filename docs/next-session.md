@@ -103,6 +103,16 @@ non redimensionnable.
   d'une tâche ; Windows (`IFileOpenDialog`) essayé dans le clone, macOS (`NSOpenPanel` en
   feuille) et Linux (portail XDG sur un thread) compilés seulement, voir
   [les fenêtres](windows.md#dialogues-de-fichiers).
+- **Icône de la fenêtre et zone de notification** (2026-11-14) : `WindowOptions::icon`,
+  `WindowCommand::Tray(id, Option<TrayIcon>)` (image, infobulle, menu) et
+  `Application::tray_event` (clic principal, menu au clic secondaire, même fenêtre
+  masquée), mêmes règles sur les trois plateformes. Windows (`WM_SETICON`,
+  `Shell_NotifyIconW`, `TaskbarCreated`, menu au thème du système par `uxtheme.dll`)
+  essayé dans RustMusic et l'exemple `tray_icon`. macOS (`NSStatusItem`, image
+  `template`, Dock hors paquet) et Linux (`StatusNotifierItem` + `com.canonical.dbusmenu`
+  sur un thread et une connexion privée par icône, `_NET_WM_ICON` sous X11) compilés
+  seulement : **à essayer** avec `cargo run --example tray_icon` sur un Mac et sous KDE
+  ou GNOME + AppIndicator ; voir [les fenêtres](windows.md#icône-de-la-fenêtre-et-zone-de-notification).
 - **Liste des morceaux** (bibliothèque chargée, « le jour et la nuit » face à Tauri) :
   les 200 lignes étaient peintes à chaque image (lignes en `overflow: visible` gardant
   la découpe de la liste ; 12 336 commandes, 704 calques d'opacité nulle), la mémoire

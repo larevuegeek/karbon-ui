@@ -139,6 +139,17 @@ impl DrawingEngine {
         }
         Self::pixels(&image, width, height)
     }
+    /// Image réduite (jamais agrandie) à `edge` pixels sur son grand côté, en qualité
+    /// bicubique : icônes de la fenêtre et de la zone de notification.
+    pub(super) fn scaled(&self, bytes: &[u8], edge: u32) -> crate::Result<Image> {
+        self.thumbnail(
+            bytes,
+            ImageLoadOptions {
+                thumbnail_edge: edge.clamp(1, 2048),
+                ..ImageLoadOptions::default()
+            },
+        )
+    }
     fn thumbnail(&self, bytes: &[u8], options: ImageLoadOptions) -> crate::Result<Image> {
         let (_stream, source, width, height) = Self::open(bytes)?;
         options.check_dimensions(width, height)?;

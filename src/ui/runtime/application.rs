@@ -53,4 +53,14 @@ impl UiRuntime {
         }
         changed
     }
+
+    /// Deliver a click or a menu choice on the window's tray icon to the application;
+    /// returns `true` (and invalidates the view) if the application asked for a rebuild.
+    pub fn tray_event(&mut self, event: crate::window::TrayEvent) -> bool {
+        let changed = self.app.tray_event(event);
+        if changed {
+            self.invalidate();
+        }
+        changed
+    }
 }

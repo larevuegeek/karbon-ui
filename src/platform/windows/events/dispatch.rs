@@ -4,7 +4,7 @@ use super::{
     super::{
         ffi::Hwnd,
         present::{self, paint, runtime},
-        window::{change, timer},
+        window::{change, timer, tray},
     },
     accessibility, keyboard, nonclient, pointer, send_ui, tasks, teardown, text,
 };
@@ -52,6 +52,12 @@ pub(super) unsafe fn window_message(
         tasks::TASK_WAKE => {
             tasks::deliver(window);
             0
+        }
+        tray::TRAY_MESSAGE => tray::message(window, wparam, lparam),
+        // Explorateur redémarré : la zone de notification a perdu ses icônes.
+        _ if message == tray::taskbar_created() => {
+            tray::restore(window);
+            default_proc()
         }
         WM_GETOBJECT => {
             accessibility::get_object(window, wparam, lparam).unwrap_or_else(default_proc)

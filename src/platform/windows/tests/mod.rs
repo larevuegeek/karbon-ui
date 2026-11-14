@@ -8,5 +8,6 @@ mod presentation;
 mod support;
 mod tasks;
 mod timers;
+mod tray;
 mod window;
 use support::*;

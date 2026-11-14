@@ -63,6 +63,15 @@ pub enum WindowCommand {
     /// [`FileDialogResult`] (no path when the user cancels), or a failure when the system
     /// dialog cannot be shown. Nothing is delivered if the window is closed.
     FileDialog(WindowId, crate::task::TaskId, FileDialog),
+    /// Show, replace (`Some`) or remove (`None`) the window's icon in the system tray. Its
+    /// clicks and menu choices go to that window's
+    /// [`Application::tray_event`](crate::application::Application::tray_event); the icon
+    /// stays while the window is hidden and is removed when the window closes. Sending it
+    /// again updates the icon in place (tooltip, menu labels). An image that cannot be
+    /// decoded is reported on the standard error and leaves the previous icon. Windows
+    /// (notification area), macOS (menu bar) and Linux (`StatusNotifierItem`); see
+    /// [`TrayIcon`].
+    Tray(WindowId, Option<TrayIcon>),
 }
 
 /// When the event loop started by [`platform::run_windows`](crate::platform::run_windows)
@@ -125,6 +134,21 @@ pub struct WindowOptions {
     /// Draw the built-in title bar. `false`: the whole client area belongs to the
     /// application (close with Alt+F4).
     pub title_bar: bool,
+    /// Encoded image (PNG, JPEG, BMP…) of the window's icon, scaled to the sizes the
+    /// system uses. A square image of at least 256 pixels stays sharp at every scale.
+    /// `None` keeps the system default; an image that cannot be decoded is reported on
+    /// the standard error and ignored.
+    ///
+    /// - Windows: taskbar, Alt+Tab and window menu.
+    /// - Linux X11: `_NET_WM_ICON` (taskbar, window switcher). Wayland has no such
+    ///   property: the compositor shows the icon of the desktop entry whose name, or
+    ///   `StartupWMClass`, is the executable's name.
+    /// - macOS: Dock icon while the program does not run from an `.app` bundle (a bundle
+    ///   keeps its own icon).
+    ///
+    /// The executable's own icon (file manager, shortcuts) is a resource added when the
+    /// application is built or packaged; see `docs/windows.md`.
+    pub icon: Option<&'static [u8]>,
 }
 impl WindowOptions {
     /// Default options: a 1040x800 activated window with the dark theme, the built-in
@@ -147,6 +171,7 @@ impl WindowOptions {
         profile: false,
         reduced_motion: false,
         title_bar: true,
+        icon: None,
     };
 }
 
