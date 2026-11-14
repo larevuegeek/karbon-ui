@@ -169,7 +169,7 @@ pub(super) fn from_color(c: Color) -> [f32; 4] {
         c.alpha as f32 / 255.,
     ]
 }
-pub(super) fn to_color(c: [f32; 4]) -> Color {
+pub(crate) fn to_color(c: [f32; 4]) -> Color {
     let q = |v: f32| (v.clamp(0., 1.) * 255.).round() as u8;
     Color::rgba(q(c[0]), q(c[1]), q(c[2]), q(c[3]))
 }
@@ -218,7 +218,7 @@ pub(crate) fn hsl([h, s, l]: [f32; 3]) -> [f32; 3] {
     };
     [f(0.), f(8.), f(4.)]
 }
-pub(super) fn oklch_to_oklab([l, c, h]: [f32; 3]) -> [f32; 3] {
+pub(crate) fn oklch_to_oklab([l, c, h]: [f32; 3]) -> [f32; 3] {
     let h = h.to_radians();
     [l, c.max(0.) * h.cos(), c.max(0.) * h.sin()]
 }
@@ -248,7 +248,7 @@ pub(crate) fn oklab_to_srgb([l, a, b]: [f32; 3]) -> [f32; 3] {
         encode(-0.004_196_086_3 * l - 0.703_418_6 * m + 1.707_614_7 * s),
     ]
 }
-pub(super) fn srgb_to_oklab([r, g, b]: [f32; 3]) -> [f32; 3] {
+pub(crate) fn srgb_to_oklab([r, g, b]: [f32; 3]) -> [f32; 3] {
     let (r, g, b) = (decode(r), decode(g), decode(b));
     let l = (0.412_221_46 * r + 0.536_332_55 * g + 0.051_445_995 * b).cbrt();
     let m = (0.211_903_5 * r + 0.680_699_5 * g + 0.107_396_96 * b).cbrt();

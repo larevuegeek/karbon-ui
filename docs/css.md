@@ -284,13 +284,37 @@ appliquée à l’alpha, mélange prémultiplié, teinte OKLCH par l’arc le pl
 `color`, `background`/`background-color` (une couleur), `border`/`border-color`
 et `accent-color`, y compris dans les états (`:hover`). `currentColor` vaut la
 couleur de texte calculée de l’élément (noir si aucune `color` n’est déclarée sur
-l’élément ou un ancêtre : le thème n’est pas connu des styles). Dans les dégradés,
-les ombres et les bordures d’un seul côté, une couleur qui lit `var()` vaut la valeur
-de `:root` compilée, ou celle des variables du `TemplateContext` à la construction de
-la vue (`css::root_variables`, voir [§ 4](#4-unités-expressions-et-variables)). Une
-propriété déclarée par un élément (`style:--h={…}`) n’y est pas vue ; `currentColor` et
-les filtres restent résolus à la compilation. `lab()`, `lch()`, `hwb()` et
-`color()` ne sont pas fournis.
+l’élément ou un ancêtre : le thème n’est pas connu des styles).
+
+Les dégradés de `background` / `background-image` et les ombres de `box-shadow` dont
+une couleur lit `var()` sont évalués de la même façon, dans la portée de l’élément
+(`BackgroundExpression`, `ShadowExpressions`), classes et états compris : une carte
+teintée par son élément s’écrit entièrement en CSS.
+
+```css
+.tile {
+    background: radial-gradient(85% 110% at 100% 100%, oklch(0.55 0.17 var(--h, 150) / 0.5), transparent 62%),
+        linear-gradient(160deg, oklch(0.25 0.03 var(--h, 150)), oklch(0.17 0.018 var(--h, 150)));
+    box-shadow: inset 0 0 0 1px oklch(0.7 0.1 var(--h, 150) / 0.16), 0 14px 32px rgb(0 0 0 / 0.35);
+}
+.glow { background: radial-gradient(60% 90% at 18% 20%, oklch(0.4 calc(0.02 + 0.1 * var(--s, 0)) var(--h, 150) / 0.45), transparent 70%); }
+.card { background: linear-gradient(140deg, var(--c, #22c55e), color-mix(in oklab, var(--c, #22c55e) 45%, black)); }
+```
+
+```html
+<div class="tile" style:--h={genre.hue}></div>
+<div style:--h={hue} style:--s={intensity}><div class="glow"></div></div>
+<div class="card" style:--c={playlist.color}></div>
+```
+
+Les angles, positions et rayons restent des constantes ; seules les couleurs suivent
+les variables. Dans les bordures d’un seul côté, une couleur qui lit `var()` vaut la
+valeur de `:root` compilée, ou celle des variables du `TemplateContext` à la
+construction de la vue (`css::root_variables`, voir
+[§ 4](#4-unités-expressions-et-variables)) ; les filtres restent résolus à la
+compilation. `lab()`, `lch()`, `hwb()` et `color()` ne sont pas fournis.
+Pour une couleur calculée en Rust, `Color::oklch(l, c, h, a)`, `Color::parse("#rrggbb")`
+et `Color::to_oklab()` reprennent les conversions du compilateur.
 
 Le premier fond de la liste est au-dessus des suivants. `background-image`
 conserve la couleur de fond ; `background` la remplace. Les fonds bitmap CSS,
@@ -528,11 +552,11 @@ son sous-arbre :
   longueur (px, %, em, calc…), couleur constante ou famille entre guillemets ;
   un `var()` y est refusé.
 - Lecture à l’exécution : couleurs (`color`, fonds unis, bordures, `accent-color`,
-  canaux de `oklch()`/`hsl()`/`rgb()`/`color-mix()`), dimensions `width`,
-  `height`, `flex-basis`, `top/right/bottom/left` (aussi dans `calc()`) et
-  `font-size`. Les autres propriétés (padding, marges, gap, rayons, ombres,
-  filtres, dégradés) lisent seulement les variables de l’application au moment de
-  la construction de la vue, puis le `:root`.
+  canaux de `oklch()`/`hsl()`/`rgb()`/`color-mix()`), couleurs des dégradés et des
+  ombres de boîte, dimensions `width`, `height`, `flex-basis`, `top/right/bottom/left`
+  (aussi dans `calc()`) et `font-size`. Les autres propriétés (padding, marges, gap,
+  rayons, filtres) lisent seulement les variables de l’application au moment de la
+  construction de la vue, puis le `:root`.
 - Priorité, de la plus forte à la plus faible : déclaration de l’élément le plus
   proche (template `style:--x`, puis états actifs, puis classes), propriétés des
   ancêtres, variables typées de l’application (`CssVariables` du contexte), valeur

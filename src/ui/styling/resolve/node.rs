@@ -65,6 +65,18 @@ pub(super) fn apply_computed(
             .clone();
         node.style = base;
         node.surface_style = surface;
+        // Couches évaluées (dégradés teintés par des variables) : posées sur celles du
+        // template, qui reviennent quand la règle cesse de s'appliquer.
+        if local.background_layers.is_some() || styles.base_backgrounds.is_some() {
+            let (gradient, layers) = styles
+                .base_backgrounds
+                .get_or_insert_with(|| (node.gradient.clone(), node.backgrounds.clone()))
+                .clone();
+            (node.gradient, node.backgrounds) = match &local.background_layers {
+                Some(evaluated) => (None, Some(evaluated.clone())),
+                None => (gradient, layers),
+            };
+        }
         if let Some(color) = local.background {
             node.style.background = Some(color);
         }
@@ -242,6 +254,7 @@ pub(crate) fn local(node: &mut Element) {
             text: styles.normal.text,
             local: styles.normal.clone(),
             element_background: styles.normal.background.is_some()
+                || styles.normal.background_layers.is_some()
                 || node.gradient.is_some()
                 || node.backgrounds.is_some(),
             element_border: styles.normal.border.is_some() || styles.normal.border_width.is_some(),

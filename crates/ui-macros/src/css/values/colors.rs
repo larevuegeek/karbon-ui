@@ -444,6 +444,11 @@ pub fn color(value: &str) -> Result<String> {
             .into()
     })
 }
+/// Code d'une `ColorExpression` (valeur, constante comprise) : couleur d'un arrêt de
+/// dégradé ou d'une ombre évaluée à la résolution des styles.
+pub(crate) fn color_expression(value: &str, vars: &BTreeMap<String, String>) -> Result<String> {
+    Ok(expression_code(&parse_color(value, Some(vars), 0)?))
+}
 /// Valeur d'une propriété de couleur : constante, ou `ColorExpression` statique
 /// (préfixe `dynamic:`) quand `currentColor` ou une variable interviennent.
 pub(crate) fn color_property(

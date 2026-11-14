@@ -162,6 +162,21 @@ impl<W: Widget + 'static> Node<W> {
         self.properties().color_expressions[target as usize] = Some(value);
         self
     }
+    /// Sets background layers whose colours are evaluated while styles resolve (a
+    /// gradient tinted by `var(--h)`), frontmost first; they replace the gradient layers.
+    pub fn background_expressions(
+        mut self,
+        value: &'static [crate::ui::styling::BackgroundExpression],
+    ) -> Self {
+        self.properties().background_expressions = Some(value);
+        self
+    }
+    /// Sets box shadows whose colours are evaluated while styles resolve.
+    pub fn shadow_expressions(mut self, value: crate::ui::styling::ShadowExpressions) -> Self {
+        self.properties().shadow_expressions = Some(value);
+        self.properties().shadows = None;
+        self
+    }
     /// Declares the element as a query container (`container-type`); `None` removes it.
     pub fn container_type(mut self, value: Option<crate::ui::styling::ContainerType>) -> Self {
         self.element

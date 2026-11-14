@@ -44,10 +44,6 @@ pub(super) fn paint_color(word: &str) -> Result<String> {
         },
     )
 }
-/// `word` est une couleur de peinture valide (`var()` compris).
-pub(super) fn is_paint_color(word: &str) -> bool {
-    paint_color(word).is_ok()
-}
 /// Vrai pendant [`with_vars`] pour une valeur utilisant `var()`.
 pub(super) fn reads_variables(value: &str) -> bool {
     active(value).is_some()

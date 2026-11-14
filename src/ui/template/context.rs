@@ -153,6 +153,15 @@ impl<'a, R> TemplateContext<'a, R> {
         value.scale *= self.scale;
         value
     }
+    /// Returns shadows whose colours read variables, with their pixel parameters scaled
+    /// by the context scale.
+    pub fn shadow_expressions(
+        &self,
+        mut value: crate::ui::styling::ShadowExpressions,
+    ) -> crate::ui::styling::ShadowExpressions {
+        value.scale *= self.scale;
+        value
+    }
     /// Returns `value` with its pixel terms scaled by the context scale.
     pub fn computed_length(
         &self,

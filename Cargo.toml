@@ -1,11 +1,11 @@
 [package]
 name = "karbon-ui"
-version = "0.2.1"
-edition = "2024"
-rust-version = "1.89"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 description = "Native desktop UI library for Rust: HTML templates and CSS compiled to native widgets, no webview (Windows, macOS, Linux)"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/larevuegeek/karbon-ui"
+license.workspace = true
+repository.workspace = true
 readme = "README.md"
 keywords = ["gui", "ui", "native", "desktop", "templates"]
 categories = ["gui"]
@@ -14,9 +14,9 @@ categories = ["gui"]
 exclude = ["docs/", "tools/", ".github/", ".vscode/", "CLAUDE.md", "artifacts/"]
 
 [dependencies]
-# `version` sert à crates.io, `path` au développement ; la crate de macros est publiée
-# en premier, à la même version.
-karbon-ui-macros = { path = "crates/ui-macros", version = "0.2.1" }
+# Version commune du dépôt ([workspace.dependencies]) ; la crate de macros est publiée
+# en premier.
+karbon-ui-macros.workspace = true
 
 # Suite native du backend macOS : AppKit exige le thread principal, la crate fournit son
 # propre `main` (sans harnais de test).
@@ -28,6 +28,20 @@ harness = false
 [workspace]
 members = ["crates/ui-macros", "crates/updater"]
 resolver = "3"
+
+# Une seule version pour les trois crates (karbon-ui, karbon-ui-macros, karbon-updater) :
+# les corrections restent dans la branche 0.3.x (0.3.1, 0.3.2…). Pour publier une version,
+# changer `version` ici et celle de `karbon-ui-macros` juste en dessous.
+[workspace.package]
+version = "0.3.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/larevuegeek/karbon-ui"
+
+[workspace.dependencies]
+# `version` sert à crates.io, `path` au développement.
+karbon-ui-macros = { path = "crates/ui-macros", version = "0.3.0" }
 
 # Liaisons officielles Microsoft (windows-rs), générées depuis les métadonnées du SDK.
 [target.'cfg(windows)'.dependencies]

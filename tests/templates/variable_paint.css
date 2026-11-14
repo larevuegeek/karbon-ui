@@ -1,0 +1,26 @@
+/* Dégradés et ombres teintés par des variables d'élément (`style:--h={…}`). */
+.tile {
+    width: 40px;
+    height: 40px;
+    background: radial-gradient(85% 110% at 100% 100%, oklch(0.55 0.17 var(--h, 150) / 0.5), oklch(0.55 0.17 var(--h, 150) / 0) 62%),
+        linear-gradient(160deg, oklch(0.25 0.03 var(--h, 150)), oklch(0.17 0.018 var(--h, 150)));
+    box-shadow: inset 0 0 0 1px oklch(0.7 0.1 var(--h, 150) / 0.16), 0 14px 32px rgba(0, 0, 0, 0.35);
+}
+.glow {
+    width: 40px;
+    height: 40px;
+    background: radial-gradient(60% 90% at 18% 20%, oklch(0.4 calc(0.02 + 0.1 * var(--s, 0)) var(--h, 150) / 0.45), oklch(0.4 calc(0.02 + 0.1 * var(--s, 0)) var(--h, 150) / 0) 70%),
+        radial-gradient(40% 70% at 60% 0%, oklch(0.4 calc(0.08 * var(--s, 0)) calc(var(--h, 150) - 60) / 0.25), oklch(0.4 calc(0.08 * var(--s, 0)) calc(var(--h, 150) - 60) / 0) 70%);
+}
+.card {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(140deg, var(--c, #22c55e), color-mix(in oklab, var(--c, #22c55e) 45%, black));
+}
+.card:hover {
+    background: linear-gradient(140deg, var(--c, #22c55e), var(--c, #22c55e));
+}
+/* Exemple de docs/css.md : `transparent` et repli des variables. */
+.doc-example {
+    background: radial-gradient(85% 110% at 100% 100%, oklch(0.55 0.17 var(--h, 150) / 0.5), transparent 62%);
+}

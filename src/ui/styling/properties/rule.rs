@@ -1,9 +1,10 @@
 //! Déclarations d'une règle ([`Properties`]) : validation et superposition.
 use super::{BackgroundImages, ControlPart, ImageFit, StateEffect, Typography};
 use crate::ui::styling::{
-    ColorExpression, LayoutProperties, VariableValue, tokens::DynamicDeclaration,
+    BackgroundExpression, ColorExpression, LayoutProperties, ShadowExpressions, VariableValue,
+    tokens::DynamicDeclaration,
 };
-use crate::ui::{element::Insets, theme::Color};
+use crate::ui::{element::Insets, rendering::brush::Background, theme::Color};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 /// Style declarations of one rule (a class or a state block), as produced by
@@ -45,6 +46,17 @@ pub struct Properties {
     /// Colours evaluated while styles resolve (custom properties, `currentColor`),
     /// indexed by [`ColorTarget`]; they replace the matching constant colour.
     pub color_expressions: [Option<&'static ColorExpression>; 4],
+    /// Background layers whose colours read custom properties (a gradient tinted by
+    /// `var(--h)`), frontmost first; evaluated while styles resolve into
+    /// [`background_layers`](Self::background_layers).
+    pub background_expressions: Option<&'static [BackgroundExpression]>,
+    /// Background layers evaluated from
+    /// [`background_expressions`](Self::background_expressions); they replace the
+    /// element's own gradient layers.
+    pub background_layers: Option<std::sync::Arc<[Background]>>,
+    /// Box shadows whose colours read custom properties; evaluated while styles resolve
+    /// into [`shadows`](Self::shadows).
+    pub shadow_expressions: Option<ShadowExpressions>,
     /// Custom properties declared by the rule (`--h: 210`), inherited by descendants.
     pub custom: Option<&'static [(&'static str, VariableValue)]>,
     /// Opacity and/or transform applied while the rule matches (state rules other than a
@@ -159,6 +171,10 @@ impl Properties {
         }
         if self.color_expressions.iter().flatten().any(|e| !e.valid())
             || self
+                .background_expressions
+                .is_some_and(|l| l.len() > 16 || l.iter().any(|e| !e.valid()))
+            || self.shadow_expressions.is_some_and(|s| !s.valid())
+            || self
                 .custom
                 .is_some_and(|c| c.iter().any(|(n, _)| !n.starts_with("--") || n.len() < 3))
         {
@@ -193,7 +209,15 @@ impl Properties {
         Self {
             filters: self.filters.or(base.filters),
             layout: self.layout.over(base_layout),
+            // Des ombres constantes de `self` remplacent les ombres variables de `base`.
+            shadow_expressions: self.shadow_expressions.or(if self.shadows.is_some() {
+                None
+            } else {
+                base.shadow_expressions
+            }),
             shadows: self.shadows.or(base.shadows),
+            background_expressions: self.background_expressions.or(base.background_expressions),
+            background_layers: self.background_layers.or(base.background_layers),
             corner_radii: {
                 let own = self.corner_radii.or(if self.radius.is_some() {
                     None

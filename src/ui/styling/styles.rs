@@ -1,5 +1,10 @@
 use super::*;
 pub(super) use crate::ui::element::Style;
+/// Dégradé (`Element::gradient`) et couches (`Element::backgrounds`) posés par le template.
+pub(crate) type BaseBackgrounds = (
+    Option<std::sync::Arc<crate::ui::rendering::brush::LinearGradient>>,
+    Option<std::sync::Arc<[crate::ui::rendering::brush::Background]>>,
+);
 #[derive(Default)]
 pub(crate) struct Styles {
     /// Variables in scope: those of the template context, overlaid with the custom
@@ -23,6 +28,9 @@ pub(crate) struct Styles {
     pub base: Option<Style>,
     pub base_layout: Option<crate::ui::element::Layout>,
     pub base_surface: Option<Option<std::sync::Arc<crate::ui::style::SurfaceStyle>>>,
+    /// Dégradé et couches de fond du template, gardés quand des couches évaluées
+    /// (`Properties::background_layers`) les remplacent.
+    pub base_backgrounds: Option<BaseBackgrounds>,
     pub base_border: Option<crate::ui::element::Insets>,
     pub base_rules: Option<Option<Box<crate::ui::element::LayoutRules>>>,
     /// Transition du template, gardée quand une règle de la feuille la remplace.

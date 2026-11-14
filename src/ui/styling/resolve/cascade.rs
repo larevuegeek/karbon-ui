@@ -175,6 +175,19 @@ pub(crate) fn resolve_inherited(
         if let Some(e) = local.color_expressions[ColorTarget::Accent as usize] {
             local.accent = Some(e.evaluate(current, variables));
         }
+        // Dégradés et ombres dont les couleurs lisent des variables : évalués dans la même
+        // portée que les couleurs unies (`style:--h={…}` d'un ancêtre ou du template).
+        if let Some(layers) = local.background_expressions {
+            local.background_layers = Some(
+                layers
+                    .iter()
+                    .map(|l| l.evaluate(current, variables))
+                    .collect(),
+            );
+        }
+        if let Some(list) = local.shadow_expressions {
+            local.shadows = Some(list.evaluate(current, variables));
+        }
         // Transitions de couleurs : valeur interpolée par le runtime.
         if let (Some(sample), Some(timing)) = (
             env.transition_color,
@@ -262,6 +275,7 @@ pub(crate) fn resolve_inherited(
             text: typography,
             local: local.clone(),
             element_background: local.background.is_some()
+                || local.background_layers.is_some()
                 || node.gradient.is_some()
                 || node.backgrounds.is_some(),
             element_border: local.border.is_some()

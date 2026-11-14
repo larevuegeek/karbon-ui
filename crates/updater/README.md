@@ -10,7 +10,7 @@ users' updates.
 
 ```toml
 [dependencies]
-karbon-updater = "0.1"
+karbon-updater = "0.3"
 ```
 
 ## In five lines

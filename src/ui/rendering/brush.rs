@@ -2,7 +2,7 @@
 use crate::ui::{element::Element, theme::Color};
 use std::sync::Arc;
 /// Colour at a given position along a gradient.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GradientStop {
     /// Position in `0.0..=1.0`; stops must be in non-decreasing order.
     pub position: f32,
@@ -10,7 +10,7 @@ pub struct GradientStop {
     pub color: Color,
 }
 /// Linear gradient, like CSS `linear-gradient`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LinearGradient {
     /// Direction in degrees, clockwise from left-to-right.
     pub angle: f32,
@@ -22,7 +22,7 @@ pub struct LinearGradient {
     pub corner: Option<[i8; 2]>,
 }
 /// How a [`RadialGradient`] sizes its ending shape, like the CSS extent keywords.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RadialExtent {
     /// Use [`RadialGradient::radius`] as fractions of the painted rectangle.
     Explicit,
@@ -38,7 +38,7 @@ pub enum RadialExtent {
     FarthestCorner,
 }
 /// Radial gradient, like CSS `radial-gradient`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RadialGradient {
     /// Centre as `[x, y]` fractions of the painted rectangle.
     pub center: [f32; 2],
@@ -194,8 +194,8 @@ pub fn linear_gradient(angle: f32, colors: impl IntoIterator<Item = Color>) -> L
             }),
     )
 }
-/// One background layer: a solid colour or a gradient.
-#[derive(Clone)]
+/// One background layer: a solid colour or a gradient. Compared by content.
+#[derive(Clone, Debug, PartialEq)]
 pub enum Background {
     /// Solid colour.
     Solid(Color),

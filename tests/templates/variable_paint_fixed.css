@@ -1,0 +1,20 @@
+/* Jumeaux de variable_paint.css en couleurs constantes : --h = 30 (tuile), --h = 200 et
+   --s = 0.8 (lueur), --c = #3b82f6 (carte). */
+.tile {
+    width: 40px;
+    height: 40px;
+    background: radial-gradient(85% 110% at 100% 100%, oklch(0.55 0.17 30 / 0.5), oklch(0.55 0.17 30 / 0) 62%),
+        linear-gradient(160deg, oklch(0.25 0.03 30), oklch(0.17 0.018 30));
+    box-shadow: inset 0 0 0 1px oklch(0.7 0.1 30 / 0.16), 0 14px 32px rgba(0, 0, 0, 0.35);
+}
+.glow {
+    width: 40px;
+    height: 40px;
+    background: radial-gradient(60% 90% at 18% 20%, oklch(0.4 0.1 200 / 0.45), oklch(0.4 0.1 200 / 0) 70%),
+        radial-gradient(40% 70% at 60% 0%, oklch(0.4 0.064 140 / 0.25), oklch(0.4 0.064 140 / 0) 70%);
+}
+.card {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(140deg, #3b82f6, color-mix(in oklab, #3b82f6 45%, black));
+}

@@ -18,6 +18,23 @@ pub(super) fn parse(value: &str) -> Result<String> {
         shadows.join(",")
     ))
 }
+/// `box-shadow` dont les couleurs lisent des variables d'élément : `ShadowExpressions`
+/// évaluées à la résolution des styles, dans la portée de l'élément.
+pub(super) fn expressions(value: &str, vars: &BTreeMap<String, String>) -> Result<String> {
+    let list = layers(value, |word| colors::color_expression(word, vars))?
+        .into_iter()
+        .map(|s| {
+            s.replace(
+                "rendering::component_shadow::BoxShadow{",
+                "styling::ShadowExpression{",
+            )
+        })
+        .collect::<Vec<_>>();
+    Ok(format!(
+        "{ROOT}::styling::ShadowExpressions::new(const{{&[{}]}})",
+        list.join(",")
+    ))
+}
 /// Couches de `value`, chacune en code `BoxShadow` ; `paint` donne le code d'une couleur.
 fn layers(value: &str, paint: impl Fn(&str) -> Result<String>) -> Result<Vec<String>> {
     let mut shadows = Vec::new();

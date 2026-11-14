@@ -9,7 +9,10 @@ pub mod paint;
 mod properties;
 mod spacing;
 pub(crate) mod variables;
-pub use color::{ColorExpression, MixSpace, color_mix};
+pub use color::{
+    BackgroundExpression, ColorExpression, MixSpace, ShadowExpression, ShadowExpressions,
+    StopExpression, color_mix,
+};
 pub use layout::LayoutProperties;
 pub use media::{Container, ContainerQuery, ContainerType, MediaQuery};
 pub use spacing::SpacingExpressions;

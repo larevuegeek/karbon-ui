@@ -66,6 +66,16 @@ pub(super) fn state_properties(props: &[(String, String)]) -> std::result::Resul
             expressions[index] = Some(value);
             continue;
         }
+        // Dégradés et ombres teintés par des variables : évalués à la résolution des
+        // styles, donc possibles dans une règle d'état.
+        if name == "background_expressions" {
+            fields += &format!("background_expressions:Some({value}),");
+            continue;
+        }
+        if name == "shadow_expressions" {
+            fields += &format!("shadow_expressions:Some(cx.shadow_expressions({value})),");
+            continue;
+        }
         if name == "relative_limit" {
             relative.push(value.as_str());
             continue;

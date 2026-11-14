@@ -50,6 +50,10 @@ pub(in crate::css) fn emit(
             ".contain_intrinsic_size({{let (i,a,n):(usize,bool,Option<f32>)={{}};(i,__ui_root::ui::element::ContainIntrinsicLength{{remembered:a,length:n.map(|n|n*{cx}.scale)}})}})"
         )),
         "decoration_color" => Some(".decoration_color({})".into()),
+        "background_expressions" => Some(".background_expressions({})".into()),
+        "shadow_expressions" => Some(format!(
+            ".shadow_expressions({cx}.shadow_expressions({{}}))"
+        )),
         "scroll_margin_edge" | "scroll_padding_edge" => Some(format!(
             ".{name}({{let (i,n):(usize,f32)={{}};(i,n*{cx}.scale)}})"
         )),

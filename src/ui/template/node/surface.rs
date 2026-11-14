@@ -78,6 +78,7 @@ impl<W: Widget + 'static> Node<W> {
     /// Sets the box shadows.
     pub fn box_shadows(mut self, value: crate::ui::rendering::component_shadow::Shadows) -> Self {
         self.properties().shadows = Some(value);
+        self.properties().shadow_expressions = None;
         self
     }
     /// Sets the border color, keeping the current border width.

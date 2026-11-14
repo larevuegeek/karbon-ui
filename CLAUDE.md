@@ -23,6 +23,11 @@ l'OS dans `src/ui`, backends dans `src/platform`.
   (framework web) et `karbonjs`, licence MIT ou Apache-2.0 au choix de l'utilisateur ;
   `artifacts/` et `accueil.png` ne sont jamais suivis (captures de RustMusic avec de
   vraies pochettes). README en anglais, comme les dépôts frères ; `docs/` en français.
+- **Versions** : les trois crates (`karbon-ui`, `karbon-ui-macros`, `karbon-updater`)
+  portent la même version, déclarée une fois à la racine (`[workspace.package]` et
+  `[workspace.dependencies]`). Les corrections et ajouts restent dans la branche 0.3.x
+  (0.3.1, 0.3.2…). Publication : `karbon-ui-macros`, puis `karbon-ui`, puis
+  `karbon-updater`, et l'étiquette `vX.Y.Z`.
 - **Langues** : API publique en anglais ; commentaires internes et documentation en
   français. Réponses au propriétaire en français.
 - **Comportement** : un remaniement ne change pas les rendus. Les exports de référence

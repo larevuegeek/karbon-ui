@@ -81,6 +81,32 @@ pub fn declaration(name: &str, raw: &str, vars: &BTreeMap<String, String>) -> Re
             }
         }
     }
+    // Dégradés et ombres écrits avec `var()` : couleurs évaluées à la résolution des
+    // styles, dans la portée de l'élément (`style:--h={…}`), comme une couleur unie.
+    if raw.contains("var(") {
+        match name {
+            "background" | "background-image" if raw.contains("gradient(") => {
+                let layers = split(raw, ',')?
+                    .into_iter()
+                    .map(|layer| super::gradients::background_expression(layer.trim(), vars))
+                    .collect::<Result<Vec<_>>>()?;
+                if layers.len() > 16 {
+                    return Err("At most 16 background layers".into());
+                }
+                return Ok(vec![(
+                    "background_expressions".into(),
+                    format!("const{{&[{}]}}", layers.join(",")),
+                )]);
+            }
+            "box-shadow" => {
+                return Ok(vec![(
+                    "shadow_expressions".into(),
+                    super::shadows::expressions(raw, vars)?,
+                )]);
+            }
+            _ => {}
+        }
+    }
     let resolved = resolve(raw, vars)?;
     // Dégradés et ombres : couleurs lues à la construction de la vue.
     let read_at_view = [

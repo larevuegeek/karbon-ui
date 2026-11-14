@@ -17,3 +17,4 @@ mod support;
 mod svg;
 mod syntax;
 mod textarea;
+mod variable_paint;

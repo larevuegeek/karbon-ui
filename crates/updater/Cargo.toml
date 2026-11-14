@@ -1,11 +1,11 @@
 [package]
 name = "karbon-updater"
-version = "0.1.0"
-edition = "2024"
-rust-version = "1.89"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 description = "Self-update for desktop applications: checks a release endpoint, downloads a minisign-signed package, verifies and installs it (Windows, macOS, Linux)"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/larevuegeek/karbon-ui"
+license.workspace = true
+repository.workspace = true
 readme = "README.md"
 keywords = ["update", "updater", "desktop", "minisign", "self-update"]
 categories = ["gui"]
