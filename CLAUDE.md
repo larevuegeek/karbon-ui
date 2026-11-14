@@ -13,7 +13,10 @@ l'OS dans `src/ui`, backends dans `src/platform`.
   sous `[target.'cfg(target_os = "macos")'.dependencies]`. Sous Linux, `libc` seul ; les
   bibliothèques du bureau (Cairo, Pango, fontconfig…) sont liées par des déclarations
   `extern "C"` écrites à la main. Tout autre crate
-  communautaire demande l'accord du propriétaire.
+  communautaire demande l'accord du propriétaire. Exception accordée le 2026-11-14 : la
+  crate séparée `crates/updater` (`karbon-updater`, mise à jour des applications) peut
+  dépendre de `ureq` (HTTPS, rustls) et de `minisign-verify` (signatures) ; karbon-ui
+  lui-même n'en dépend pas.
 - **Commits** : jamais de `Co-Authored-By` ni de mention d'outil ou d'IA. Ne rien pousser
   ni créer de branche distante sans demande explicite.
 - **Publication** : dépôt public `github.com/larevuegeek/karbon-ui`, frère de `karbon`
@@ -42,6 +45,10 @@ cargo test --workspace --all-targets
 cargo test --doc --workspace
 cargo doc --no-deps --workspace
 ```
+
+Depuis Windows, les autres cibles se vérifient par `cargo clippy --workspace --exclude
+karbon-updater --target …` ; `karbon-updater` (dont `ring` compile du C pour la cible) par
+`tools/updater-cross-check.ps1` (clang de LLVM et en-têtes de substitution).
 
 ## Se repérer
 

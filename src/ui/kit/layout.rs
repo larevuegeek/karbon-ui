@@ -55,14 +55,16 @@ macro_rules! flex_box {
         }
     };
 }
-flex_box!(
+// Accolades : rustfmt ne reformate pas ces appels (les versions récentes mettaient chaque
+// argument sur sa ligne, les anciennes non : la vérification de la CI échouait).
+flex_box! {
     /// Vertical pile of children.
     Stack, false, 12.
-);
-flex_box!(
+}
+flex_box! {
     /// Horizontal row of children, centred on the cross axis.
     Row, true, 8.
-);
+}
 
 /// Root of a page: background, text colour and scrolling of the theme.
 #[derive(Default)]

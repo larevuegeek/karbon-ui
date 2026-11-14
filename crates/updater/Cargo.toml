@@ -1,0 +1,27 @@
+[package]
+name = "karbon-updater"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+description = "Self-update for desktop applications: checks a release endpoint, downloads a minisign-signed package, verifies and installs it (Windows, macOS, Linux)"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/larevuegeek/karbon-ui"
+readme = "README.md"
+keywords = ["update", "updater", "desktop", "minisign", "self-update"]
+categories = ["gui"]
+
+[dependencies]
+# HTTPS : rustls et les racines de Mozilla, sans compression ni JSON (accord du
+# propriétaire du 2026-11-14 ; le manifeste est lu par `json.rs`).
+ureq = { version = "3.4", default-features = false, features = ["rustls"] }
+# Signatures minisign (Ed25519), le format des clés et signatures de `tauri signer`
+# (accord du 2026-11-14).
+minisign-verify = "0.2"
+
+# Lancement de l'installateur par le Shell (élévation UAC si l'installateur la demande).
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }

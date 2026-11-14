@@ -40,8 +40,11 @@ the binary contains no HTML parser, no CSS engine and no browser.
   area, macOS menu bar, Linux StatusNotifierItem), system colour scheme and reduced motion.
 - **No third-party crates.** Only the vendors' official bindings (`windows`, the `objc2`
   family, `libc`); on Linux the desktop libraries are bound by hand.
+- **Self-update, as a separate crate.** [`karbon-updater`](crates/updater/README.md) checks
+  a release endpoint, downloads and verifies a minisign-signed package and installs it on
+  Windows, macOS and Linux (compatible with Tauri updater servers and keys).
 
-> **Status: pre-alpha (0.1).** Karbon UI is the native UI layer written to replace Tauri in
+> **Status: pre-alpha (0.2).** Karbon UI is the native UI layer written to replace Tauri in
 > RustMusic, a desktop music player. It is a sibling of the
 > [Karbon](https://github.com/larevuegeek/karbon) web framework and
 > [KarbonJS](https://github.com/larevuegeek/karbonjs). The API will change, and the CSS
