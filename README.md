@@ -38,6 +38,9 @@ the binary contains no HTML parser, no CSS engine and no browser.
 - **Native where it matters.** System text shaping, input methods, screen readers,
   clipboard, file dialogs, window icons, a system tray icon with its menu (notification
   area, macOS menu bar, Linux StatusNotifierItem), system colour scheme and reduced motion.
+- **Locale-aware formatting.** `karbon_ui::intl` formats numbers, durations, relative
+  times and local dates in English, French, German, Spanish and Italian, like the web's
+  `Intl`.
 - **No third-party crates.** Only the vendors' official bindings (`windows`, the `objc2`
   family, `libc`); on Linux the desktop libraries are bound by hand.
 - **Self-update, as a separate crate.** [`karbon-updater`](crates/updater/README.md) checks
@@ -227,7 +230,8 @@ French, in [docs/](docs/): templates ([templates.md](docs/templates.md),
 [html-syntax.md](docs/html-syntax.md)), CSS coverage ([css.md](docs/css.md),
 [tailwind.md](docs/tailwind.md), [css-frameworks.md](docs/css-frameworks.md)), the
 component kit ([kit.md](docs/kit.md)), windows, tasks, images, drag-and-drop,
-accessibility, headless testing ([headless.md](docs/headless.md)), the test organisation
+accessibility, headless testing ([headless.md](docs/headless.md)), locale-aware formatting
+([intl.md](docs/intl.md)), the test organisation
 ([tests.md](docs/tests.md)) and the resume point ([next-session.md](docs/next-session.md)).
 [tools/vscode-karbon-ui](tools/vscode-karbon-ui/README.md) adds `.ui` syntax highlighting,
 indentation and snippets to VS Code.

@@ -16,6 +16,7 @@
 //! - [`window`] and [`platform`]: window options and the backend entry points
 //!   ([`platform::run`], [`platform::run_windows`]).
 //! - [`task`]: background work with cooperative cancellation.
+//! - [`intl`]: numbers, durations, relative times and dates in the user's language.
 //! - [`resources`]: bounded image loading and caching.
 //! - [`diagnostics`]: offscreen benchmarks and previews.
 //! - [`platform::headless`]: windowless test harness with deterministic text metrics.
@@ -75,6 +76,7 @@
 pub mod application;
 pub mod diagnostics;
 mod error;
+pub mod intl;
 pub mod platform;
 pub mod resources;
 pub mod task;
