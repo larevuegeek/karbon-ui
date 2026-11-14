@@ -17,18 +17,35 @@ impl UiRuntime {
     }
 
     /// Drain the background work requested by the application
-    /// (see [`Application::take_task_commands`]).
+    /// (see [`Application::take_task_commands`]), followed by the decodes of its
+    /// [`ImageLoader`](crate::resources::ImageLoader).
     pub fn take_task_commands(&mut self) -> Vec<crate::task::TaskCommand> {
-        self.app.take_task_commands()
+        let mut commands = self.app.take_task_commands();
+        if let Some(images) = self.app.image_loader() {
+            // Un `CancelAll` de l'application emporte aussi les chargements en vol :
+            // ils sont redemandés, après lui.
+            if commands
+                .iter()
+                .any(|c| matches!(c, crate::task::TaskCommand::CancelAll))
+            {
+                images.cancelled_all();
+            }
+            commands.extend(images.take_commands());
+        }
+        commands
     }
 
     /// Deliver a finished task to the application on the UI thread; returns `true` if a
     /// new frame is needed: the application asked for a rebuild (the view is
     /// invalidated), or the task delivered images to
     /// [`ImageSlot`](crate::ui::template::ImageSlot)s (they are repainted, without
-    /// rebuilding the view).
+    /// rebuilding the view). Decodes of the application's
+    /// [`ImageLoader`](crate::resources::ImageLoader) are handled here, not passed on.
     pub fn task_completed(&mut self, result: crate::task::TaskResult) -> bool {
-        let changed = self.app.task_completed(result);
+        let changed = match self.app.image_loader() {
+            Some(images) if images.owns(result.id) => images.completed(result),
+            _ => self.app.task_completed(result),
+        };
         if changed {
             self.invalidate();
         }

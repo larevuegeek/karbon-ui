@@ -244,6 +244,34 @@ pub trait Application: 'static {
     fn tray_event(&mut self, _event: crate::window::TrayEvent) -> bool {
         false
     }
+    /// The application's [`ImageLoader`](crate::resources::ImageLoader), if it has one:
+    /// the runtime then schedules its background decodes and delivers their results
+    /// itself, outside [`take_task_commands`](Self::take_task_commands) and
+    /// [`task_completed`](Self::task_completed). Defaults to none.
+    ///
+    /// ```
+    /// use karbon_ui::{application::Resources, resources::ImageLoader, ui::prelude::*};
+    ///
+    /// #[derive(Default)]
+    /// struct Gallery {
+    ///     images: Option<ImageLoader>,
+    /// }
+    /// impl Application for Gallery {
+    ///     type Message = ();
+    ///     fn load(&mut self, resources: &dyn Resources) -> karbon_ui::Result<()> {
+    ///         self.images = Some(ImageLoader::new(resources.image_decoder()));
+    ///         Ok(())
+    ///     }
+    ///     fn image_loader(&self) -> Option<ImageLoader> {
+    ///         self.images.clone()
+    ///     }
+    ///     # fn view(&self, _: &ViewContext) -> Element { text("t", "") }
+    ///     # fn update(&mut self, _: ()) -> bool { false }
+    /// }
+    /// ```
+    fn image_loader(&self) -> Option<crate::resources::ImageLoader> {
+        None
+    }
 }
 
 /// Façade objet d'une application : le runtime et les fenêtres ignorent son type de message.
@@ -260,6 +288,7 @@ pub(crate) trait DynApplication {
     fn frame_work(&mut self) -> bool;
     fn window_changed(&mut self, state: crate::window::WindowState) -> bool;
     fn tray_event(&mut self, event: crate::window::TrayEvent) -> bool;
+    fn image_loader(&self) -> Option<crate::resources::ImageLoader>;
     /// Accès typé pour le harnais headless, qui connaît le type concret.
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
@@ -324,6 +353,9 @@ impl<A: Application> DynApplication for A {
     }
     fn tray_event(&mut self, event: crate::window::TrayEvent) -> bool {
         Application::tray_event(self, event)
+    }
+    fn image_loader(&self) -> Option<crate::resources::ImageLoader> {
+        Application::image_loader(self)
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self

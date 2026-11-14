@@ -4,7 +4,64 @@ Le socle fournit un chargement PNG/JPEG borné, sans crate externe. Sous Windows
 GDI+ décode et réduit l’image sur un worker. Le thread UI reçoit un `Arc<Image>`
 de pixels BGRA prémultipliés ; les objets natifs restent sur leur thread.
 
+## Le plus simple : `ImageLoader`
+
+Pour afficher des images de fichiers dans la vue (pochettes, photos, vignettes),
+`resources::ImageLoader` fait tout le travail décrit plus bas, comme `<img src>`
+dans un navigateur : l’application le crée, le garde et le déclare ; le runtime
+ordonnance ses tâches et lui livre leurs résultats, sans passer par
+`take_task_commands` ni `task_completed`.
+
+```rust
+use karbon_ui::{application::Resources, resources::ImageLoader, ui::prelude::*};
+
+struct Gallery {
+    images: Option<ImageLoader>,
+    photos: Vec<String>,
+}
+impl Application for Gallery {
+    type Message = ();
+    fn load(&mut self, resources: &dyn Resources) -> karbon_ui::Result<()> {
+        self.images = Some(
+            ImageLoader::new(resources.image_decoder())
+                .budget(128 << 20)       // octets de pixels décodés en cache
+                .thumbnail_edge(448)     // plus grand côté décodé par défaut
+                .max_in_flight(12),      // décodages simultanés
+        );
+        Ok(())
+    }
+    fn image_loader(&self) -> Option<ImageLoader> {
+        self.images.clone()
+    }
+    // Dans la vue : <img src={images.load(&photo)}> pour chaque photo.
+}
+```
+
+- `load(source)` rend une `ImageSlot` : l’image si elle est en cache, sinon
+  l’image d’attente (`placeholder`, transparente par défaut), remplacée et
+  repeinte à l’arrivée **sans reconstruire la vue**. `load_or(source, côté,
+  repli)` choisit l’image d’attente.
+- `get(source)` rend l’image ou `None` ; son arrivée **reconstruit la vue**, pour
+  les écrans qui choisissent leur mise en page d’après sa présence.
+- `peek` lit le cache sans rien demander ; `preload(sources)` demande d’avance
+  (données arrivées, page suivante). Chaque méthode a sa variante `_sized` pour une
+  autre taille : une vignette de 160 px et une pochette de 448 px sont deux entrées.
+- Une source est un chemin de fichier ou une adresse `data:image/…;base64,…`.
+  `resolve(|source, côté| chemin)` choisit le fichier lu, sur le thread de travail :
+  une miniature déjà calculée sur disque, un dossier de cache…
+- Une source illisible garde son image d’attente et n’est plus redemandée, comme
+  une image cassée, jusqu’à `forget_failures()`.
+- Les identifiants de ses tâches ont le bit de poids fort posé : ceux de
+  l’application doivent rester en dessous de 2⁶³. Un `TaskCommand::CancelAll` de
+  l’application emporte aussi ses décodages, qu’il redemande aussitôt.
+
+`Image::dominant_hue()` donne la teinte dominante d’une image et son intensité,
+de quoi teinter un fond d’après une pochette (`style:--h={…} style:--s={…}`).
+
 ## API et chemin d’exécution
+
+Ce que fait `ImageLoader`, pour une application qui veut piloter elle-même ses
+chargements :
 
 1. `Application::load` obtient un service partageable avec `Resources::image_decoder()`.
 2. L’application place une `Task` dans sa file, avec le chemin et ce service.
