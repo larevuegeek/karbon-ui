@@ -18,6 +18,8 @@
 //! - [`task`]: background work with cooperative cancellation.
 //! - [`intl`]: numbers, durations, relative times and dates in the user's language.
 //! - [`resources`]: bounded image loading and caching.
+//! - [`storage`] and [`secrets`]: the application's preferences (like the web's
+//!   `localStorage`) and its passwords, encrypted by the operating system.
 //! - [`diagnostics`]: offscreen benchmarks and previews.
 //! - [`platform::headless`]: windowless test harness with deterministic text metrics.
 //! - [`Error`] and [`Result`]: the error type returned by every fallible API.
@@ -79,6 +81,8 @@ mod error;
 pub mod intl;
 pub mod platform;
 pub mod resources;
+pub mod secrets;
+pub mod storage;
 pub mod task;
 pub mod ui;
 pub mod window;

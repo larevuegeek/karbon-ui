@@ -26,6 +26,7 @@ mod graphics;
 mod imaging;
 mod metal;
 mod offscreen;
+pub(crate) mod secrets;
 #[cfg(test)]
 mod tests;
 mod window;

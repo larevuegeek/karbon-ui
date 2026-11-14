@@ -45,6 +45,7 @@ mod imaging;
 mod ime;
 mod offscreen;
 mod portal;
+pub(crate) mod secrets;
 mod shell;
 #[cfg(test)]
 mod tests;

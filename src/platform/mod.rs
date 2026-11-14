@@ -25,6 +25,13 @@ pub(crate) mod offscreen;
 mod shared;
 #[cfg(target_os = "windows")]
 mod windows;
+// Secrets du système (Gestionnaire d'identification, Trousseau, Secret Service).
+#[cfg(target_os = "linux")]
+pub(crate) use linux::secrets;
+#[cfg(target_os = "macos")]
+pub(crate) use macos::secrets;
+#[cfg(target_os = "windows")]
+pub(crate) use windows::secrets;
 
 pub use crate::diagnostics::{render_benchmark, render_preview, write_png};
 pub(crate) use backend::{Backend, Offscreen};

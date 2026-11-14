@@ -23,6 +23,7 @@ mod graphics;
 mod imaging;
 mod offscreen;
 mod present;
+pub(crate) mod secrets;
 #[cfg(test)]
 mod tests;
 mod window;
