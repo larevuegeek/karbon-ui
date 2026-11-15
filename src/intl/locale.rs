@@ -123,6 +123,8 @@ pub(super) struct Data {
     pub just_now: &'static str,
     pub short_units: [&'static str; 3],
     pub months: [&'static str; 12],
+    /// Octets, kilo-, méga-, giga-, téraoctets (multiples de 1 024).
+    pub byte_units: [&'static str; 5],
     /// Pluriel dès 2 (français) plutôt que dès 0 et 2 (autres langues).
     pub zero_is_singular: bool,
 }
@@ -147,6 +149,7 @@ const ENGLISH: Data = Data {
     months: [
         "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ],
+    byte_units: ["B", "KB", "MB", "GB", "TB"],
     zero_is_singular: false,
 };
 const FRENCH: Data = Data {
@@ -170,6 +173,7 @@ const FRENCH: Data = Data {
         "janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.",
         "déc.",
     ],
+    byte_units: ["o", "Ko", "Mo", "Go", "To"],
     zero_is_singular: true,
 };
 const GERMAN: Data = Data {
@@ -193,6 +197,7 @@ const GERMAN: Data = Data {
         "Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.",
         "Dez.",
     ],
+    byte_units: ["B", "KB", "MB", "GB", "TB"],
     zero_is_singular: false,
 };
 const SPANISH: Data = Data {
@@ -215,6 +220,7 @@ const SPANISH: Data = Data {
     months: [
         "ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic",
     ],
+    byte_units: ["B", "KB", "MB", "GB", "TB"],
     zero_is_singular: false,
 };
 const ITALIAN: Data = Data {
@@ -237,5 +243,6 @@ const ITALIAN: Data = Data {
     months: [
         "gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic",
     ],
+    byte_units: ["B", "KB", "MB", "GB", "TB"],
     zero_is_singular: false,
 };

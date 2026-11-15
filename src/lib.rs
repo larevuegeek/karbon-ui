@@ -15,8 +15,11 @@
 //!   [`icons_dir!`] compiles a folder of SVG icons.
 //! - [`window`] and [`platform`]: window options and the backend entry points
 //!   ([`platform::run`], [`platform::run_windows`]).
-//! - [`task`]: background work with cooperative cancellation.
-//! - [`intl`]: numbers, durations, relative times and dates in the user's language.
+//! - [`task`]: background work with cooperative cancellation, and the
+//!   [`Inbox`](task::Inbox) through which any thread reaches the application.
+//! - [`intl`]: translations, numbers, sizes, durations, relative times and dates in the
+//!   user's language.
+//! - [`navigation`]: back and forward history of the pages of an application.
 //! - [`resources`]: bounded image loading and caching.
 //! - [`storage`] and [`secrets`]: the application's preferences (like the web's
 //!   `localStorage`) and its passwords, encrypted by the operating system.
@@ -79,6 +82,8 @@ pub mod application;
 pub mod diagnostics;
 mod error;
 pub mod intl;
+mod json;
+pub mod navigation;
 pub mod platform;
 pub mod resources;
 pub mod secrets;

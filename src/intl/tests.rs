@@ -160,6 +160,45 @@ fn plurals_and_tags() {
 }
 
 #[test]
+fn sizes_in_multiples_of_1024() {
+    assert_eq!(Locale::English.bytes(0), "0 B");
+    assert_eq!(Locale::English.bytes(1023), "1,023 B");
+    assert_eq!(Locale::English.bytes(1024), "1 KB");
+    assert_eq!(Locale::English.bytes(10 * 1024 - 1), "10 KB");
+    assert_eq!(Locale::French.bytes(1_572_864), "1,5 Mo");
+    assert_eq!(Locale::French.bytes(700 * 1024 * 1024), "700 Mo");
+    assert_eq!(Locale::German.bytes(1 << 40), "1 TB");
+    assert_eq!(Locale::English.bytes(u64::MAX), "16,777,216 TB");
+}
+
+#[test]
+fn catalogs_flatten_nested_keys_and_fall_back() {
+    let mut catalog = Catalog::new();
+    catalog
+        .add(
+            Locale::French,
+            r#"{"nav": {"home": "Accueil", "deep": {"key": "Profond"}}, "n": 3, "list": ["a"]}"#,
+        )
+        .unwrap();
+    catalog
+        .add(Locale::German, r#"{"nav": {"home": "Start"}}"#)
+        .unwrap();
+    assert_eq!(catalog.locales(), [Locale::French, Locale::German]);
+    assert_eq!(catalog.get(Locale::German, "nav.home"), Some("Start"));
+    assert_eq!(catalog.get(Locale::German, "nav.deep.key"), Some("Profond"));
+    assert_eq!(catalog.get(Locale::German, "n"), None);
+    assert_eq!(catalog.text(Locale::English, "list"), "list");
+    catalog.set_fallback(Locale::German);
+    assert_eq!(catalog.get(Locale::English, "nav.home"), Some("Start"));
+    assert_eq!(catalog.get(Locale::English, "nav.deep.key"), None);
+    // Une langue ajoutée de nouveau remplace ses textes ; un texte invalide ne change rien.
+    catalog.add(Locale::German, "{}").unwrap();
+    assert_eq!(catalog.get(Locale::German, "nav.home"), None);
+    assert!(catalog.add(Locale::German, "[]").is_err());
+    assert!(catalog.add(Locale::German, "{\"a\": ").is_err());
+}
+
+#[test]
 fn the_local_time_is_a_valid_date() {
     let now = DateTime::local(std::time::SystemTime::now());
     assert!((1..=12).contains(&now.month) && (1..=31).contains(&now.day));

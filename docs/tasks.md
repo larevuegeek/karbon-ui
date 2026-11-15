@@ -144,6 +144,56 @@ jusqu’à leur fin. Relancer sans arrêt une tâche qui ignore l’annulation p
 donc occuper les workers et retarder les demandes suivantes ; le pool ne crée
 pas de threads supplémentaires pour contourner ce problème.
 
+## Boîte aux lettres (`Inbox`)
+
+Un travail que karbon-ui ne lance pas (un runtime async comme tokio, un thread de
+l'application, un rappel d'un pilote ou du réseau) rejoint l'application par sa boîte
+aux lettres : n'importe quel thread y dépose une fermeture ou un message, la fenêtre se
+réveille et les applique sur le thread UI, dans l'ordre des dépôts.
+
+```rust,ignore
+use karbon_ui::task::Inbox;
+
+struct Player {
+    inbox: Inbox<Player>,
+    position: f64,
+}
+impl Application for Player {
+    type Message = Msg;
+    fn inbox(&self) -> Option<Inbox<Self>> {
+        Some(self.inbox.clone())
+    }
+    // view, update…
+}
+
+let sender = player.inbox.sender();          // InboxSender : Clone + Send
+runtime.spawn(async move {
+    let position = decoder.position().await;
+    sender.post(move |player| {              // sur le thread UI
+        player.position = position;
+        true                                 // reconstruire la vue
+    });
+    sender.send(Msg::Ended);                 // comme un message de la vue
+});
+```
+
+- **Aucune attente active.** La fenêtre s'abonne par une tâche spéciale qui n'occupe
+  aucun ouvrier : son `TaskScope` remet à la boîte de quoi déposer un résultat de tâche
+  réservé (`TaskId(u64::MAX)`) et réveiller la fenêtre, par le même chemin que les
+  tâches sur chaque backend (Windows, macOS, X11, Wayland, hors écran, headless). Une
+  rafale de dépôts ne réveille la fenêtre qu'une fois ; tout ce qui attend est appliqué
+  d'un coup.
+- **Avant la fenêtre.** Les dépôts faits avant l'ouverture de la fenêtre attendent et
+  sont appliqués dès l'abonnement. Un `CancelAll` de l'application emporte aussi
+  l'abonnement : le runtime le reprend aussitôt.
+- **Fin de l'application.** Quand toutes les poignées `Inbox` ont disparu, `post` et
+  `send` rendent `false` : une boucle qui alimente l'application peut s'arrêter.
+- **Sans fenêtre.** `Inbox::wait(durée)` attend un dépôt et `Inbox::deliver(&mut app)`
+  applique ce qui attend (aperçu hors écran qui attend ses données, tests).
+  `HeadlessApp::run_tasks` livre la boîte comme une fenêtre.
+- Les identifiants dont le bit de poids fort est à 1 sont réservés à karbon-ui
+  (chargement d'images, boîte aux lettres).
+
 ## Adaptateur Windows
 
 Les workers déposent les résultats dans une boîte de réception synchronisée,

@@ -57,6 +57,33 @@ impl Locale {
         }
         out
     }
+    /// Size of a file or a download, in multiples of 1,024 like file managers: one
+    /// decimal under 10, whole numbers above (`512 B`, `1.5 KB`, `12 MB`; `12 Mo` in
+    /// French).
+    ///
+    /// ```
+    /// use karbon_ui::intl::Locale;
+    ///
+    /// assert_eq!(Locale::English.bytes(512), "512 B");
+    /// assert_eq!(Locale::English.bytes(1536), "1.5 KB");
+    /// assert_eq!(Locale::French.bytes(3 * 1024 * 1024), "3 Mo");
+    /// assert_eq!(Locale::German.bytes(25_400_000_000), "24 GB");
+    /// ```
+    pub fn bytes(self, bytes: u64) -> String {
+        let units = self.data().byte_units;
+        let mut value = bytes as f64;
+        let mut unit = 0;
+        while value >= 1024. && unit + 1 < units.len() {
+            value /= 1024.;
+            unit += 1;
+        }
+        let text = if unit > 0 && value < 10. {
+            self.decimal(value, 1)
+        } else {
+            self.number(value.round() as i64)
+        };
+        format!("{text} {}", units[unit])
+    }
     /// Running time like a player: `8:02`, `1:02:03` (hours only when needed).
     pub fn clock(self, seconds: f64) -> String {
         clock(seconds, false)

@@ -8,6 +8,9 @@ pub struct Source {
     pub display: String,
     pub dir: PathBuf,
     pub package: PathBuf,
+    /// Dossier deviné : le compilateur n'a pas dit où est le fichier source de l'appel
+    /// (rust-analyzer ne fournit pas `Span::local_file`).
+    pub guessed: bool,
 }
 impl Source {
     pub fn call(input: &TokenStream) -> Self {
@@ -17,15 +20,60 @@ impl Source {
             .next()
             .map_or(Span::call_site(), |t| t.span());
         let package = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap_or_default());
-        let file = span
-            .local_file()
-            .unwrap_or_else(|| package.join("src/lib.rs"));
+        let file = span.local_file();
+        let guessed = file.is_none();
+        let file = file.unwrap_or_else(|| package.join("src/lib.rs"));
         Self {
             display: span.file(),
             dir: file.parent().unwrap_or(&package).to_path_buf(),
             package,
+            guessed,
         }
     }
+    /// Chemin d'un fichier ou d'un dossier nommé relativement au fichier source de
+    /// l'appel. Quand ce fichier est inconnu (rust-analyzer), le chemin est cherché sous
+    /// `src/` du paquet : le premier dossier, du moins profond au plus profond, qui le
+    /// contient. Cargo, qui donne toujours le fichier, n'est pas concerné.
+    pub fn resolve(&self, relative: &str) -> PathBuf {
+        let direct = self.dir.join(relative);
+        if !self.guessed || direct.exists() {
+            return direct;
+        }
+        find_under(&self.package.join("src"), relative).unwrap_or(direct)
+    }
+}
+
+/// Parcours en largeur de `root` (dossiers cachés et `target` exclus, 4 096 dossiers au
+/// plus) : le premier dossier `d` tel que `d/relative` existe.
+fn find_under(root: &Path, relative: &str) -> Option<PathBuf> {
+    let mut queue = std::collections::VecDeque::from([root.to_path_buf()]);
+    let mut visited = 0;
+    while let Some(dir) = queue.pop_front() {
+        let candidate = dir.join(relative);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+        visited += 1;
+        if visited > 4096 {
+            return None;
+        }
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        let mut children: Vec<PathBuf> = entries
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
+            .filter(|e| {
+                let name = e.file_name();
+                let name = name.to_string_lossy();
+                !name.starts_with('.') && name != "target"
+            })
+            .map(|e| e.path())
+            .collect();
+        children.sort();
+        queue.extend(children);
+    }
+    None
 }
 /// Sorte d'un fichier lu, pour les messages : le lecteur sert aux templates, aux
 /// feuilles (`css_file!`, `@import`) et aux SVG (`<svg src>`).
@@ -53,7 +101,7 @@ impl Reader {
     }
     pub fn text(&mut self, path: &str, span: Span) -> Result<(String, Source, PathBuf)> {
         let kind = kind(path);
-        let target = self.source.dir.join(path).canonicalize().map_err(|e| {
+        let target = self.source.resolve(path).canonicalize().map_err(|e| {
             Error::new(
                 format!("{}: include {path:?}: {e}", self.source.display),
                 span,
@@ -112,6 +160,7 @@ impl Reader {
             display,
             dir: target.parent().unwrap().to_path_buf(),
             package,
+            guessed: false,
         };
         self.dependencies.push(target.clone());
         Ok((text, source, target))

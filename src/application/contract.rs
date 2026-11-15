@@ -272,6 +272,44 @@ pub trait Application: 'static {
     fn image_loader(&self) -> Option<crate::resources::ImageLoader> {
         None
     }
+    /// The application's [`Inbox`](crate::task::Inbox), if it has one: the window then
+    /// wakes up when another thread posts to it, and applies the posts on the UI thread
+    /// (the view is rebuilt when one of them returns `true`). Defaults to none.
+    ///
+    /// ```
+    /// use karbon_ui::{task::Inbox, ui::prelude::*};
+    ///
+    /// #[derive(Clone)]
+    /// enum Msg {
+    ///     Downloaded(u32),
+    /// }
+    /// struct Downloads {
+    ///     inbox: Inbox<Downloads>,
+    ///     done: u32,
+    /// }
+    /// impl Application for Downloads {
+    ///     type Message = Msg;
+    ///     fn inbox(&self) -> Option<Inbox<Self>> {
+    ///         Some(self.inbox.clone())
+    ///     }
+    ///     fn update(&mut self, message: Msg) -> bool {
+    ///         let Msg::Downloaded(n) = message;
+    ///         self.done += n;
+    ///         true
+    ///     }
+    ///     # fn view(&self, _: &ViewContext) -> Element { text("t", "") }
+    /// }
+    ///
+    /// let app = Downloads { inbox: Inbox::new(), done: 0 };
+    /// let sender = app.inbox.sender();
+    /// std::thread::spawn(move || sender.send(Msg::Downloaded(1)));
+    /// ```
+    fn inbox(&self) -> Option<crate::task::Inbox<Self>>
+    where
+        Self: Sized,
+    {
+        None
+    }
 }
 
 /// Façade objet d'une application : le runtime et les fenêtres ignorent son type de message.
@@ -289,6 +327,7 @@ pub(crate) trait DynApplication {
     fn window_changed(&mut self, state: crate::window::WindowState) -> bool;
     fn tray_event(&mut self, event: crate::window::TrayEvent) -> bool;
     fn image_loader(&self) -> Option<crate::resources::ImageLoader>;
+    fn inbox(&self) -> Option<Arc<dyn crate::task::InboxPort>>;
     /// Accès typé pour le harnais headless, qui connaît le type concret.
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
@@ -356,6 +395,9 @@ impl<A: Application> DynApplication for A {
     }
     fn image_loader(&self) -> Option<crate::resources::ImageLoader> {
         Application::image_loader(self)
+    }
+    fn inbox(&self) -> Option<Arc<dyn crate::task::InboxPort>> {
+        Application::inbox(self).map(|inbox| inbox.port())
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self

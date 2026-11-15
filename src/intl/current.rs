@@ -2,6 +2,10 @@
 use super::{Locale, Plural, locale};
 use std::time::SystemTime;
 
+/// [`Locale::bytes`] in the current locale: `1.5 KB`, `12 MB`, `12 Mo`.
+pub fn bytes(bytes: u64) -> String {
+    locale().bytes(bytes)
+}
 /// [`Locale::number`] in the current locale: `9,440`, `9 440`, `9.440`.
 pub fn number(value: i64) -> String {
     locale().number(value)

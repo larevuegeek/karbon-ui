@@ -24,9 +24,13 @@ pub(super) struct Mailbox {
 pub(super) struct Running {
     pub(super) revision: u64,
     pub(super) cancel: CancellationToken,
+    /// Abonnement d'une boîte aux lettres : livre plusieurs réveils, ne compte pas parmi
+    /// les tâches en vol.
+    pub(super) persistent: bool,
 }
 pub(super) struct Job {
-    pub(super) task: Task,
+    pub(super) id: TaskId,
+    pub(super) work: Work,
     pub(super) revision: u64,
     pub(super) cancel: CancellationToken,
     pub(super) mailbox: Weak<Mailbox>,
@@ -36,7 +40,7 @@ impl Job {
         if self.cancel.is_cancelled() {
             return;
         }
-        let value = catch_unwind(AssertUnwindSafe(|| (self.task.work)(self.cancel.clone())))
+        let value = catch_unwind(AssertUnwindSafe(|| (self.work)(self.cancel.clone())))
             .map_err(|_| TaskError::WorkerPanicked);
         let Some(mailbox) = self.mailbox.upgrade() else {
             return;
@@ -48,10 +52,7 @@ impl Job {
             }
             inbox.results.push_back(Completion {
                 revision: self.revision,
-                result: TaskResult {
-                    id: self.task.id,
-                    value,
-                },
+                result: TaskResult { id: self.id, value },
             });
         }
         (mailbox.wake)();
@@ -181,8 +182,9 @@ pub(crate) struct TaskScope {
     pub(super) revision: u64,
 }
 impl TaskScope {
+    /// Tâches en vol, abonnements des boîtes aux lettres exclus.
     pub(crate) fn active_count(&self) -> usize {
-        self.running.len()
+        self.running.values().filter(|r| !r.persistent).count()
     }
     pub(super) const CAPACITY: usize = 64;
     pub(crate) fn new(wake: impl Fn() + Send + Sync + 'static) -> Self {
@@ -236,15 +238,37 @@ impl TaskScope {
         self.revision = revision;
         let id = task.id;
         let cancel = CancellationToken::new();
+        let work = match task.kind {
+            TaskKind::Work(work) => work,
+            TaskKind::Listen(listener) => {
+                self.running.insert(
+                    id,
+                    Running {
+                        revision,
+                        cancel: cancel.clone(),
+                        persistent: true,
+                    },
+                );
+                listener.attach(Port {
+                    id,
+                    revision,
+                    cancel,
+                    mailbox: Arc::downgrade(&self.mailbox),
+                });
+                return None;
+            }
+        };
         self.running.insert(
             id,
             Running {
                 revision,
                 cancel: cancel.clone(),
+                persistent: false,
             },
         );
         let job = Job {
-            task,
+            id,
+            work,
             revision,
             cancel,
             mailbox: Arc::downgrade(&self.mailbox),
@@ -259,12 +283,13 @@ impl TaskScope {
         loop {
             let completion = lock(&self.mailbox.inbox).results.pop_front()?;
             let id = completion.result.id;
-            if self
-                .running
-                .get(&id)
-                .is_some_and(|job| job.revision == completion.revision)
-            {
-                self.running.remove(&id);
+            let Some(job) = self.running.get(&id) else {
+                continue;
+            };
+            if job.revision == completion.revision {
+                if !job.persistent {
+                    self.running.remove(&id);
+                }
                 return Some(completion.result);
             }
         }

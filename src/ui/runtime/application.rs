@@ -18,19 +18,30 @@ impl UiRuntime {
 
     /// Drain the background work requested by the application
     /// (see [`Application::take_task_commands`]), followed by the decodes of its
-    /// [`ImageLoader`](crate::resources::ImageLoader).
+    /// [`ImageLoader`](crate::resources::ImageLoader) and the subscription of its
+    /// [`Inbox`](crate::task::Inbox).
     pub fn take_task_commands(&mut self) -> Vec<crate::task::TaskCommand> {
         let mut commands = self.app.take_task_commands();
+        let cancel_all = commands
+            .iter()
+            .any(|c| matches!(c, crate::task::TaskCommand::CancelAll));
         if let Some(images) = self.app.image_loader() {
             // Un `CancelAll` de l'application emporte aussi les chargements en vol :
             // ils sont redemandés, après lui.
-            if commands
-                .iter()
-                .any(|c| matches!(c, crate::task::TaskCommand::CancelAll))
-            {
+            if cancel_all {
                 images.cancelled_all();
             }
             commands.extend(images.take_commands());
+        }
+        // Boîte aux lettres : la fenêtre s'abonne (de nouveau après un `CancelAll`, qui
+        // emporte aussi l'abonnement), sans occuper d'ouvrier.
+        if let Some(inbox) = self.app.inbox()
+            && inbox.wants_listener(cancel_all)
+        {
+            commands.push(crate::task::TaskCommand::Spawn(crate::task::Task::listen(
+                crate::task::INBOX_TASK,
+                inbox.listener(),
+            )));
         }
         commands
     }
@@ -40,11 +51,19 @@ impl UiRuntime {
     /// invalidated), or the task delivered images to
     /// [`ImageSlot`](crate::ui::template::ImageSlot)s (they are repainted, without
     /// rebuilding the view). Decodes of the application's
-    /// [`ImageLoader`](crate::resources::ImageLoader) are handled here, not passed on.
+    /// [`ImageLoader`](crate::resources::ImageLoader) and the wake-ups of its
+    /// [`Inbox`](crate::task::Inbox) are handled here, not passed on.
     pub fn task_completed(&mut self, result: crate::task::TaskResult) -> bool {
-        let changed = match self.app.image_loader() {
-            Some(images) if images.owns(result.id) => images.completed(result),
-            _ => self.app.task_completed(result),
+        let inbox = (result.id == crate::task::INBOX_TASK)
+            .then(|| self.app.inbox())
+            .flatten();
+        let changed = if let Some(inbox) = inbox {
+            inbox.deliver_any(self.app.as_any_mut())
+        } else {
+            match self.app.image_loader() {
+                Some(images) if images.owns(result.id) => images.completed(result),
+                _ => self.app.task_completed(result),
+            }
         };
         if changed {
             self.invalidate();

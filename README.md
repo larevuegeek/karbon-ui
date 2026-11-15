@@ -38,9 +38,14 @@ the binary contains no HTML parser, no CSS engine and no browser.
 - **Native where it matters.** System text shaping, input methods, screen readers,
   clipboard, file dialogs, window icons, a system tray icon with its menu (notification
   area, macOS menu bar, Linux StatusNotifierItem), system colour scheme and reduced motion.
-- **Locale-aware formatting.** `karbon_ui::intl` formats numbers, durations, relative
-  times and local dates in English, French, German, Spanish and Italian, like the web's
-  `Intl`.
+- **Translations and locale-aware formatting.** `karbon_ui::intl` reads the
+  application's JSON translations (`t`, `t_with`, `t_count`) and formats numbers, file
+  sizes, durations, relative times and local dates in English, French, German, Spanish
+  and Italian, like the web's `Intl`.
+- **Any thread to the UI.** A `task::Inbox` lets an async runtime or any thread post
+  closures and messages to the application; the window wakes up and applies them on
+  the UI thread, without polling. `navigation::History` keeps the back and forward
+  pages.
 - **Preferences and secrets.** `karbon_ui::storage` keeps preferences like the web's
   `localStorage` (atomic writes); `karbon_ui::secrets` keeps passwords in the
   Credential Manager, the Keychain or the Secret Service.
@@ -233,8 +238,9 @@ French, in [docs/](docs/): templates ([templates.md](docs/templates.md),
 [html-syntax.md](docs/html-syntax.md)), CSS coverage ([css.md](docs/css.md),
 [tailwind.md](docs/tailwind.md), [css-frameworks.md](docs/css-frameworks.md)), the
 component kit ([kit.md](docs/kit.md)), windows, tasks, images, drag-and-drop,
-accessibility, headless testing ([headless.md](docs/headless.md)), locale-aware formatting
-([intl.md](docs/intl.md)), preferences and secrets ([storage.md](docs/storage.md)), the test organisation
+accessibility, headless testing ([headless.md](docs/headless.md)), translations and
+locale-aware formatting ([intl.md](docs/intl.md)), the inbox ([tasks.md](docs/tasks.md)),
+navigation history ([navigation.md](docs/navigation.md)), preferences and secrets ([storage.md](docs/storage.md)), the test organisation
 ([tests.md](docs/tests.md)) and the resume point ([next-session.md](docs/next-session.md)).
 [tools/vscode-karbon-ui](tools/vscode-karbon-ui/README.md) adds `.ui` syntax highlighting,
 indentation and snippets to VS Code.

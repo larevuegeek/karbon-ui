@@ -63,7 +63,7 @@ struct Icon {
 /// Fichiers `.svg` du dossier (un niveau de jeux au plus), triés par nom ; les autres
 /// fichiers (licences, notes) et les entrées cachées sont ignorés.
 fn scan(source: &Source, dir: &str, span: Span) -> Result<Vec<Icon>> {
-    let base = source.dir.join(dir);
+    let base = source.resolve(dir);
     let error = |message: String| Error::new(format!("{}: {message}", source.display), span);
     let entries = |path: &Path| -> Result<Vec<(String, PathBuf, bool)>> {
         let read = std::fs::read_dir(path)

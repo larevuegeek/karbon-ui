@@ -10,7 +10,8 @@ pub(super) use std::{
 /// Identifier chosen by the application for a task, unique within its window.
 ///
 /// Spawning a task with an ID that is already running cancels the previous one; only the
-/// latest result for an ID is delivered.
+/// latest result for an ID is delivered. IDs with the highest bit set (`1 << 63` and
+/// above) are reserved for karbon-ui (image loading, [`Inbox`](super::Inbox)).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TaskId(pub u64);
 
@@ -35,11 +36,18 @@ impl CancellationToken {
 }
 
 pub(super) type Value = Box<dyn Any + Send>;
+pub(super) type Work = Box<dyn FnOnce(CancellationToken) -> Value + Send>;
 /// A unit of background work: a closure run once on a worker thread.
 pub struct Task {
     /// Identifier reported back in the matching [`TaskResult`].
     pub id: TaskId,
-    pub(super) work: Box<dyn FnOnce(CancellationToken) -> Value + Send>,
+    pub(super) kind: TaskKind,
+}
+/// Ce que fait une tâche : un travail sur un ouvrier, ou l'abonnement d'une boîte aux
+/// lettres au réveil de la fenêtre (aucun ouvrier occupé).
+pub(super) enum TaskKind {
+    Work(Work),
+    Listen(Arc<dyn super::inbox::Listener>),
 }
 impl Task {
     /// Create a task running `work` off the UI thread.
@@ -53,7 +61,14 @@ impl Task {
     ) -> Self {
         Self {
             id,
-            work: Box::new(move |cancel| Box::new(work(cancel))),
+            kind: TaskKind::Work(Box::new(move |cancel| Box::new(work(cancel)))),
+        }
+    }
+    /// Abonnement d'une boîte aux lettres : la fenêtre lui remet de quoi la réveiller.
+    pub(crate) fn listen(id: TaskId, listener: Arc<dyn super::inbox::Listener>) -> Self {
+        Self {
+            id,
+            kind: TaskKind::Listen(listener),
         }
     }
 }
