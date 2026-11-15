@@ -253,6 +253,14 @@
     ],
     "description": "Boucle avec index et clé stable"
   },
+  "Const": {
+    "prefix": [
+      "const",
+      "ui-const"
+    ],
+    "body": "{@const ${1:name} = ${2:value}}$0",
+    "description": "Nommer une valeur jusqu'à la fin du bloc"
+  },
   "Include": {
     "prefix": [
       "include",

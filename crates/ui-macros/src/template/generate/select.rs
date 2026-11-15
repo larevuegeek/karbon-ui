@@ -133,8 +133,8 @@ impl Generator {
                     }
                 }
                 Node::Each(each) => {
-                    let header = self.each_header(each);
-                    code += &format!("{header}{{{}}}", self.options(&each.body)?);
+                    let (open, close) = self.each_header(each);
+                    code += &format!("{open}{{{}}}{close}", self.options(&each.body)?);
                 }
                 Node::Fragment { nodes, .. } => code += &self.options(nodes)?,
                 other => {

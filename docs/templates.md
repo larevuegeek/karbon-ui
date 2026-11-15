@@ -110,6 +110,7 @@ Un template a un seul élément racine.
 {#if let Some(x) = valeur} … {x} … {:else if let Ok(y) = autre} … {:else} … {/if}
 {#each iterable as item (clé)} … {:else} liste vide {/each}
 {#each iterable as (index, item) (clé)} … {/each}
+{@const total = album.tracks.len()} … {total} …
 {@include "form.ui"}
 {@include "track.ui" slot="track"}
 ```
@@ -127,6 +128,14 @@ référence**, comme en Svelte ; une autre expression (appel, indexation, `0..n`
 `xs.iter().rev()`) est consommée.
 `{#each}` construit tous ses éléments : pour des milliers de lignes, utiliser
 `<k-virtual-list>`.
+
+`{@const motif = valeur}` nomme une valeur, comme en Svelte : elle est calculée
+une fois et visible de la directive jusqu'à la fin de la liste qui la contient
+(balise fermante, branche `{:else}` suivante, `{/if}` ou `{/each}`, fin du
+fichier). Le motif est celui d'un `let` (`{@const (titre, durée) = paire}`), et
+les temporaires de la valeur vivent pendant toute cette portée
+(`{@const nom = album.titre().as_str()}`). Les fragments inclus ensuite la
+voient : c'est la façon de leur passer une valeur sans boucle d'un seul tour.
 
 `{@include}` insère un fragment pendant la compilation (chemin relatif au fichier
 qui inclut, ou depuis la racine du paquet s'il commence par `/`, dans le package Cargo ; cycles et fichiers absents signalés à la

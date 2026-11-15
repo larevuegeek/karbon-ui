@@ -52,11 +52,14 @@ rendu silencieusement faux.
 {#if cond} … {:else if autre} … {:else} … {/if}
 {#each iterable as item (clé)} … {/each}
 {#each iterable as (index, item) (clé)} … {/each}
+{@const total = album.tracks.len()}
 {@include "form.ui"}
 ```
 
 La clé de `{#each}` est obligatoire : elle donne une identité stable aux
 éléments quand la liste est réordonnée. Seule la branche active est construite.
+`{@const}` nomme une valeur jusqu'à la fin du bloc ou de l'élément qui le
+contient.
 
 ## 3. Balises HTML prises en charge
 

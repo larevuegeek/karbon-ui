@@ -363,6 +363,8 @@ impl Generator {
                     .map(|body| self.capacity(body))
                     .max()
                     .unwrap_or(0),
+                // `{@const}` : son corps est la suite de la liste.
+                Item::Block(Node::Each(e), _) if e.bind => self.capacity(&e.body),
                 Item::Block(..) => 0,
             })
             .sum()

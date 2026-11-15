@@ -29,7 +29,8 @@ décrite par [`docs/html-syntax.md`](../../docs/html-syntax.md) :
 - texte HTML brut (sans guillemets), entités (`&amp;`, `&#233;`) et
   commentaires `<!-- … -->` ;
 - blocs façon Svelte : `{#if}`, `{:else if}`, `{:else}`, `{/if}`, `{#each … as … (clé)}`,
-  `{/each}`, `{@include "fichier.ui" slot="nom"}`, `{@element expr}` ;
+  `{/each}`, `{@include "fichier.ui" slot="nom"}`, `{@element expr}`,
+  `{@const nom = valeur}` ;
   les mots-clés sont colorés comme tels et la condition, l'itérable, le motif
   et la clé utilisent la grammaire Rust ;
 - Rust entre accolades `{…}`, en texte comme en attribut, y compris les

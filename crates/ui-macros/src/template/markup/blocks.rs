@@ -50,9 +50,11 @@ pub(super) fn directive(rest: TokenStream, loc: Loc) -> Result<Node> {
             Ok(Node::Embed(tail, loc))
         }
         Some(other) => Err(loc.error(format!(
-            "Unknown directive {{@{other}}}; supported: {{@include \"file.ui\"}}, {{@element expr}}"
+            "Unknown directive {{@{other}}}; supported: {{@include \"file.ui\"}}, {{@element expr}}, {{@const name = value}}"
         ))),
-        None => Err(loc.error("Expected {@include \"file.ui\"} or {@element expr}")),
+        None => Err(loc.error(
+            "Expected {@include \"file.ui\"}, {@element expr} or {@const name = value}",
+        )),
     }
 }
 pub(super) fn parse_each(tokens: TokenStream, loc: Loc) -> Result<Each> {
@@ -102,6 +104,43 @@ pub(super) fn parse_each(tokens: TokenStream, loc: Loc) -> Result<Each> {
         key,
         body: Vec::new(),
         otherwise: None,
+        bind: false,
         loc,
     })
+}
+/// `{@const motif = valeur}` : `None` pour une autre directive. Le corps est rempli
+/// par l'appelant avec la suite de la liste.
+pub(super) fn parse_const(tokens: TokenStream, loc: Loc) -> Result<Option<Each>> {
+    use proc_macro::Spacing;
+    let usage = "Expected {@const name = value}";
+    let (word, tail) = split_word(tokens);
+    if word.as_deref() != Some("const") {
+        return Ok(None);
+    }
+    let tokens = tail.into_iter().collect::<Vec<_>>();
+    // Le premier `=` seul : ni `==`, `=>`, `<=`, `>=`, `!=`, ni `..=` d'un motif.
+    let at = tokens
+        .iter()
+        .enumerate()
+        .position(|(i, t)| {
+            matches!(t, TokenTree::Punct(p) if p.as_char() == '=' && p.spacing() == Spacing::Alone)
+                && !matches!(i.checked_sub(1).map(|j| &tokens[j]),
+                    Some(TokenTree::Punct(q)) if q.spacing() == Spacing::Joint)
+        })
+        .ok_or_else(|| loc.error(usage))?;
+    let pattern = tokens[..at].iter().cloned().collect::<TokenStream>();
+    let value = tokens[at + 1..].iter().cloned().collect::<TokenStream>();
+    if pattern.is_empty() || value.is_empty() {
+        return Err(loc.error(usage));
+    }
+    Ok(Some(Each {
+        iterable: value,
+        pattern,
+        index: None,
+        key: TokenStream::new(),
+        body: Vec::new(),
+        otherwise: None,
+        bind: true,
+        loc,
+    }))
 }

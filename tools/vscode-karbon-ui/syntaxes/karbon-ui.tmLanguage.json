@@ -190,7 +190,7 @@
         },
         {
           "name": "meta.block.control.karbon-ui",
-          "begin": "(\\{)\\s*(@element)\\b",
+          "begin": "(\\{)\\s*(@(?:element|const))\\b",
           "beginCaptures": {
             "1": {
               "name": "punctuation.section.block.begin.karbon-ui"

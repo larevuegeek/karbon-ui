@@ -8,6 +8,7 @@
 mod aria;
 mod compilation;
 mod components;
+mod const_binding;
 mod exit;
 mod html;
 mod icon_folder;

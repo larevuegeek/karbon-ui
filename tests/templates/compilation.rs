@@ -222,6 +222,11 @@ fn main() {
             "missing.ui",
         ),
         (
+            "const_value",
+            r#"<div>{@const count}<p>{count}</p></div>"#,
+            "Expected {@const name = value}",
+        ),
+        (
             "svg_text",
             r#"<svg viewBox="0 0 24 24"><text>x</text></svg>"#,
             "<text> is not supported inside inline SVG",

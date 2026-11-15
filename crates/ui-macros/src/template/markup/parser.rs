@@ -1,7 +1,7 @@
 //! Analyse des pièces : balises, attributs, texte et blocs.
 use super::{
     Attr, Element, Loc, Node, Value,
-    blocks::{directive, parse_each, split_word},
+    blocks::{directive, parse_const, parse_each, split_word},
     entities::decode,
     pieces::{Piece, relocate},
 };
@@ -335,7 +335,23 @@ impl Parser {
                             }
                             return Ok((nodes, Stop::CloseBlock(word.unwrap(), loc)));
                         }
-                        _ => nodes.push(directive(rest, loc)?),
+                        _ => match parse_const(rest.clone(), loc)? {
+                            // `{@const}` : la suite de la liste (jusqu'à la balise
+                            // fermante, la branche suivante ou la fin) est sa portée.
+                            Some(mut bind) => {
+                                if self.depth >= MAX_DEPTH {
+                                    return Err(loc.error(NESTING));
+                                }
+                                self.depth += 1;
+                                let rest = self.nodes(closing, open);
+                                self.depth -= 1;
+                                let (body, stop) = rest?;
+                                bind.body = body;
+                                nodes.push(Node::Each(bind));
+                                return Ok((nodes, stop));
+                            }
+                            None => nodes.push(directive(rest, loc)?),
+                        },
                     }
                 }
             }

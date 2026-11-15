@@ -40,6 +40,9 @@ pub struct Each {
     pub key: TokenStream,
     pub body: Vec<Node>,
     pub otherwise: Option<Vec<Node>>,
+    /// `{@const motif = valeur}` : une seule liaison, sans boucle ni clé, dont le
+    /// corps est la suite de la liste où la directive apparaît.
+    pub bind: bool,
     pub loc: Loc,
 }
 #[derive(Clone)]

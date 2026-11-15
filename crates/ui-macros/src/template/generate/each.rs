@@ -65,11 +65,28 @@ impl Generator {
             None => (iterable, pattern),
         }
     }
-    pub(super) fn each_header(&mut self, each: &Each) -> String {
+    /// Ouverture et fermeture qui entourent le corps `{…}` d'une boucle, ou d'un
+    /// `{@const}` : un `match` dont les temporaires de la valeur vivent pendant tout le
+    /// corps, comme ceux de l'itérable d'un `for`. La valeur passe par `identity` : un
+    /// littéral de structure n'est pas admis tel quel devant l'accolade d'un `match`.
+    pub(super) fn each_header(&mut self, each: &Each) -> (String, &'static str) {
+        if each.bind {
+            let value = self.out.value(&each.iterable);
+            let pattern = self.out.value(&each.pattern);
+            return (
+                format!("match ::core::convert::identity({value}){{{pattern}=>"),
+                "}",
+            );
+        }
         let (iterable, pattern) = self.each_parts(each);
-        format!("for {pattern} in {iterable}")
+        (format!("for {pattern} in {iterable}"), "")
     }
     pub(super) fn each(&mut self, each: &Each, dest: Dest, forced: Option<&str>) -> Result<String> {
+        if each.bind {
+            let (open, close) = self.each_header(each);
+            let body = self.children(&each.body, dest, forced)?;
+            return Ok(format!("{open}{{{body}}}{close}"));
+        }
         // Liste d'enfants : chaque tour ajoute au plus `per_item` éléments, réservés d'un
         // coup d'après la taille connue de l'itérable (un élément fait ~500 octets : la
         // liste ne grandit pas par recopies successives).
@@ -90,7 +107,7 @@ impl Generator {
                 "}}",
             )
         } else {
-            (self.each_header(each), "")
+            self.each_header(each)
         };
         let key = self.out.value(&each.key);
         let site = self.next();

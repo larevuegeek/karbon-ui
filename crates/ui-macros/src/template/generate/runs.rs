@@ -14,7 +14,8 @@ pub(super) enum Run {
     Link(String, String, String),
     Prelude(String),
     If(Vec<(String, Vec<Run>)>, Option<Vec<Run>>),
-    Each(String, Vec<Run>),
+    /// Ouverture, corps et fermeture d'un `{#each}` ou d'un `{@const}`.
+    Each(String, Vec<Run>, &'static str),
 }
 /// Regroupe les blancs comme en HTML ; renvoie `true` si la suite finit par un blanc.
 pub(super) fn collapse(runs: &mut Vec<Run>, mut space: bool) -> bool {
@@ -47,7 +48,7 @@ pub(super) fn collapse(runs: &mut Vec<Run>, mut space: bool) -> bool {
                 }
                 space = false;
             }
-            Run::Each(_, body) => {
+            Run::Each(_, body, _) => {
                 collapse(body, space);
                 space = false;
             }
@@ -104,7 +105,7 @@ pub(super) fn emit(runs: &[Run]) -> String {
                     code += &format!("else{{{}}}", emit(body));
                 }
             }
-            Run::Each(header, body) => code += &format!("{header}{{{}}}", emit(body)),
+            Run::Each(open, body, close) => code += &format!("{open}{{{}}}{close}", emit(body)),
         }
     }
     code
@@ -225,12 +226,12 @@ impl Generator {
                         .loc
                         .error("{:else} in {#each} is not supported inside text"));
                 }
-                let header = self.each_header(each);
+                let (open, close) = self.each_header(each);
                 let mut inner = Vec::new();
                 for n in &each.body {
                     self.runs(n, style, &mut inner)?;
                 }
-                out.push(Run::Each(header, inner));
+                out.push(Run::Each(open, inner, close));
             }
             Node::Fragment { nodes, .. } => {
                 for n in nodes {
