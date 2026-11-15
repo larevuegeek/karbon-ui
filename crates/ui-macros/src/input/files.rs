@@ -30,11 +30,15 @@ impl Source {
             guessed,
         }
     }
-    /// Chemin d'un fichier ou d'un dossier nommé relativement au fichier source de
-    /// l'appel. Quand ce fichier est inconnu (rust-analyzer), le chemin est cherché sous
-    /// `src/` du paquet : le premier dossier, du moins profond au plus profond, qui le
+    /// Chemin d'un fichier ou d'un dossier nommé dans un appel. Commençant par `/`, il part
+    /// de la racine du paquet (`/ui/templates/page.ui`) ; sinon, du fichier source de
+    /// l'appel. Quand ce fichier est inconnu (rust-analyzer), un chemin relatif est cherché
+    /// sous `src/` du paquet : le premier dossier, du moins profond au plus profond, qui le
     /// contient. Cargo, qui donne toujours le fichier, n'est pas concerné.
     pub fn resolve(&self, relative: &str) -> PathBuf {
+        if let Some(from_root) = relative.strip_prefix('/') {
+            return self.package.join(from_root);
+        }
         let direct = self.dir.join(relative);
         if !self.guessed || direct.exists() {
             return direct;

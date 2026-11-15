@@ -1,0 +1,4 @@
+<main class="root-page">
+  <p>From the root</p>
+  {@include "/tests/templates/ui/root/part.ui"}
+</main>

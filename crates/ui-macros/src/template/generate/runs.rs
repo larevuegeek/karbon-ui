@@ -200,7 +200,7 @@ impl Generator {
             } => {
                 let mut list = Vec::new();
                 for (cond, body) in branches {
-                    let cond = self.out.value(cond);
+                    let cond = self.out.condition(cond);
                     let mut inner = Vec::new();
                     for n in body {
                         self.runs(n, style, &mut inner)?;

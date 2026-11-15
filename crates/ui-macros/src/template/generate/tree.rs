@@ -316,7 +316,7 @@ impl Generator {
             } => {
                 let mut code = String::new();
                 for (i, (cond, body)) in branches.iter().enumerate() {
-                    let cond = self.out.value(cond);
+                    let cond = self.out.condition(cond);
                     if i > 0 {
                         code += "else ";
                     }

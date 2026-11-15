@@ -26,6 +26,16 @@ impl Output {
         self.values.push(value.clone());
         format!("__ui_value_{n}")
     }
+    /// Condition d'un `if` généré. Une condition qui commence par `let` (`{#if let Some(x)
+    /// = e}`, éventuellement chaînée : `let Some(x) = e && x > 0`) est insérée telle quelle :
+    /// rustc refuse un `let` dans le groupe invisible de [`Output::value`]. Le `if` la suit
+    /// directement et l'accolade du corps la ferme, sans priorité d'opérateur à protéger.
+    pub fn condition(&mut self, cond: &TokenStream) -> String {
+        match cond.clone().into_iter().next() {
+            Some(TokenTree::Ident(i)) if i.to_string() == "let" => self.raw(cond),
+            _ => self.value(cond),
+        }
+    }
     /// Comme [`Output::value`], mais les jetons sont insérés tels quels, sans groupe
     /// invisible (chemins de module dans `use` et dans l'appel d'une macro).
     pub fn raw(&mut self, value: &TokenStream) -> String {

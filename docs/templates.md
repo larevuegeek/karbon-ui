@@ -57,8 +57,11 @@ fn view(&self, _: &ViewContext) -> Element {
 }
 ```
 
-`ui_file!` lit le fichier relativement au fichier Rust appelant ; Cargo
-recompile quand le fichier ou ses includes changent. Options : `context`,
+`ui_file!` lit le fichier relativement au fichier Rust appelant, ou depuis la racine du
+paquet quand le chemin commence par `/` (`ui_file!("/ui/templates/home.ui")`) : les
+gabarits, feuilles et icônes peuvent ainsi vivre dans un dossier de thème hors de `src/`,
+où un intégrateur travaille sans toucher au code. Même règle pour `{@include}`,
+`css_file!` et `icons_dir!`. Cargo recompile quand le fichier ou ses includes changent. Options : `context`,
 `scope`, `slots`, `styles`. `ui!` accepte le même balisage dans le code Rust,
 précédé des directives facultatives `@context(cx);`, `@scope(id);`,
 `@slots(slots);` et `@styles(css);` :
@@ -104,13 +107,19 @@ Un template a un seul élément racine.
 
 ```html
 {#if cond} … {:else if autre} … {:else} … {/if}
+{#if let Some(x) = valeur} … {x} … {:else if let Ok(y) = autre} … {:else} … {/if}
 {#each iterable as item (clé)} … {:else} liste vide {/each}
 {#each iterable as (index, item) (clé)} … {/each}
 {@include "form.ui"}
 {@include "track.ui" slot="track"}
 ```
 
-Seule la branche active est construite. La clé de `{#each}` est obligatoire :
+Seule la branche active est construite. `{#if let motif = valeur}` est le
+`if let` de Rust : ce que le motif lie sert dans toute la branche (texte,
+attributs, messages, options d'un `<select>`), et la condition peut chaîner des
+tests (`{#if let Some(n) = total && n > 1}`). Pour une valeur optionnelle, c'est
+la forme à préférer à un `{#each valeur.iter() as x}` sur zéro ou un élément.
+La clé de `{#each}` est obligatoire :
 elle donne une identité stable à chaque élément quand la liste est réordonnée.
 Un chemin (`self.tracks`, `items`, `data::LISTE`, `crate::X.0` : identifiants
 reliés par `.` ou `::`, `static` et `const` compris) est parcouru **par
@@ -120,7 +129,7 @@ référence**, comme en Svelte ; une autre expression (appel, indexation, `0..n`
 `<k-virtual-list>`.
 
 `{@include}` insère un fragment pendant la compilation (chemin relatif au fichier
-qui inclut, dans le package Cargo ; cycles et fichiers absents signalés à la
+qui inclut, ou depuis la racine du paquet s'il commence par `/`, dans le package Cargo ; cycles et fichiers absents signalés à la
 compilation). Un fragment peut contenir plusieurs nœuds et viser un slot.
 Chaque élément qui a des descendants est construit dans sa propre fonction
 (`template::subtree`, `#[inline(never)]`) : une page entière faite d'includes ne

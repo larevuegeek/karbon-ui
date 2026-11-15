@@ -139,8 +139,7 @@ pub use karbon_ui_macros::{
 macro_rules! ui {
     ($($tokens:tt)*) => { $crate::__compile_ui!(($crate) $($tokens)*) };
 }
-/// Include a native HTML template (`.ui` file) relative to the Rust source file at
-/// compile time.
+/// Include a native HTML template (`.ui` file) at compile time.
 ///
 /// The file holds the same markup as [`ui!`], without the `ui! { ... }` wrapper,
 /// and the build is re-run when it (or a file it includes with `{@include "…"}`)
@@ -151,6 +150,11 @@ macro_rules! ui {
 /// let cx = TemplateContext::default();
 /// ui_file!("views/home.ui", context = cx, styles = css)
 /// ```
+///
+/// A path is relative to the Rust source file, or to the package root when it starts
+/// with `/`: templates, stylesheets and icons can live in a theme folder outside `src/`
+/// (`ui_file!("/ui/templates/home.ui")`). The same rule applies to `{@include "…"}`,
+/// [`css_file!`] and [`icons_dir!`].
 #[macro_export]
 macro_rules! ui_file {
     ($($tokens:tt)*) => { $crate::__compile_ui_file!(($crate) $($tokens)*) };
@@ -182,8 +186,8 @@ macro_rules! styles {
 }
 /// Compile a local stylesheet into typed style functions, without a runtime parser.
 ///
-/// `css_file!(mod css, "styles.css");` reads the file relative to the Rust source at
-/// compile time and generates a module `css` with one constant per class (e.g.
+/// `css_file!(mod css, "styles.css");` reads the file relative to the Rust source (or
+/// to the package root for a path starting with `/`) at compile time and generates a module `css` with one constant per class (e.g.
 /// `.card` becomes `css::CARD`). Pass it to templates with `styles = css` (or
 /// `@styles(css);` in [`ui!`]) to use `class="card"`. Only a documented subset of CSS
 /// is supported.
@@ -210,7 +214,7 @@ macro_rules! css_file {
 /// Compile a folder of SVG icons into a module that returns an icon by name.
 ///
 /// `icons_dir!(pub mod icons, "assets/icons");` reads the folder relative to the Rust
-/// source at compile time. Each `<set>/<name>.svg` becomes the icon `"set:name"` (the
+/// source (or to the package root for a path starting with `/`) at compile time. Each `<set>/<name>.svg` becomes the icon `"set:name"` (the
 /// Iconify naming, e.g. `lucide/plus.svg` is `"lucide:plus"`), and a file at the root of
 /// the folder, `<name>.svg`, the icon `"name"`. Other files (a licence list, notes) are
 /// ignored. Every file is compiled like `<svg src="…">` in a template: an unsupported SVG
