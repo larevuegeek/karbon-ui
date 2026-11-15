@@ -2,7 +2,7 @@
   "name": "karbon-ui-language",
   "displayName": "Karbon UI",
   "description": "Templates HTML Karbon UI : balises HTML, blocs {#if}/{#each}, expressions Rust, indentation et snippets.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "karbon",
   "private": true,
   "license": "UNLICENSED",

@@ -72,7 +72,7 @@ Depuis la racine du projet, avec PowerShell :
 
 ```powershell
 ./tools/vscode-karbon-ui/package.ps1
-code --install-extension ./artifacts/karbon-ui-language-0.1.0.vsix --force
+code --install-extension ./artifacts/karbon-ui-language-0.1.1.vsix --force
 ```
 
 Puis lancer **Développeur : Recharger la fenêtre** depuis `Ctrl+Shift+P`.
