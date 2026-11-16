@@ -78,6 +78,9 @@ pub(super) struct ScrollState {
     pub(super) wheel_smooth: bool,
     /// Dernier jeton de `scroll_request` appliqué, par conteneur.
     pub(super) requests: HashMap<ElementId, u64>,
+    /// Éléments qui demandaient à être amenés dans la vue (`scroll_into_view`) à la
+    /// dernière disposition : une demande ne glisse qu'à son apparition.
+    pub(super) into_view: FastSet<ElementId>,
 }
 /// Ligne active de chaque liste virtuelle.
 #[derive(Default)]

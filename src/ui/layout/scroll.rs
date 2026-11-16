@@ -7,7 +7,7 @@ pub const BAR_SIZE: f32 = 12.;
 pub const THIN_BAR_SIZE: f32 = 10.;
 /// Space between the track edges and the thumb.
 const THUMB_INSET: f32 = 3.;
-const MIN_THUMB: f32 = 24.;
+const MIN_THUMB: f32 = 40.;
 
 /// A scroll requested by the application on a scroll container
 /// ([`scroll_request`](crate::ui::template::Node::scroll_request)): the container moves to

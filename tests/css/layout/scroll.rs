@@ -289,7 +289,10 @@ fn a_scroll_request_glides_once_per_token() {
     .unwrap();
     // Glissement en cours : pas encore arrivé.
     assert!(asked_offset(&app) < 900.);
-    app.advance(std::time::Duration::from_millis(400)).unwrap();
+    // Un glissement demandé dure 450 ms (plus qu'un cran de molette).
+    app.advance(std::time::Duration::from_millis(200)).unwrap();
+    assert!(asked_offset(&app) < 900.);
+    app.advance(std::time::Duration::from_millis(300)).unwrap();
     near(asked_offset(&app), 900.);
     app.scroll("asked", 0., -300.).unwrap();
     app.send(Some(ScrollRequest {
@@ -335,4 +338,273 @@ fn a_thin_thumb_is_grabbed_across_the_whole_gutter() {
     // 50 px de pouce : la même part de la plage de défilement.
     let travel = (s.track.bottom - s.track.top) - (s.thumb.bottom - s.thumb.top);
     near(asked_offset(&app), 50. / travel * s.max_offset());
+}
+
+/// Liste de 1000 lignes de 58 px dont 100 sont chargées ; des blocs vides tiennent la place
+/// des autres. Quand la vue sort de la fenêtre, la fenêtre saute sous la vue.
+struct Windowed {
+    start: i64,
+}
+const WINDOW_ROW: f32 = 58.;
+const WINDOW_TOTAL: i64 = 1000;
+
+impl Application for Windowed {
+    type Message = (f32, f32);
+    fn view(&self, _: &ViewContext) -> Element {
+        let start = self.start;
+        let before = start as f32 * WINDOW_ROW;
+        let after = (WINDOW_TOTAL - start - 100) as f32 * WINDOW_ROW;
+        let rows: Vec<u64> = (start as u64..start as u64 + 100).collect();
+        ui! {@styles(css);
+            <div id="window" class="window-zone" onscroll={|s: karbon_ui::ui::scroll::ScrollMetrics| (s.offset, s.viewport_size())}>
+                <div id={ElementId::named("window.before").item(start as u64)} class="window-spacer" style:height={before}></div>
+                <div class="window-rows">
+                    {#each rows as r (*r)}
+                        <div id={ElementId::named("window.row").item(*r)} class="window-row"></div>
+                    {/each}
+                </div>
+                <div id={ElementId::named("window.after").item(start as u64)} class="window-spacer" style:height={after}></div>
+            </div>
+        }
+    }
+    fn update(&mut self, (offset, view): (f32, f32)) -> bool {
+        let first = (((offset - 6.) / WINDOW_ROW).floor() as i64).clamp(0, WINDOW_TOTAL);
+        let last = (((offset + view - 6.) / WINDOW_ROW).ceil() as i64).clamp(0, WINDOW_TOTAL);
+        if last <= self.start || first >= self.start + 100 {
+            self.start = (first - 20).clamp(0, WINDOW_TOTAL - 100);
+            return true;
+        }
+        false
+    }
+}
+
+/// Les blocs vides changent d'identifiant avec la fenêtre : l'ancrage du défilement ne
+/// s'y accroche pas (il compenserait leur nouvelle hauteur et la vue retomberait dans le
+/// vide). Après chaque saut, la ligne attendue est à sa place, dans les deux sens.
+#[test]
+fn a_windowed_list_with_spacers_keeps_the_rows_under_the_view() {
+    use karbon_ui::ui::element::ElementId;
+    let mut app = HeadlessApp::new(Windowed { start: 0 }).unwrap();
+    let top = app.bounds("window").unwrap().top;
+    for step in [3000., 3000., 5000., -2000., 20000., -25000.] {
+        app.scroll("window", 0., step).unwrap();
+        let offset = app.find("window").unwrap().scroll_metrics().unwrap().offset;
+        let first = ((offset - 6.) / WINDOW_ROW).floor().max(0.) as u64;
+        let row = app
+            .bounds(ElementId::named("window.row").item(first))
+            .expect("ligne chargée sous la vue");
+        near(row.top - top, 6. + first as f32 * WINDOW_ROW - offset);
+    }
+}
+
+#[derive(Default)]
+struct Revealed {
+    request: Option<karbon_ui::ui::scroll::ScrollRequest>,
+}
+
+impl Application for Revealed {
+    type Message = Option<karbon_ui::ui::scroll::ScrollRequest>;
+    fn view(&self, _: &ViewContext) -> Element {
+        let request = self.request;
+        ui! {@styles(css);
+            <div id="cv.zone" class="cv-zone" style:scroll_request={request}>
+                {#each (0..200u64) as i (i)}
+                    <div id={karbon_ui::ui::element::ElementId::named("cv.row").item(i)} class="cv-row"><div class="cv-mark"></div></div>
+                {/each}
+            </div>
+        }
+    }
+    fn update(&mut self, request: Self::Message) -> bool {
+        self.request = request;
+        true
+    }
+}
+
+/// Un défilement demandé loin dans une liste de lignes `content-visibility: auto` : les
+/// lignes arrivées sous la vue sont rendues dans la même image, sans attendre la suivante.
+#[test]
+fn a_scroll_request_reveals_the_skipped_rows_it_brings_into_view() {
+    use karbon_ui::ui::{element::ElementId, scroll::ScrollRequest};
+    let mut app = HeadlessApp::new(Revealed::default()).unwrap();
+    let far = ElementId::named("cv.row").item(150);
+    assert_eq!(
+        app.find(far).unwrap().children[0].bounds().right
+            - app.find(far).unwrap().children[0].bounds().left,
+        0.
+    );
+    app.send(Some(ScrollRequest {
+        token: 1,
+        offset: 150. * 40.,
+        smooth: false,
+    }))
+    .unwrap();
+    let mark = app.find(far).unwrap().children[0].bounds();
+    near(mark.right - mark.left, 30.);
+}
+
+#[derive(Default)]
+struct Targeted {
+    shown: bool,
+}
+
+impl Application for Targeted {
+    type Message = ();
+    fn view(&self, _: &ViewContext) -> Element {
+        let shown = self.shown;
+        ui! {@styles(css);
+            <div>
+                {#if shown}
+                    <div id="cv.targeted" class="cv-zone">
+                        {#each (0..200u64) as i (i)}
+                            <div id={karbon_ui::ui::element::ElementId::named("cv.target").item(i)} class="cv-row" style:scroll_initial_target={i == 150}><div class="cv-mark"></div></div>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
+        }
+    }
+    fn update(&mut self, _: ()) -> bool {
+        self.shown = true;
+        true
+    }
+}
+
+/// Une liste qui apparaît sur sa cible initiale, loin dans des lignes
+/// `content-visibility: auto` : la cible est rendue dès la première image.
+#[test]
+fn an_initial_scroll_target_reveals_the_skipped_rows_around_it() {
+    use karbon_ui::ui::element::ElementId;
+    let mut app = HeadlessApp::new(Targeted::default()).unwrap();
+    app.send(()).unwrap();
+    let offset = app
+        .find("cv.targeted")
+        .unwrap()
+        .scroll_metrics()
+        .unwrap()
+        .offset;
+    near(offset, 150. * 40.);
+    let mark = app
+        .find(ElementId::named("cv.target").item(150))
+        .unwrap()
+        .children[0]
+        .bounds();
+    near(mark.right - mark.left, 30.);
+}
+
+#[derive(Default)]
+struct TargetedCards {
+    shown: bool,
+}
+
+impl Application for TargetedCards {
+    type Message = ();
+    fn view(&self, _: &ViewContext) -> Element {
+        let shown = self.shown;
+        ui! {@styles(css);
+            <div>
+                {#if shown}
+                    <div id="cv.cards" class="cv-zone">
+                        {#each (0..200u64) as i (i)}
+                            <div id={karbon_ui::ui::element::ElementId::named("cv.card").item(i)} class="cv-card" style:scroll_initial_target={i == 150}><div class="cv-card-body"></div></div>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
+        }
+    }
+    fn update(&mut self, _: ()) -> bool {
+        self.shown = true;
+        true
+    }
+}
+
+/// Une cible initiale parmi des cartes plus hautes que leur taille provisoire : une fois
+/// rendues, elles poussent la suite ; la cible reste en haut et tout ce qui est sous la
+/// vue est rendu.
+#[test]
+fn an_initial_target_among_taller_cards_stays_on_top_with_the_view_rendered() {
+    use karbon_ui::ui::element::ElementId;
+    let mut app = HeadlessApp::new(TargetedCards::default()).unwrap();
+    app.send(()).unwrap();
+    let view = app
+        .find("cv.cards")
+        .unwrap()
+        .scroll_metrics()
+        .unwrap()
+        .viewport;
+    let target = app.bounds(ElementId::named("cv.card").item(150)).unwrap();
+    near(target.top, view.top);
+    for i in 0..200u64 {
+        let card = app.find(ElementId::named("cv.card").item(i)).unwrap();
+        let b = card.bounds();
+        if b.bottom > view.top && b.top < view.bottom {
+            let body = card.children[0].bounds();
+            assert!(
+                (body.bottom - body.top - 70.).abs() < 0.5,
+                "carte {i} sous la vue non rendue : {body:?}"
+            );
+        }
+    }
+}
+
+struct Lyrics {
+    active: u64,
+}
+
+impl Application for Lyrics {
+    type Message = u64;
+    fn view(&self, _: &ViewContext) -> Element {
+        let active = self.active;
+        ui! {@styles(css);
+            <div>
+                <div id="iv.zone" class="iv-zone">
+                    {#each (0..100u64) as i (i)}
+                        <div class="iv-row" style:scroll_into_view={i == active}></div>
+                    {/each}
+                </div>
+            </div>
+        }
+    }
+    fn update(&mut self, active: u64) -> bool {
+        self.active = active;
+        true
+    }
+}
+
+/// La ligne active : sa zone part dessus, puis glisse vers chaque nouvelle ligne active,
+/// y compris une ligne déjà visitée ; `scroll-margin-top` la garde sous le haut de la vue.
+#[test]
+fn the_active_line_is_brought_into_view_and_glides_to_the_next_one() {
+    use std::time::Duration;
+    let offset = |app: &HeadlessApp<Lyrics>| {
+        app.find("iv.zone")
+            .unwrap()
+            .scroll_metrics()
+            .unwrap()
+            .offset
+    };
+    let mut app = HeadlessApp::new(Lyrics { active: 10 }).unwrap();
+    near(offset(&app), 10. * 40. - 80.);
+
+    app.send(20).unwrap();
+    // Le glissement part de l'ancienne position…
+    assert!(offset(&app) < 20. * 40. - 80.);
+    app.advance(Duration::from_millis(200)).unwrap();
+    let midway = offset(&app);
+    assert!(
+        midway > 10. * 40. - 80. && midway < 20. * 40. - 80.,
+        "{midway}"
+    );
+    // … et s'arrête sur la nouvelle ligne.
+    app.advance(Duration::from_millis(400)).unwrap();
+    near(offset(&app), 20. * 40. - 80.);
+
+    // Retour à une ligne déjà active plus tôt : elle est amenée de nouveau.
+    app.send(10).unwrap();
+    app.advance(Duration::from_millis(600)).unwrap();
+    near(offset(&app), 10. * 40. - 80.);
+
+    // Reconstruire sans changer de ligne laisse le défilement de l'utilisateur.
+    app.update_app(|_| {}).unwrap();
+    near(offset(&app), 10. * 40. - 80.);
 }

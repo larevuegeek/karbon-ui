@@ -240,6 +240,11 @@ pub struct LayoutRules {
     /// Scroll requested by the application on this scroll container (see
     /// [`ScrollRequest`](crate::ui::scroll::ScrollRequest)).
     pub scroll_request: Option<crate::ui::scroll::ScrollRequest>,
+    /// This element is brought into view by its nearest scroll container each time this
+    /// becomes `true` (`style:scroll_into_view`): its top lands at the top of the view,
+    /// minus `scroll-margin-top` and the container's `scroll-padding-top`, gliding when
+    /// the container was already shown.
+    pub scroll_into_view: bool,
     /// Rendering of the contents (`content-visibility`).
     pub content_visibility: ContentVisibility,
     /// Width and height of the contents while they are skipped

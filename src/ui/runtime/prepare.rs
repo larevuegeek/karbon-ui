@@ -79,8 +79,9 @@ impl UiRuntime {
         // Contenu défilé : un élément `content-visibility: auto` qui s'approche de la vue
         // est disposé (layout de son seul chemin, sans styles) ; un qui s'en éloigne
         // cesse d'être peint.
-        let revealed = std::mem::take(&mut self.invalidation.containment_check)
+        let mut revealed = std::mem::take(&mut self.invalidation.containment_check)
             && self.reveal_contained(context, chrome, text, now)?;
+        let unthemed = context;
         // Vue reconstruite (`rebuild.rs`).
         let rebuilding = self.invalidation.rebuild;
         let layouts = self.invalidation.stats.layouts;
@@ -150,12 +151,14 @@ impl UiRuntime {
                 text,
             )?;
             layout::arrange(root, bounds, bounds, text)?;
+            let mut anchored_early = false;
             // Ancrage du défilement dès ce placement : des lignes retirées au-dessus de la
             // vue ne déplacent pas le contenu sous le pointeur, le survol ne change pas et
             // la passe de styles qui le suivrait n'a pas lieu. Refait plus bas pour ce que
             // les passes suivantes déplacent encore (sans effet sinon).
             for (id, delta) in anchoring::apply(root, &anchors) {
                 self.components.scrolls.shift_smooth(id, delta);
+                anchored_early = true;
             }
             // Requêtes de conteneur : un conteneur dont ce layout change la taille relance
             // la résolution des styles puis le layout, sans reconstruire la vue. Pendant une
@@ -194,6 +197,14 @@ impl UiRuntime {
                 )?;
                 layout::arrange(root, bounds, bounds, text)?;
             }
+            // Cible initiale d'une nouvelle zone posée avant la proximité : le contenu rendu
+            // est celui qui l'entoure, et elle est réalignée après chaque passe (du contenu
+            // rendu au-dessus d'elle, plus haut que sa taille provisoire, la pousse).
+            let mut shifted = anchored_early
+                | anchoring::initial_targets(
+                    self.root.as_mut().unwrap(),
+                    &self.components.scrolls.offsets,
+                );
             // `content-visibility: auto` : proximité constatée sur ce placement ; les
             // éléments qui s'approchent sont disposés à leur tour (leur seul chemin).
             for _ in 0..3 {
@@ -225,14 +236,18 @@ impl UiRuntime {
                     text,
                 )?;
                 layout::arrange(root, bounds, bounds, text)?;
+                shifted |= anchoring::initial_targets(root, &self.components.scrolls.offsets);
             }
             self.invalidation.containment = layout::containment::leave();
             drop(pass);
             let root = self.root.as_mut().unwrap();
             for (id, delta) in anchoring::apply(root, &anchors) {
                 self.components.scrolls.shift_smooth(id, delta);
+                shifted = true;
             }
-            anchoring::initial_targets(root, &self.components.scrolls.offsets);
+            // Défilement posé sans `scroll_to` : le contenu sauté qui arrive sous la vue est
+            // rendu plus bas, dans cette image.
+            self.invalidation.containment_check |= shifted && self.invalidation.containment.present;
             let orphan = popover::top(root)
                 .filter(|p| popover::anchor(root, p).is_none())
                 .and_then(popover::config)
@@ -275,6 +290,12 @@ impl UiRuntime {
             self.invalidation.stats.layouts += 1;
             self.invalidation.stats.layout_time += stage.elapsed();
             self.apply_scroll_requests(scroll_requests);
+            // Défilement posé après la disposition (ancrage, cible initiale, demande de
+            // l'application) : le contenu `content-visibility: auto` qui arrive sous la vue
+            // est rendu dans cette image, pas à la prochaine (qui peut ne pas venir).
+            if std::mem::take(&mut self.invalidation.containment_check) {
+                revealed |= self.reveal_contained(unthemed, chrome, text, now)?;
+            }
         }
         if let Some(shift) = self.interaction.pending_tab.take() {
             self.move_tab(shift);

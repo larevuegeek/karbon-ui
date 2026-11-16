@@ -33,3 +33,20 @@
 /* Défilement demandé par l'application, barre fine saisie à côté de son trait. */
 .asked { height: 200px; width: 300px; overflow-y: auto; scrollbar-width: thin; }
 .asked-content { height: 2000px; }
+
+/* Liste chargée par fenêtres, blocs vides à la place des lignes absentes. */
+.window-zone { height: 580px; width: 400px; overflow-y: auto; }
+.window-rows { padding-top: 6px; }
+.window-row { height: 58px; }
+.window-spacer { flex-shrink: 0; }
+
+/* Lignes `content-visibility: auto` amenées sous la vue par une demande de défilement. */
+.cv-zone { height: 200px; width: 300px; overflow-y: auto; }
+.cv-row { height: 40px; content-visibility: auto; contain-intrinsic-size: auto 40px; }
+.cv-mark { width: 30px; height: 10px; }
+/* Cartes plus hautes que leur taille provisoire (`contain-intrinsic-size`). */
+.cv-card { content-visibility: auto; contain-intrinsic-size: auto 40px; }
+.cv-card-body { width: 30px; height: 70px; }
+/* Ligne active amenée dans la vue (`style:scroll_into_view`). */
+.iv-zone { height: 200px; width: 300px; overflow-y: auto; }
+.iv-row { height: 40px; scroll-margin-top: 80px; }

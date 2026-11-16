@@ -351,3 +351,47 @@ fn hover_survives_a_rebuild_under_a_still_pointer() {
         assert!(hovered(&ui));
     }
 }
+
+/// Champ de recherche et badge « Ctrl K » caché pendant la saisie.
+struct Shortcut;
+impl Application for Shortcut {
+    type Message = Msg;
+    fn update(&mut self, _: Msg) -> bool {
+        false
+    }
+    fn view(&self, _: &ViewContext) -> Element {
+        ui! {@styles(css);
+            <div style="padding:10px; gap:10px">
+                <div class="kbd-group" style="flex-direction:row; width:300px; height:36px">
+                    <input id="kbd.input" style="width:200px" value="" oninput={Msg::Text} />
+                    <div class="kbd" style="height:22px; padding:0 6px; font-family:monospace; font-size:10.5px"><div>Ctrl K</div></div>
+                </div>
+                <button id="kbd.other" style="width:80px; height:30px" onclick={Msg::Click(1)}>Ailleurs</button>
+            </div>
+        }
+    }
+}
+
+/// Le badge revient avec son texte quand le champ perd le focus.
+#[test]
+fn a_badge_hidden_by_focus_within_comes_back_with_its_text() {
+    let mut app = karbon_ui::platform::headless::HeadlessApp::new(Shortcut).unwrap();
+    assert!(app.contains_text("Ctrl K"));
+    app.focus("kbd.input").unwrap();
+    assert!(!app.contains_text("Ctrl K"));
+    app.focus("kbd.other").unwrap();
+    assert!(
+        app.contains_text("Ctrl K"),
+        "texte du badge absent : {:?}",
+        app.texts()
+    );
+    for _ in 0..3 {
+        app.focus("kbd.input").unwrap();
+        app.focus("kbd.other").unwrap();
+    }
+    assert!(
+        app.contains_text("Ctrl K"),
+        "texte du badge absent : {:?}",
+        app.texts()
+    );
+}

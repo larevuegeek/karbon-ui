@@ -207,6 +207,14 @@ impl<W: Widget + 'static> Node<W> {
         self.element.layout_rules().scroll_request = value;
         self
     }
+    /// Brings this element into view each time `value` becomes `true`
+    /// (`style:scroll_into_view={…}`): its nearest scroll container glides until the
+    /// element's top is at the top of the view, minus `scroll-margin-top` (the active
+    /// line of synchronized lyrics, the current track of a queue).
+    pub fn scroll_into_view(mut self, value: bool) -> Self {
+        self.element.layout_rules().scroll_into_view = value;
+        self
+    }
     /// Keeps the rest of a wheel scroll in this scroll container
     /// (`overscroll-behavior: contain`).
     pub fn overscroll_contain(mut self, value: bool) -> Self {

@@ -8,8 +8,11 @@
 use super::*;
 use std::time::Duration;
 
-/// Durée d'un glissement.
+/// Durée d'un glissement de molette.
 const DURATION: Duration = Duration::from_millis(150);
+/// Durée d'un glissement demandé par l'application (`scroll_request`,
+/// `scroll_into_view`) : plus long qu'un cran, il part et arrive en douceur.
+const REQUEST_DURATION: Duration = Duration::from_millis(450);
 /// Une image.
 const FRAME: Duration = Duration::from_nanos(16_666_667);
 /// Pente initiale (normalisée) maximale : au-delà, la courbe dépasserait sa cible.
@@ -60,10 +63,16 @@ impl SmoothScroll {
         (self.to - self.from) * self.curve(t).1 / self.duration
     }
 
-    /// Glissement de `from` à `to` qui part à la vitesse `velocity`.
-    fn new(id: ElementId, from: f32, to: f32, velocity: f32, now: Instant) -> Self {
+    /// Glissement de `from` à `to`, en `duration`, qui part à la vitesse `velocity`.
+    fn new(
+        id: ElementId,
+        (from, to): (f32, f32),
+        velocity: f32,
+        duration: Duration,
+        now: Instant,
+    ) -> Self {
         let distance = to - from;
-        let mut duration = DURATION.as_secs_f32();
+        let mut duration = duration.as_secs_f32();
         let mut slope = if distance.abs() > f32::EPSILON {
             velocity * duration / distance
         } else {
@@ -123,19 +132,71 @@ pub(super) fn scroll_requests(
             collect(child, out);
         }
     }
+    /// Éléments `scroll_into_view` et le décalage qui amène chacun en haut de la vue de
+    /// son conteneur défilant vertical le plus proche (élément, conteneur, décalage).
+    fn into_view(
+        node: &Element,
+        scroller: Option<(ElementId, crate::ui::scroll::ScrollMetrics, f32)>,
+        out: &mut Vec<(ElementId, ElementId, f32)>,
+    ) {
+        let rules = node.rules.as_ref();
+        if rules.is_some_and(|r| r.scroll_into_view)
+            && let Some((id, s, padding)) = scroller
+        {
+            let margin = rules.map_or(0., |r| r.scroll_margin.top);
+            out.push((
+                node.id,
+                id,
+                s.offset + node.rect.top - margin - (s.viewport.top + padding),
+            ));
+        }
+        // Contenu sauté : ses descendants n'ont pas de place à jour.
+        if node.content_skipped {
+            return;
+        }
+        let scroller = match node.scroll {
+            Some(s) if s.axis == Axis::Vertical => {
+                Some((node.id, s, rules.map_or(0., |r| r.scroll_padding.top)))
+            }
+            _ => scroller,
+        };
+        for child in &node.children {
+            into_view(child, scroller, out);
+        }
+    }
     let mut found = Vec::new();
     collect(root, &mut found);
-    found
+    let mut requests: Vec<ScrollRequestAt> = found
         .into_iter()
         .filter(|(id, r)| state.requests.insert(*id, r.token) != Some(r.token))
         .map(|(id, r)| (id, r, state.offsets.contains_key(&id)))
-        .collect()
+        .collect();
+    let mut views = Vec::new();
+    into_view(root, None, &mut views);
+    let previous = std::mem::take(&mut state.into_view);
+    for (element, scroller, offset) in views {
+        state.into_view.insert(element);
+        if !previous.contains(&element) {
+            let r = crate::ui::scroll::ScrollRequest {
+                token: 0,
+                offset,
+                smooth: true,
+            };
+            requests.push((scroller, r, state.offsets.contains_key(&scroller)));
+        }
+    }
+    requests
 }
 
 impl UiRuntime {
     /// Lance (ou allonge) le glissement du conteneur `id` de `delta` ; renvoie la part du
     /// déplacement qu'il prend (le reste passe aux conteneurs englobants).
     pub(super) fn smooth_scroll_by(&mut self, id: ElementId, delta: f32) -> f32 {
+        self.glide_by(id, delta, DURATION)
+    }
+
+    /// Comme [`smooth_scroll_by`](Self::smooth_scroll_by), en `duration`.
+    fn glide_by(&mut self, id: ElementId, delta: f32, duration: Duration) -> f32 {
         let Some(s) = self
             .root
             .as_ref()
@@ -164,7 +225,8 @@ impl UiRuntime {
             let (from, velocity) = current.map_or((s.offset, 0.), |m| {
                 (m.position(now).clamp(0., s.max_offset()), m.velocity(now))
             });
-            self.components.scrolls.smooth = Some(SmoothScroll::new(id, from, to, velocity, now));
+            self.components.scrolls.smooth =
+                Some(SmoothScroll::new(id, (from, to), velocity, duration, now));
         }
         consumed
     }
@@ -207,7 +269,8 @@ impl UiRuntime {
         }
     }
 
-    /// Glisse le conteneur `id` jusqu'à `offset` (borné à sa plage de défilement).
+    /// Glisse le conteneur `id` jusqu'à `offset` (borné à sa plage de défilement), à
+    /// l'allure d'un glissement demandé par l'application.
     pub(super) fn smooth_scroll_to(&mut self, id: ElementId, offset: f32) {
         let current = self
             .components
@@ -224,7 +287,7 @@ impl UiRuntime {
         }) else {
             return;
         };
-        self.smooth_scroll_by(id, offset - base);
+        self.glide_by(id, offset - base, REQUEST_DURATION);
     }
 
     /// Prochaine image d'un glissement en cours.

@@ -391,3 +391,50 @@ fn engine_elements_forms_lists_and_common_attributes() {
     app.click("close").unwrap();
     assert!(!matches!(app.root().unwrap().layout, Layout::Layers));
 }
+
+/// Visionneuse d'image : `closedby="any"` ferme au clic sur le voile, pas le dialogue
+/// ordinaire.
+#[derive(Default)]
+struct Viewer {
+    open: bool,
+    light: bool,
+}
+impl Application for Viewer {
+    type Message = bool;
+    fn update(&mut self, open: bool) -> bool {
+        self.open = open;
+        true
+    }
+    fn view(&self, _: &ViewContext) -> Element {
+        let (open, light) = (self.open, self.light);
+        ui! {
+            <div>
+                {#if open && light}
+                    <dialog id="viewer" aria-label="Image" closedby="any" onclose={false}>
+                        <div style="width:100px; height:100px"></div>
+                    </dialog>
+                {/if}
+                {#if open && !light}
+                    <dialog id="viewer" aria-label="Image" onclose={false}>
+                        <div style="width:100px; height:100px"></div>
+                    </dialog>
+                {/if}
+            </div>
+        }
+    }
+}
+
+#[test]
+fn a_dialog_closed_by_any_closes_on_a_backdrop_click() {
+    use karbon_ui::ui::scene::PointF;
+    for light in [true, false] {
+        let mut app = HeadlessApp::new(Viewer { open: true, light }).unwrap();
+        assert!(app.find("viewer").is_some());
+        app.click_at(PointF { x: 5., y: 5. }).unwrap();
+        assert_eq!(
+            app.find("viewer").is_none(),
+            light,
+            "closedby any = {light}"
+        );
+    }
+}

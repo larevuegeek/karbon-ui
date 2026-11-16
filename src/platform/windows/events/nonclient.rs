@@ -187,6 +187,13 @@ pub(super) fn hit_test(window: Hwnd, lparam: isize, default_proc: impl FnOnce() 
         HitRegion::Caption | HitRegion::Client if runtime::drag_region_at(logical) => HTCAPTION,
         HitRegion::Client => HTCLIENT,
         HitRegion::Caption => HTCLIENT,
+        // Bande de redimensionnement intérieure : une barre de défilement collée au bord
+        // s'attrape (comme sous Linux) ; les coins restent aux bords.
+        HitRegion::Left | HitRegion::Right | HitRegion::Top | HitRegion::Bottom
+            if runtime::scrollbar_at(logical) =>
+        {
+            HTCLIENT
+        }
         HitRegion::Left => HTLEFT,
         HitRegion::Right => HTRIGHT,
         HitRegion::Top => HTTOP,

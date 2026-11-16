@@ -13,7 +13,7 @@ impl Generator {
         self.check(
             e,
             Kind::Dialog,
-            &["open", "backdrop", "placement", "autofocus"],
+            &["open", "backdrop", "placement", "autofocus", "closedby"],
         )?;
         let site = self.next();
         let id = self.id(e, site)?;
@@ -66,6 +66,18 @@ impl Generator {
                 "center" => "",
                 _ => {
                     return Err(a.loc.error("placement expects center, top, left or right"));
+                }
+            };
+        }
+        // `closedby` (HTML) : `any`, un clic sur le voile ferme aussi ; `closerequest`
+        // (défaut), Échap seulement ; `none`, ni l'un ni l'autre.
+        if let Some(a) = e.attr("closedby") {
+            dismiss += match Self::literal(a)? {
+                "any" => ".close_on_backdrop(true)",
+                "closerequest" => "",
+                "none" => ".close_on_escape(false)",
+                _ => {
+                    return Err(a.loc.error("closedby expects any, closerequest or none"));
                 }
             };
         }

@@ -47,3 +47,5 @@
 .label { display: flex; }
 .label::before { content: "*"; color: #ffcc00; width: 12px; }
 .label:after { content: none; }
+/* Badge de raccourci caché quand le champ voisin a le focus. */
+.kbd-group:focus-within .kbd { display: none; }

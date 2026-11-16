@@ -21,12 +21,17 @@ pub(crate) fn hidden(node: &Element) -> bool {
         .as_ref()
         .is_some_and(|r| r.hidden && r.reveal.is_none())
 }
-/// Boîte vide pour un sous-arbre masqué : clip nul, donc ni dessin ni clic.
+/// Boîte vide pour un sous-arbre masqué : clip nul, donc ni dessin ni clic. Le placement
+/// mémorisé est oublié : réaffiché au même endroit, le sous-arbre est replacé, pas repris
+/// tel qu'il a été replié.
 pub(super) fn collapse(node: &mut Element, left: f32, top: f32) {
     node.rect = RectF::new(left, top, 0., 0.);
     node.clip = node.rect;
     node.scroll = None;
     node.divider = None;
+    if let Some(cache) = node.layout_cache.as_deref_mut() {
+        cache.arranged = None;
+    }
     for child in &mut node.children {
         collapse(child, left, top);
     }

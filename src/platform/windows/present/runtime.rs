@@ -261,6 +261,16 @@ pub(crate) fn set_live_resize(live: bool) {
         }
     });
 }
+/// Barre de défilement (pouce ou piste) sous `point`.
+pub(crate) fn scrollbar_at(point: crate::ui::scene::PointF) -> bool {
+    DRAWING.with(|slot| {
+        slot.try_borrow().is_ok_and(|state| {
+            state
+                .as_ref()
+                .is_some_and(|state| state.runtime.scrollbar_at(point))
+        })
+    })
+}
 /// Zone de déplacement de l'application (`data-drag-region`) sous `point`.
 pub(crate) fn drag_region_at(point: crate::ui::scene::PointF) -> bool {
     DRAWING.with(|slot| {

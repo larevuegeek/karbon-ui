@@ -35,7 +35,7 @@ un axe ; deux viewports d’axes différents peuvent être imbriqués.
 
 Une gouttière de 12 unités est réservée pour éviter un changement de largeur
 et de retour à la ligne lorsque la barre apparaît. La barre n’est peinte que
-si le contenu dépasse le viewport. Sa poignée mesure au minimum 24 unités,
+si le contenu dépasse le viewport. Sa poignée mesure au minimum 40 unités,
 dans la limite de la piste. Couleurs et survol suivent le thème. Le style se
 règle par `Element::layout_rules().scrollbar` ([`Scrollbar`] : `ScrollbarWidth::Auto`,
 `Thin` ou `None`, couleurs du pouce et de la piste, gouttière stable) ou en CSS
@@ -43,7 +43,9 @@ règle par `Element::layout_rules().scrollbar` ([`Scrollbar`] : `ScrollbarWidth:
 une barre fine ne réserve sa gouttière de 10 unités que si le contenu déborde,
 `none` n’affiche rien et ne réserve rien. `ScrollMetrics::thickness` donne
 l’épaisseur retenue. Le pouce se saisit sur toute l’épaisseur de la gouttière, pas
-seulement sur son trait (4 unités pour une barre fine).
+seulement sur son trait (4 unités pour une barre fine). Une barre collée au bord de la fenêtre
+l’emporte sur la bande de redimensionnement intérieure de 8 unités (Windows, X11),
+sauf dans les coins.
 
 `Element::scroll_metrics()` expose le viewport, l’étendue du contenu, l’offset,
 la piste et la poignée après disposition. Les distances sont en unités
@@ -156,6 +158,10 @@ passe de 20 à 36 ms à 6 à 15 ms.
   liste chargée par pages peut donc ajouter ou retirer des lignes au-dessus de la vue
   sans que la ligne regardée ne saute. En haut (décalage nul), pas d'ancrage : du
   contenu ajouté au-dessus se montre, comme dans Chromium.
+  Une liste chargée par fenêtres qui tient la place des lignes absentes par des blocs
+  vides doit lier l'identifiant de ces blocs à la fenêtre (`id={ElementId::named("avant")
+  .item(début)}`) : sinon l'ancrage s'accroche au bloc, compense sa nouvelle hauteur au
+  chargement d'une autre fenêtre et la vue retombe dans le vide.
 - **`scroll-initial-target: nearest`** (CSS Scroll Snap 2, `style:scroll_initial_target={bool}`
   dans un template) : un conteneur qui apparaît (nouvel identifiant) part de cet
   élément (sa `scroll-margin` et le `scroll-padding` du conteneur comptent) ; les
@@ -164,10 +170,20 @@ passe de 20 à 36 ms à 6 à 15 ms.
   (`{#each [génération] as g (g)}`).
 - **Défilement demandé** (`style:scroll_request={Option<ScrollRequest>}` sur le
   conteneur) : à chaque nouveau `token`, le conteneur va à `offset` (borné à sa plage),
-  en glissant comme un cran de molette si `smooth` et s'il était déjà affiché, d'un coup
-  sinon. La même demande reprise par les reconstructions suivantes ne bouge plus rien :
-  l'utilisateur garde la main. Exemple : un index alphabétique qui amène la liste à la
-  lettre choisie.
+  en glissant si `smooth` et s'il était déjà affiché, d'un coup sinon. La même demande
+  reprise par les reconstructions suivantes ne bouge plus rien : l'utilisateur garde la
+  main. Exemple : un index alphabétique qui amène la liste à la lettre choisie.
+- **Élément amené dans la vue** (`style:scroll_into_view={bool}` sur l'élément) : chaque
+  fois que la valeur passe à `true`, le conteneur défilant vertical le plus proche amène
+  le haut de l'élément en haut de sa vue, moins sa `scroll-margin-top` et le
+  `scroll-padding-top` du conteneur (comme `scrollIntoView({ block: "start" })`), en
+  glissant s'il était déjà affiché. Tant que la valeur reste `true`, les reconstructions
+  ne bougent plus rien. C'est la ligne en cours de paroles synchronisées :
+  `style:scroll_into_view={active == Some(i)}` avec `scroll-mt-[160px]` pour la garder
+  au tiers de la vue, sans estimer la hauteur des lignes.
+  Un glissement demandé (`scroll_request`, `scroll_into_view`) dure 450 ms, part et
+  arrive en douceur ; un nouveau glissement en cours de route repart de la position et de
+  la vitesse atteintes.
 - **Molette à crans** (`UiEvent::Wheel`) : comme les navigateurs, le conteneur glisse
   vers sa cible en 150 ms (sortie cubique) au lieu de sauter ; un cran pendant le
   glissement allonge la cible en gardant la vitesse acquise (courbe raccordée, comme

@@ -67,8 +67,8 @@ fn pick(node: &Element, view: RectF) -> Option<(ElementId, f32)> {
 
 /// `scroll-initial-target: nearest` : un conteneur vertical qui apparaît (absent de
 /// `known`, les décalages retenus) part de sa cible, en tenant compte de sa
-/// `scroll-margin` et du `scroll-padding` du conteneur.
-pub(super) fn initial_targets(root: &mut Element, known: &HashMap<ElementId, f32>) {
+/// `scroll-margin` et du `scroll-padding` du conteneur. `true` si un conteneur a bougé.
+pub(super) fn initial_targets(root: &mut Element, known: &HashMap<ElementId, f32>) -> bool {
     fn target(node: &Element) -> Option<&Element> {
         node.children.iter().find_map(|child| {
             if child
@@ -84,7 +84,8 @@ pub(super) fn initial_targets(root: &mut Element, known: &HashMap<ElementId, f32
             }
         })
     }
-    fn walk(node: &mut Element, known: &HashMap<ElementId, f32>) {
+    fn walk(node: &mut Element, known: &HashMap<ElementId, f32>) -> bool {
+        let mut moved = false;
         if let Some(s) = node.scroll
             && s.axis == Axis::Vertical
             && !known.contains_key(&node.id)
@@ -93,13 +94,14 @@ pub(super) fn initial_targets(root: &mut Element, known: &HashMap<ElementId, f32
             let margin = t.rules.as_ref().map_or(0., |r| r.scroll_margin.top);
             let padding = node.rules.as_ref().map_or(0., |r| r.scroll_padding.top);
             let delta = t.rect.top - margin - (s.viewport.top + padding);
-            scroll::set_offset(node, s.offset + delta);
+            moved = scroll::set_offset(node, s.offset + delta) != 0.;
         }
         for child in &mut node.children {
-            walk(child, known);
+            moved |= walk(child, known);
         }
+        moved
     }
-    walk(root, known);
+    walk(root, known)
 }
 
 /// Corrige le décalage des conteneurs dont l'ancre s'est déplacée ; renvoie les
