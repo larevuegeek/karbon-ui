@@ -104,6 +104,34 @@ impl super::components::ScrollState {
     }
 }
 
+/// Demande à appliquer : conteneur, demande, conteneur déjà affiché à l'image précédente.
+pub(super) type ScrollRequestAt = (ElementId, crate::ui::scroll::ScrollRequest, bool);
+
+/// Demandes nouvelles de l'arbre disposé (jeton différent du dernier appliqué), relevées
+/// avant que `ScrollState::save` n'enregistre les conteneurs de cette image.
+pub(super) fn scroll_requests(
+    root: &Element,
+    state: &mut super::components::ScrollState,
+) -> Vec<ScrollRequestAt> {
+    fn collect(node: &Element, out: &mut Vec<(ElementId, crate::ui::scroll::ScrollRequest)>) {
+        if node.scroll.is_some()
+            && let Some(r) = node.rules.as_ref().and_then(|r| r.scroll_request)
+        {
+            out.push((node.id, r));
+        }
+        for child in &node.children {
+            collect(child, out);
+        }
+    }
+    let mut found = Vec::new();
+    collect(root, &mut found);
+    found
+        .into_iter()
+        .filter(|(id, r)| state.requests.insert(*id, r.token) != Some(r.token))
+        .map(|(id, r)| (id, r, state.offsets.contains_key(&id)))
+        .collect()
+}
+
 impl UiRuntime {
     /// Lance (ou allonge) le glissement du conteneur `id` de `delta` ; renvoie la part du
     /// déplacement qu'il prend (le reste passe aux conteneurs englobants).
@@ -161,6 +189,42 @@ impl UiRuntime {
             self.components.scrolls.smooth = Some(m);
         }
         moved
+    }
+
+    /// Défilements demandés par l'application (`scroll_request`, relevés par
+    /// [`scroll_requests`]) : chaque nouveau jeton amène son conteneur à la position
+    /// voulue, en glissant s'il était déjà affiché, d'un coup s'il apparaît.
+    pub(super) fn apply_scroll_requests(&mut self, requests: Vec<ScrollRequestAt>) {
+        for (id, r, known) in requests {
+            if r.smooth && known {
+                self.smooth_scroll_to(id, r.offset);
+            } else {
+                if self.components.scrolls.smooth.is_some_and(|m| m.id == id) {
+                    self.components.scrolls.smooth = None;
+                }
+                self.scroll_to(id, r.offset);
+            }
+        }
+    }
+
+    /// Glisse le conteneur `id` jusqu'à `offset` (borné à sa plage de défilement).
+    pub(super) fn smooth_scroll_to(&mut self, id: ElementId, offset: f32) {
+        let current = self
+            .components
+            .scrolls
+            .smooth
+            .filter(|m| m.id == id)
+            .map(|m| m.to);
+        let Some(base) = current.or_else(|| {
+            self.root
+                .as_ref()
+                .and_then(|r| r.find(id))
+                .and_then(|n| n.scroll)
+                .map(|s| s.offset)
+        }) else {
+            return;
+        };
+        self.smooth_scroll_by(id, offset - base);
     }
 
     /// Prochaine image d'un glissement en cours.

@@ -201,6 +201,12 @@ impl<W: Widget + 'static> Node<W> {
         self.element.layout_rules().scroll_initial_target = value;
         self
     }
+    /// Scrolls this scroll container to `request.offset` once per new `request.token`
+    /// (`style:scroll_request={…}`), gliding when `request.smooth` is set.
+    pub fn scroll_request(mut self, value: Option<crate::ui::scroll::ScrollRequest>) -> Self {
+        self.element.layout_rules().scroll_request = value;
+        self
+    }
     /// Keeps the rest of a wheel scroll in this scroll container
     /// (`overscroll-behavior: contain`).
     pub fn overscroll_contain(mut self, value: bool) -> Self {

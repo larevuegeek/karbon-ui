@@ -42,7 +42,8 @@ règle par `Element::layout_rules().scrollbar` ([`Scrollbar`] : `ScrollbarWidth:
 (`scrollbar-width`, `scrollbar-color`, `scrollbar-gutter`, voir [css.md](css.md)) :
 une barre fine ne réserve sa gouttière de 10 unités que si le contenu déborde,
 `none` n’affiche rien et ne réserve rien. `ScrollMetrics::thickness` donne
-l’épaisseur retenue.
+l’épaisseur retenue. Le pouce se saisit sur toute l’épaisseur de la gouttière, pas
+seulement sur son trait (4 unités pour une barre fine).
 
 `Element::scroll_metrics()` expose le viewport, l’étendue du contenu, l’offset,
 la piste et la poignée après disposition. Les distances sont en unités
@@ -161,6 +162,12 @@ passe de 20 à 36 ms à 6 à 15 ms.
   reconstructions suivantes gardent le décalage de l'utilisateur. Pour revenir en
   haut ou sur une cible après un nouveau chargement, changer la clé du conteneur
   (`{#each [génération] as g (g)}`).
+- **Défilement demandé** (`style:scroll_request={Option<ScrollRequest>}` sur le
+  conteneur) : à chaque nouveau `token`, le conteneur va à `offset` (borné à sa plage),
+  en glissant comme un cran de molette si `smooth` et s'il était déjà affiché, d'un coup
+  sinon. La même demande reprise par les reconstructions suivantes ne bouge plus rien :
+  l'utilisateur garde la main. Exemple : un index alphabétique qui amène la liste à la
+  lettre choisie.
 - **Molette à crans** (`UiEvent::Wheel`) : comme les navigateurs, le conteneur glisse
   vers sa cible en 150 ms (sortie cubique) au lieu de sauter ; un cran pendant le
   glissement allonge la cible en gardant la vitesse acquise (courbe raccordée, comme

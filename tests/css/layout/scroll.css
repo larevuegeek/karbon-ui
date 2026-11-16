@@ -29,3 +29,7 @@
 .glow-page { position: relative; height: 300px; width: 300px; overflow-y: auto; }
 .glow { position: absolute; left: 0px; right: 0px; top: 0px; height: 200px; background: #ff0000; mask-image: linear-gradient(180deg, #000 40%, transparent); }
 .glow-content { position: relative; height: 1000px; }
+
+/* Défilement demandé par l'application, barre fine saisie à côté de son trait. */
+.asked { height: 200px; width: 300px; overflow-y: auto; scrollbar-width: thin; }
+.asked-content { height: 2000px; }

@@ -9,6 +9,20 @@ pub const THIN_BAR_SIZE: f32 = 10.;
 const THUMB_INSET: f32 = 3.;
 const MIN_THUMB: f32 = 24.;
 
+/// A scroll requested by the application on a scroll container
+/// ([`scroll_request`](crate::ui::template::Node::scroll_request)): the container moves to
+/// `offset` once per new `token`, gliding when `smooth` is set. Rebuilding the view with the
+/// same token leaves the user's scrolling alone.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ScrollRequest {
+    /// Identifies the request; a different value asks again.
+    pub token: u64,
+    /// Target offset, in logical pixels, clamped to the scrollable range.
+    pub offset: f32,
+    /// Glide to the target (like a wheel notch) instead of jumping.
+    pub smooth: bool,
+}
+
 /// Arranged geometry of a scroll container, as returned by
 /// [`Element::scroll_metrics`](crate::ui::element::Element::scroll_metrics).
 #[derive(Debug, Clone, Copy)]

@@ -237,6 +237,9 @@ pub struct LayoutRules {
     /// (`scroll-initial-target: nearest`): a container that first appears (a new
     /// identifier) starts scrolled to it, then the offset is left to the user.
     pub scroll_initial_target: bool,
+    /// Scroll requested by the application on this scroll container (see
+    /// [`ScrollRequest`](crate::ui::scroll::ScrollRequest)).
+    pub scroll_request: Option<crate::ui::scroll::ScrollRequest>,
     /// Rendering of the contents (`content-visibility`).
     pub content_visibility: ContentVisibility,
     /// Width and height of the contents while they are skipped

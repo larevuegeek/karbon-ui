@@ -147,6 +147,7 @@ pub fn property(a: &StyleProp, out: &mut Output, cx: &str, node: &str) -> Result
             format!(".{name}({value})")
         }
         "scroll_initial_target" => format!(".scroll_initial_target({expr})"),
+        "scroll_request" => format!(".scroll_request({expr})"),
         "line_height" => format!(".line_height({cx}.line_height({expr}))"),
         "box_shadows" => format!(".box_shadows({cx}.shadows({expr}))"),
         "filters" => format!(".filters({cx}.filters({expr}))"),

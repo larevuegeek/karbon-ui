@@ -249,3 +249,90 @@ fn an_absolute_child_keeps_scrolling_with_the_content_across_rebuilds() {
     near(at(&app, "glow"), -50.);
     near(mask(&app), -50.);
 }
+
+#[derive(Default)]
+struct Asked {
+    request: Option<karbon_ui::ui::scroll::ScrollRequest>,
+}
+
+impl Application for Asked {
+    type Message = Option<karbon_ui::ui::scroll::ScrollRequest>;
+    fn view(&self, _: &ViewContext) -> Element {
+        let request = self.request;
+        ui! {@styles(css);
+            <div id="asked" class="asked" style:scroll_request={request}>
+                <div class="asked-content"></div>
+            </div>
+        }
+    }
+    fn update(&mut self, request: Self::Message) -> bool {
+        self.request = request;
+        true
+    }
+}
+
+fn asked_offset(app: &HeadlessApp<Asked>) -> f32 {
+    app.find("asked").unwrap().scroll_metrics().unwrap().offset
+}
+
+/// `style:scroll_request` : un nouveau jeton fait glisser le conteneur jusqu'à sa cible ;
+/// la même demande reprise par une reconstruction laisse le défilement de l'utilisateur.
+#[test]
+fn a_scroll_request_glides_once_per_token() {
+    use karbon_ui::ui::scroll::ScrollRequest;
+    let mut app = HeadlessApp::new(Asked::default()).unwrap();
+    app.send(Some(ScrollRequest {
+        token: 1,
+        offset: 900.,
+        smooth: true,
+    }))
+    .unwrap();
+    // Glissement en cours : pas encore arrivé.
+    assert!(asked_offset(&app) < 900.);
+    app.advance(std::time::Duration::from_millis(400)).unwrap();
+    near(asked_offset(&app), 900.);
+    app.scroll("asked", 0., -300.).unwrap();
+    app.send(Some(ScrollRequest {
+        token: 1,
+        offset: 900.,
+        smooth: true,
+    }))
+    .unwrap();
+    near(asked_offset(&app), 600.);
+    // Sans glissement : d'un coup ; au-delà de la plage : borné.
+    app.send(Some(ScrollRequest {
+        token: 2,
+        offset: 5000.,
+        smooth: false,
+    }))
+    .unwrap();
+    let max = app
+        .find("asked")
+        .unwrap()
+        .scroll_metrics()
+        .unwrap()
+        .max_offset();
+    near(asked_offset(&app), max);
+}
+
+/// Barre fine (trait de 4 px dans une gouttière de 10) : le pouce se saisit sur toute la
+/// largeur de la gouttière, et le tirer fait défiler.
+#[test]
+fn a_thin_thumb_is_grabbed_across_the_whole_gutter() {
+    use karbon_ui::ui::runtime::UiEvent;
+    let mut app = HeadlessApp::new(Asked::default()).unwrap();
+    let s = app.find("asked").unwrap().scroll_metrics().unwrap();
+    assert_eq!(s.thumb.right - s.thumb.left, 4.);
+    // Dans la gouttière, à droite du trait, à mi-hauteur du pouce.
+    let x = s.track.right - 1.;
+    let y = (s.thumb.top + s.thumb.bottom) / 2.;
+    app.event(UiEvent::PointerMove(PointF { x, y })).unwrap();
+    app.event(UiEvent::PointerDown(PointF { x, y })).unwrap();
+    app.event(UiEvent::PointerMove(PointF { x, y: y + 50. }))
+        .unwrap();
+    app.event(UiEvent::PointerUp(PointF { x, y: y + 50. }))
+        .unwrap();
+    // 50 px de pouce : la même part de la plage de défilement.
+    let travel = (s.track.bottom - s.track.top) - (s.thumb.bottom - s.thumb.top);
+    near(asked_offset(&app), 50. / travel * s.max_offset());
+}

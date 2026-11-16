@@ -149,7 +149,13 @@ impl UiRuntime {
                 && s.max_offset() > 0.
                 && layout::contains(s.track, p.x, p.y)
             {
-                return Some(Some(if layout::contains(s.thumb, p.x, p.y) {
+                // Le pouce se saisit sur toute l'épaisseur de la gouttière, pas seulement sur
+                // son trait (4 px pour une barre fine), comme dans un navigateur.
+                let along = match s.axis {
+                    Axis::Vertical => (p.y, s.thumb.top, s.thumb.bottom),
+                    Axis::Horizontal => (p.x, s.thumb.left, s.thumb.right),
+                };
+                return Some(Some(if along.0 >= along.1 && along.0 <= along.2 {
                     Hit::ScrollThumb(node.id)
                 } else {
                     Hit::ScrollTrack(node.id)

@@ -257,6 +257,8 @@ impl UiRuntime {
                     self.invalidation.rebuild = true;
                 }
             }
+            let scroll_requests =
+                super::smooth_scroll::scroll_requests(root, &mut self.components.scrolls);
             self.components.save(root);
             self.refresh_hover();
             self.invalidation.relayout = false;
@@ -272,6 +274,7 @@ impl UiRuntime {
             }
             self.invalidation.stats.layouts += 1;
             self.invalidation.stats.layout_time += stage.elapsed();
+            self.apply_scroll_requests(scroll_requests);
         }
         if let Some(shift) = self.interaction.pending_tab.take() {
             self.move_tab(shift);
