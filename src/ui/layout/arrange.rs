@@ -46,6 +46,27 @@ pub(super) fn arrange_in(
     }
     arrange_node(node, bounds, clip, text, context)
 }
+/// Enfant hors flux d'une zone qui défile : décalé du défilement courant, comme le
+/// contenu (`scrolling::place`) et comme `scroll::set_offset` le déplace ensuite. Sans
+/// cela, une mise en page refaite pendant un défilement le reposerait en haut de la
+/// zone visible au lieu du haut du contenu. Un enfant `fixed` reste sur place.
+fn scrolled_with_content(
+    scroll: Option<crate::ui::scroll::ScrollMetrics>,
+    clip: RectF,
+    child: &mut Element,
+) {
+    let Some(s) = scroll.filter(|s| s.offset != 0.) else {
+        return;
+    };
+    if super::position::fixed(child) {
+        return;
+    }
+    let (dx, dy) = match s.axis {
+        Axis::Horizontal => (-s.offset, 0.),
+        Axis::Vertical => (0., -s.offset),
+    };
+    super::scroll::translate(child, dx, dy, intersect(s.viewport, clip));
+}
 fn arrange_node(
     node: &mut Element,
     bounds: RectF,
@@ -165,6 +186,7 @@ fn arrange_node(
                 super::position::collapse(child, area.left, area.top);
             } else {
                 super::position::placed(child, context, node.clip, text)?;
+                scrolled_with_content(node.scroll, node.clip, child);
             }
         }
         Ok(())

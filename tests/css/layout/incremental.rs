@@ -202,6 +202,12 @@ fn play(incremental: bool) -> Vec<Vec<String>> {
         .unwrap();
         steps.push(snapshot(&mut app, i == 9));
     }
+    // Reconstructions pendant le défilement : cartes mémorisées et pastilles `absolute`
+    // restent décalées du défilement.
+    for i in 0..3 {
+        app.update_app(|_| {}).unwrap();
+        steps.push(snapshot(&mut app, i == 2));
+    }
     steps
 }
 

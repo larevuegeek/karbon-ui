@@ -73,6 +73,17 @@ pub(super) fn place(
         ),
     };
     let clip = intersect(viewport, node.clip);
+    // Les descendants positionnés défilent avec le contenu : leur bloc conteneur est
+    // décalé du défilement, comme `scroll::set_offset` les déplace ensuite.
+    let (dx, dy) = match axis {
+        Axis::Horizontal => (-metrics.offset, 0.),
+        Axis::Vertical => (0., -metrics.offset),
+    };
+    let c = context.containing;
+    let context = LayoutContext {
+        containing: RectF::new(c.left + dx, c.top + dy, width(c), height(c)),
+        ..context
+    };
     if let Some(content) = node.children.first_mut() {
         arrange_in(content, bounds, clip, text, context)?;
     }

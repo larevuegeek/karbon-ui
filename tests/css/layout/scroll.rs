@@ -203,3 +203,49 @@ fn a_sticky_header_stays_at_the_top_of_its_scrolled_section() {
     near(at(&app, "sticky.head.a"), 0.);
     near(at(&app, "sticky.head.b"), 330.);
 }
+
+#[derive(Default)]
+struct Glow;
+
+impl Application for Glow {
+    type Message = ();
+    fn view(&self, _: &ViewContext) -> Element {
+        ui! {@styles(css);
+            <div id="glow.page" class="glow-page">
+                <div id="glow" class="glow"></div>
+                <div id="glow.content" class="glow-content"></div>
+            </div>
+        }
+    }
+    fn update(&mut self, _: ()) -> bool {
+        true
+    }
+}
+
+/// Un élément `absolute` d'une page défilante suit le contenu, y compris quand la vue est
+/// reconstruite pendant le défilement : il n'est pas reposé en haut de la zone visible.
+#[test]
+fn an_absolute_child_keeps_scrolling_with_the_content_across_rebuilds() {
+    let mut app = HeadlessApp::new(Glow).unwrap();
+    let top = app.bounds("glow.page").unwrap().top;
+    let at = |app: &HeadlessApp<Glow>, id: &str| app.bounds(id).unwrap().top - top;
+    let mask = |app: &HeadlessApp<Glow>| {
+        app.scene()
+            .commands
+            .iter()
+            .find_map(|c| match c {
+                DrawCommand::PushMask { bounds, .. } => Some(bounds.top - top),
+                _ => None,
+            })
+            .unwrap()
+    };
+    app.scroll("glow.page", 0., 100.).unwrap();
+    near(at(&app, "glow"), -100.);
+    app.send(()).unwrap();
+    near(at(&app, "glow.content"), -100.);
+    near(at(&app, "glow"), -100.);
+    near(mask(&app), -100.);
+    app.scroll("glow.page", 0., -50.).unwrap();
+    near(at(&app, "glow"), -50.);
+    near(mask(&app), -50.);
+}

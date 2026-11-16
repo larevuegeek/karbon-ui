@@ -24,3 +24,8 @@
 .sticky-section { display: flex; flex-direction: column; }
 .sticky-head { position: sticky; top: 0px; height: 30px; flex-shrink: 0; z-index: 1; }
 .sticky-row { height: 50px; flex-shrink: 0; }
+
+/* Halo `absolute` en haut d'une page défilante, comme l'en-tête des fiches de RustMusic. */
+.glow-page { position: relative; height: 300px; width: 300px; overflow-y: auto; }
+.glow { position: absolute; left: 0px; right: 0px; top: 0px; height: 200px; background: #ff0000; mask-image: linear-gradient(180deg, #000 40%, transparent); }
+.glow-content { position: relative; height: 1000px; }

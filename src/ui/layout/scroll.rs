@@ -171,6 +171,8 @@ pub(crate) fn translate(node: &mut Element, dx: f32, dy: f32, clip: RectF) {
     {
         a.bounds = translated(a.bounds, dx, dy);
         a.parent = translated(a.parent, dx, dy);
+        // Le bloc conteneur défile avec le contenu (`scrolling::place`).
+        a.containing = translated(a.containing, dx, dy);
         a.clip = clip;
     }
     node.divider = node.divider.map(|r| translated(r, dx, dy));
