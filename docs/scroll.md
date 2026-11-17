@@ -151,6 +151,11 @@ passe de 20 à 36 ms à 6 à 15 ms.
   `viewport_size()`), après le déplacement ; une butée n'émet rien. Usage type,
   la page suivante d'une longue liste :
   `onscroll={|s: ScrollMetrics| Msg::Scrolled(s.offset, s.max_offset())}`.
+- **`onscrollrange`** (`Element::on_scroll_range`) : la plage défilable, à l'apparition
+  du conteneur puis chaque fois qu'une disposition change la taille de sa vue ou l'étendue
+  de son contenu (comme un `ResizeObserver` sur le conteneur et son contenu) ; le message
+  part après la disposition. Usage type, les flèches d'un carrousel actives seulement si
+  ses cartes dépassent : le même message que `onscroll`, avec `s.max_offset()`.
 - **Ancrage** (`overflow-anchor: auto` des navigateurs) : avant une reconstruction
   ou une remise en page, chaque conteneur vertical défilé retient le premier élément
   visible (le plus profond qui chevauche le haut de la vue) ; après, si cet élément

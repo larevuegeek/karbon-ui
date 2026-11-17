@@ -81,6 +81,8 @@ pub(super) struct ScrollState {
     /// Éléments qui demandaient à être amenés dans la vue (`scroll_into_view`) à la
     /// dernière disposition : une demande ne glisse qu'à son apparition.
     pub(super) into_view: FastSet<ElementId>,
+    /// Plage (vue, étendue) de chaque conteneur `on_scroll_range` signalée à l'application.
+    pub(super) ranges: HashMap<ElementId, (f32, f32)>,
 }
 /// Ligne active de chaque liste virtuelle.
 #[derive(Default)]
@@ -277,6 +279,7 @@ impl ComponentState for ScrollState {
     fn retain_live(&mut self, live: &FastSet<ElementId>) {
         self.offsets.retain(|id, _| live.contains(id));
         self.requests.retain(|id, _| live.contains(id));
+        self.ranges.retain(|id, _| live.contains(id));
     }
     fn save(&mut self, root: &Element) {
         fn save(node: &Element, offsets: &mut HashMap<ElementId, f32>) {
@@ -293,6 +296,8 @@ impl ComponentState for ScrollState {
         self.offsets
             .retain(|id, _| root.find(*id).is_some_and(|n| n.scroll.is_some()));
         self.requests
+            .retain(|id, _| root.find(*id).is_some_and(|n| n.scroll.is_some()));
+        self.ranges
             .retain(|id, _| root.find(*id).is_some_and(|n| n.scroll.is_some()));
     }
 }

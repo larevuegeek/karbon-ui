@@ -35,6 +35,8 @@ pub struct Element {
     pub(crate) virtual_list: Option<Box<crate::ui::virtual_list::VirtualList>>,
     pub(crate) context_menu: Option<Box<Handler<crate::ui::popover::ContextMenuRequest>>>,
     pub(crate) on_scroll: Option<Box<Handler<crate::ui::scroll::ScrollMetrics>>>,
+    /// `onscrollrange` : plage défilable changée ([`Element::on_scroll_range`]).
+    pub(crate) on_scroll_range: Option<Box<Handler<crate::ui::scroll::ScrollMetrics>>>,
     /// `onwheel` : gestionnaire de la molette ([`Element::on_wheel`]).
     pub(crate) on_wheel: Option<Box<crate::ui::runtime::WheelHandler>>,
     /// Survol, appui, focus et double clic ([`Element::on_hover`]…).

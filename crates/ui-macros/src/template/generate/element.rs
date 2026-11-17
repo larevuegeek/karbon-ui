@@ -253,6 +253,10 @@ impl Generator {
             let handler = self.message(a)?;
             post += &format!("__ui_el=__ui_el.on_scroll({handler});");
         }
+        if let Some(a) = e.attr("onscrollrange") {
+            let handler = self.message(a)?;
+            post += &format!("__ui_el=__ui_el.on_scroll_range({handler});");
+        }
         if let Some(a) = e.attr("onwheel") {
             let handler = self.message(a)?;
             post += &format!("__ui_el=__ui_el.on_wheel({handler});");

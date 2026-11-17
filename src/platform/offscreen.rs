@@ -157,8 +157,16 @@ impl<O: Offscreen> Session<O> {
             .prepare_at(self.context, self.chrome, &mut self.offscreen, now)
     }
     /// Première image, puis le pointeur posé à `pointer` (styles `:hover`) si demandé.
+    /// Un message émis pendant une disposition (`onscrollrange`, `onscroll`) est rendu
+    /// comme à l'image suivante d'une fenêtre : au plus trois images de plus.
     fn prepare_preview(&mut self, pointer: Option<(f32, f32)>) -> crate::Result<()> {
         self.prepare()?;
+        for _ in 0..3 {
+            if !self.ui.rebuild_pending() {
+                break;
+            }
+            self.prepare()?;
+        }
         if let Some((x, y)) = pointer {
             self.ui.event(crate::ui::runtime::UiEvent::PointerMove(
                 crate::ui::scene::PointF { x, y },

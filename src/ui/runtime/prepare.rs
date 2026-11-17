@@ -274,6 +274,8 @@ impl UiRuntime {
             }
             let scroll_requests =
                 super::smooth_scroll::scroll_requests(root, &mut self.components.scrolls);
+            let scroll_ranges =
+                super::smooth_scroll::scroll_ranges(root, &mut self.components.scrolls);
             self.components.save(root);
             self.refresh_hover();
             self.invalidation.relayout = false;
@@ -290,6 +292,11 @@ impl UiRuntime {
             self.invalidation.stats.layouts += 1;
             self.invalidation.stats.layout_time += stage.elapsed();
             self.apply_scroll_requests(scroll_requests);
+            // Plages défilables changées : signalées après la disposition, comme un
+            // `ResizeObserver` (la reconstruction qu'elles demandent vient à l'image suivante).
+            for message in scroll_ranges {
+                self.send(message);
+            }
             // Défilement posé après la disposition (ancrage, cible initiale, demande de
             // l'application) : le contenu `content-visibility: auto` qui arrive sous la vue
             // est rendu dans cette image, pas à la prochaine (qui peut ne pas venir).

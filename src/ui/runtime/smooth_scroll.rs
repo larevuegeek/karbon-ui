@@ -188,6 +188,39 @@ pub(super) fn scroll_requests(
     requests
 }
 
+/// Conteneurs `on_scroll_range` dont la plage (taille de la vue, étendue du contenu) a
+/// changé depuis la dernière disposition, ou qui apparaissent : leur message.
+pub(super) fn scroll_ranges(
+    root: &Element,
+    state: &mut super::components::ScrollState,
+) -> Vec<crate::application::Message> {
+    fn collect(
+        node: &Element,
+        ranges: &mut HashMap<ElementId, (f32, f32)>,
+        out: &mut Vec<crate::application::Message>,
+    ) {
+        if let (Some(handler), Some(s)) = (node.on_scroll_range.as_deref(), node.scroll) {
+            let range = (s.viewport_size(), s.extent);
+            let changed = ranges.insert(node.id, range).is_none_or(|(view, extent)| {
+                (view - range.0).abs() > 0.5 || (extent - range.1).abs() > 0.5
+            });
+            if changed {
+                out.push(handler.emit(s));
+            }
+        }
+        // Contenu sauté : pas de géométrie à jour.
+        if node.content_skipped {
+            return;
+        }
+        for child in &node.children {
+            collect(child, ranges, out);
+        }
+    }
+    let mut out = Vec::new();
+    collect(root, &mut state.ranges, &mut out);
+    out
+}
+
 impl UiRuntime {
     /// Lance (ou allonge) le glissement du conteneur `id` de `delta` ; renvoie la part du
     /// déplacement qu'il prend (le reste passe aux conteneurs englobants).

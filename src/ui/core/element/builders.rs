@@ -26,6 +26,7 @@ impl Element {
             virtual_list: None,
             context_menu: None,
             on_scroll: None,
+            on_scroll_range: None,
             on_wheel: None,
             listeners: None,
             memo: None,
@@ -172,6 +173,18 @@ impl Element {
         handler: impl Fn(crate::ui::scroll::ScrollMetrics) -> M + 'static,
     ) -> Self {
         self.on_scroll = Some(Box::new(Handler::new(handler)));
+        self
+    }
+
+    /// Report the scrollable range of this container (`overflow: auto | scroll`) when it
+    /// appears and whenever its viewport size or content extent changes after a layout,
+    /// like a `ResizeObserver` on the container and its content: `handler` receives the
+    /// geometry. Typical use: enable a carousel's arrows only when its cards overflow.
+    pub fn on_scroll_range<M: 'static>(
+        mut self,
+        handler: impl Fn(crate::ui::scroll::ScrollMetrics) -> M + 'static,
+    ) -> Self {
+        self.on_scroll_range = Some(Box::new(Handler::new(handler)));
         self
     }
 
