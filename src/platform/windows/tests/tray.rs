@@ -83,7 +83,14 @@ fn tray_clicks_reach_the_application_even_without_an_icon_shown() {
     unsafe { SendMessageW(window, tray::TRAY_MESSAGE, 0, (NIN_SELECT | 1) as isize) };
     assert_eq!(
         *events.borrow(),
-        [TrayEvent::Activated, TrayEvent::Activated]
+        [
+            TrayEvent::Activated {
+                anchor: Some((0, 0))
+            },
+            TrayEvent::Activated {
+                anchor: Some((0, 0))
+            }
+        ]
     );
     // SAFETY : fenêtre de ce thread, détruite une fois.
     unsafe { DestroyWindow(window) };

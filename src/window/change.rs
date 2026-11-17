@@ -93,6 +93,9 @@ pub struct WindowState {
     /// The user is moving or resizing the window with the pointer; the end of the
     /// gesture sends a state where it is `false`.
     pub dragging: bool,
+    /// The window is the active one (keyboard focus): a pop-up closes itself when it
+    /// turns `false`. Windows and macOS; always `true` on Linux for now.
+    pub focused: bool,
 }
 
 /// Rectangle en pixels de l'écran (physiques ou logiques selon l'appelant).

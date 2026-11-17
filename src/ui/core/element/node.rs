@@ -71,6 +71,8 @@ pub struct Element {
     pub(crate) drag_region: Option<bool>,
     /// `data-resize-region` : poignée qui redimensionne la fenêtre par ce bord ou ce coin.
     pub(crate) resize_region: Option<crate::window::ResizeEdge>,
+    /// `data-pan-frame` : bloc déplacé par le moteur pendant un `onpan` à l'intérieur.
+    pub(crate) pan_frame: bool,
 }
 /// Gestionnaires des événements d'élément (`runtime/listeners.rs`).
 #[derive(Default)]
@@ -79,6 +81,7 @@ pub(crate) struct Listeners {
     pub press: Option<Handler<bool>>,
     pub focus: Option<Handler<bool>>,
     pub double_click: Option<Action>,
+    pub pan: Option<Handler<crate::ui::drag_drop::PanEvent>>,
 }
 thread_local! {
     /// Un gestionnaire a été posé depuis la dernière lecture.
@@ -104,6 +107,17 @@ impl Element {
     /// descendants.
     pub fn on_press<M: 'static>(mut self, handler: impl Fn(bool) -> M + 'static) -> Self {
         self.listeners_mut().press = Some(Handler::new(handler));
+        self
+    }
+    /// Follows a press-and-drag on this button: past 4 logical units the press becomes a
+    /// pan ([`PanEvent`](crate::ui::drag_drop::PanEvent): start, moves, end) and the click
+    /// is cancelled. The application moves the element itself; rebuilding the view keeps
+    /// the gesture.
+    pub fn on_pan<M: 'static>(
+        mut self,
+        handler: impl Fn(crate::ui::drag_drop::PanEvent) -> M + 'static,
+    ) -> Self {
+        self.listeners_mut().pan = Some(Handler::new(handler));
         self
     }
     /// Reports the focus entering (`true`) and leaving (`false`) this element or its

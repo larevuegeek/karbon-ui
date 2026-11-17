@@ -108,6 +108,11 @@ logiques à l’échelle de l’écran principal, y vers le bas).
 | `Maximized(bool)`, `Fullscreen(bool)` | Agrandir ou restaurer ; couvrir tout l’écran ou en sortir (le rectangle d’avant est rétabli). |
 | `Visible(bool)`, `Focus` | Masquer ou montrer sans fermer ; montrer, restaurer et passer au premier plan. |
 
+`WindowState::focused` dit si la fenêtre est la fenêtre active (le clavier lui va) ; il
+change à chaque activation ou désactivation (Windows, macOS ; toujours `true` sous Linux
+pour l'instant). `WindowOptions::taskbar: false` ouvre une fenêtre qui prend le focus
+sans bouton dans la barre des tâches ni dans Alt+Tab (Windows ; ignoré ailleurs).
+
 Un changement incohérent (taille nulle ou négative, proportion nulle) est une erreur de
 programmation : `Error::InvalidWindowOptions`, comme des options invalides à l’ouverture.
 
@@ -284,9 +289,16 @@ self.commands.push(WindowCommand::Change(WindowId::MAIN, WindowChange::Visible(f
 ### Ce que fait chaque plateforme
 
 Les règles sont les mêmes partout, pour qu'une application n'ait qu'un comportement à
-écrire : le **clic principal** remet `TrayEvent::Activated`, le **clic secondaire**
-ouvre le menu, le **choix d'une entrée** remet `TrayEvent::MenuItem(id)`. Une entrée
-grisée (`disabled_item`) ou un séparateur ne remettent rien.
+écrire : le **clic principal** remet `TrayEvent::Activated { anchor }`, le **clic
+secondaire** ouvre le menu, le **choix d'une entrée** remet `TrayEvent::MenuItem(id)`. Une
+entrée grisée (`disabled_item`) ou un séparateur ne remettent rien.
+
+`anchor` donne la place de l'icône, `(x, y)` aux coordonnées de `WindowOptions::x` (le
+pointeur au clic, l'icône au clavier) : de quoi ouvrir une petite fenêtre juste à côté,
+comme le lecteur de la zone de notification de RustMusic. Windows pour l'instant ; `None`
+ailleurs. Une telle fenêtre s'ouvre sans cadre (`title_bar: false`), sans bouton dans la
+barre des tâches mais avec le focus (`taskbar: false`), et se referme quand
+`WindowState::focused` passe à `false` (clic ailleurs).
 
 | | Windows | macOS | Linux |
 | --- | --- | --- | --- |

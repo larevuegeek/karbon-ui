@@ -116,8 +116,15 @@ pub enum TrayMenuItem {
 pub enum TrayEvent {
     /// The icon was clicked with the primary button, or chosen with the keyboard (Windows:
     /// Enter on the selected icon). Typically: show the window with
-    /// [`WindowChange::Focus`](super::WindowChange::Focus).
-    Activated,
+    /// [`WindowChange::Focus`](super::WindowChange::Focus), or open a small window next
+    /// to the icon.
+    Activated {
+        /// Where the icon is, as `(x, y)` in the coordinates of
+        /// [`WindowOptions::x`](super::WindowOptions::x) (logical pixels at the primary
+        /// screen's scale, y downwards): the pointer on a click, the icon on a keyboard
+        /// choice. Windows only for now; `None` elsewhere.
+        anchor: Option<(i32, i32)>,
+    },
     /// The menu entry with this identifier was chosen.
     MenuItem(u32),
 }

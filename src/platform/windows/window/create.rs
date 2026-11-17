@@ -101,8 +101,10 @@ fn create_window(options: WindowOptions, path: Path) -> crate::Result<Hwnd> {
         // Aucune surface de redirection GDI : DirectComposition fournit tout le contenu.
         Path::Composition => WS_EX_NOREDIRECTIONBITMAP,
     } | if options.topmost { WS_EX_TOPMOST } else { 0 }
-        | if options.activate {
+        | if options.activate && options.taskbar {
             WS_EX_APPWINDOW
+        } else if options.activate {
+            WS_EX_TOOLWINDOW
         } else {
             WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW
         }

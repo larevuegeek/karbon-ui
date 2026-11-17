@@ -210,6 +210,7 @@ impl Session {
             resizable: style.contains(NSWindowStyleMask::Resizable),
             dragging: window.inLiveResize()
                 || GRIP.with(Cell::get).is_some_and(|grip| grip.id == self.id),
+            focused: window.isKeyWindow(),
         }
     }
     /// Remet l'état à l'application s'il a changé depuis le dernier envoi.

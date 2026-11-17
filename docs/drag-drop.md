@@ -59,3 +59,40 @@ Code : `src/ui/runtime/drag_drop/model.rs` (API), `src/ui/runtime/drag_drop/inte
 `src/ui/tests/drag_drop.rs` (seuil, dépôt, annulation, groupes, désactivation,
 reconstruction et auto-scroll). Les sources et cibles utilisent deux options
 sur le tas dans `Element`, sans payload métier conservé par le runtime.
+
+## Déplacement libre (`onpan`)
+
+Pour un élément que l'utilisateur place où il veut (bouton flottant, poignée), un
+bouton porte `onpan` (`Element::on_pan`) : au-delà de 4 unités logiques de mouvement,
+l'appui devient un déplacement, le clic est supprimé et l'application reçoit un
+`PanEvent` au début (`PanPhase::Start`), à chaque mouvement (`Move`) puis au
+relâchement (`End`, aussi sur Échap, perte de focus ou de capture). L'événement donne la
+position du pointeur dans la fenêtre (`x`, `y`) et le déplacement depuis l'appui (`dx`,
+`dy`), en unités logiques.
+
+```html
+<button onclick={Msg::Toggle} onpan={|e: PanEvent| Msg::Moved(e)}>…</button>
+```
+
+Une reconstruction de la vue pendant le geste ne l'interrompt pas : le bouton garde la
+capture tant qu'il existe. Sous le seuil, le bouton garde son clic normal.
+
+**Bloc déplacé par le moteur (`data-pan-frame`, `Element::pan_frame`).** Sans lui,
+l'application tient la position et la donne à l'élément à chaque mouvement (une
+reconstruction par mouvement). Avec un ancêtre `data-pan-frame`, le moteur déplace
+lui-même ce bloc pendant le geste en translatant son placement (comme un défilement) :
+une peinture par mouvement, sans reconstruire ni redisposer, le bloc restant dans la
+fenêtre (`dx`, `dy` sont bornés d'autant). L'application n'a rien à faire pendant le
+geste (`Move` peut rendre `false`) ; au relâchement (`End`), elle donne la place finale,
+par exemple collée au bord le plus proche, et le bloc y glisse depuis le point de lâcher
+(0,22 s, départ rapide, arrivée douce).
+
+```html
+<div class="absolute" data-pan-frame style:top={Length::Px(top)} style:right={Length::Px(inset)}>
+    <button onclick={Msg::Toggle} onpan={|e: PanEvent| Msg::Moved(e)}>…</button>
+    …
+</div>
+```
+
+Code : `src/ui/runtime/drag_drop/pan.rs` (geste, bloc, glissement final), tests
+`src/ui/tests/pan.rs`.

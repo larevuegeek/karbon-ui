@@ -26,12 +26,12 @@ use windows_sys::Win32::{
     UI::{
         HiDpi::GetDpiForSystem,
         WindowsAndMessaging::{
-            GWL_STYLE, GetWindowLongPtrW, GetWindowRect, HWND_NOTOPMOST, HWND_TOP, HWND_TOPMOST,
-            IsIconic, IsZoomed, SW_HIDE, SW_MAXIMIZE, SW_RESTORE, SW_SHOW, SW_SHOWNOACTIVATE,
-            SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
-            SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, ShowWindow, WMSZ_BOTTOM,
-            WMSZ_BOTTOMLEFT, WMSZ_BOTTOMRIGHT, WMSZ_LEFT, WMSZ_RIGHT, WMSZ_TOP, WMSZ_TOPLEFT,
-            WMSZ_TOPRIGHT, WS_MAXIMIZEBOX, WS_THICKFRAME,
+            GWL_STYLE, GetForegroundWindow, GetWindowLongPtrW, GetWindowRect, HWND_NOTOPMOST,
+            HWND_TOP, HWND_TOPMOST, IsIconic, IsZoomed, SW_HIDE, SW_MAXIMIZE, SW_RESTORE, SW_SHOW,
+            SW_SHOWNOACTIVATE, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+            SWP_NOZORDER, SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, ShowWindow,
+            WMSZ_BOTTOM, WMSZ_BOTTOMLEFT, WMSZ_BOTTOMRIGHT, WMSZ_LEFT, WMSZ_RIGHT, WMSZ_TOP,
+            WMSZ_TOPLEFT, WMSZ_TOPRIGHT, WS_MAXIMIZEBOX, WS_THICKFRAME,
         },
     },
 };
@@ -335,6 +335,8 @@ pub(crate) fn snapshot(window: Hwnd) -> WindowState {
         topmost: options.topmost,
         resizable: RESIZABLE.with(Cell::get),
         dragging: state::sizing(),
+        // SAFETY : simple lecture de la fenêtre au premier plan.
+        focused: unsafe { GetForegroundWindow() } == window,
         ..previous
     };
     if !minimized {

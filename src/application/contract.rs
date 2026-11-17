@@ -226,7 +226,7 @@ pub trait Application: 'static {
     ///     type Message = ();
     ///     fn tray_event(&mut self, event: TrayEvent) -> bool {
     ///         let command = match event {
-    ///             TrayEvent::Activated | TrayEvent::MenuItem(1) => {
+    ///             TrayEvent::Activated { .. } | TrayEvent::MenuItem(1) => {
     ///                 WindowCommand::Change(WindowId::MAIN, WindowChange::Focus)
     ///             }
     ///             _ => WindowCommand::Exit,

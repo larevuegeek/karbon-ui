@@ -101,7 +101,19 @@ pub(crate) fn taskbar_created() -> u32 {
 pub(crate) fn message(window: Hwnd, wparam: usize, lparam: isize) -> isize {
     match lparam as u32 & 0xFFFF {
         // Clic principal, ou Entrée et Espace sur l'icône sélectionnée au clavier.
-        NIN_SELECT | NIN_KEYSELECT => runtime::tray_event(window, TrayEvent::Activated),
+        NIN_SELECT | NIN_KEYSELECT => {
+            // Ancre du clic (ou de l'icône au clavier) : pixels physiques de l'écran,
+            // rendus à l'échelle de l'écran principal comme `WindowOptions::x`.
+            // SAFETY : simple lecture du DPI système.
+            let scale = unsafe { GetDpiForSystem() }.max(96) as f32 / 96.;
+            let x = i32::from(wparam as u16 as i16);
+            let y = i32::from((wparam >> 16) as u16 as i16);
+            let anchor = Some((
+                (x as f32 / scale).round() as i32,
+                (y as f32 / scale).round() as i32,
+            ));
+            runtime::tray_event(window, TrayEvent::Activated { anchor })
+        }
         WM_CONTEXTMENU => {
             let x = i32::from(wparam as u16 as i16);
             let y = i32::from((wparam >> 16) as u16 as i16);

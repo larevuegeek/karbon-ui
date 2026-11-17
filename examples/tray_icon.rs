@@ -92,7 +92,7 @@ impl Application for Player {
 
     fn tray_event(&mut self, event: TrayEvent) -> bool {
         match event {
-            TrayEvent::Activated => {
+            TrayEvent::Activated { .. } => {
                 self.clicks += 1;
                 self.show();
             }

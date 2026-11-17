@@ -52,7 +52,7 @@ define_class!(
             if secondary {
                 self.show_menu();
             } else {
-                super::tray_event(self.ivars().id, TrayEvent::Activated);
+                super::tray_event(self.ivars().id, TrayEvent::Activated { anchor: None });
             }
         }
 

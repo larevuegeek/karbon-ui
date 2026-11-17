@@ -103,6 +103,10 @@ pub(super) struct ComponentStates {
     pub(super) lists: ListState,
     /// Glisser-déposer d'éléments : abandonné à chaque reconstruction.
     pub(super) item_drag: Option<drag_drop::State>,
+    /// Déplacement libre d'un bouton (`onpan`) : survit aux reconstructions.
+    pub(super) pan: Option<drag_drop::PanState>,
+    /// Bloc `pan_frame` qui glisse vers sa place après le relâchement.
+    pub(super) pan_settle: Option<drag_drop::PanSettle>,
 }
 impl ComponentStates {
     /// États soumis aux crochets, dans l'ordre de réconciliation.
@@ -131,7 +135,9 @@ impl ComponentStates {
     }
 
     pub(super) fn captured(&self) -> bool {
-        self.item_drag.is_some() || self.each().iter().any(|state| state.captured())
+        self.item_drag.is_some()
+            || self.pan.is_some()
+            || self.each().iter().any(|state| state.captured())
     }
 
     pub(super) fn retain_rebuilt(&mut self, root: &Element, live: &FastSet<ElementId>) -> bool {

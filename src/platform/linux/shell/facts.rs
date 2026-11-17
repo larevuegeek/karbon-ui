@@ -74,6 +74,7 @@ impl Session {
             topmost: self.options.topmost,
             resizable: self.facts.resizable,
             dragging: self.facts.dragging,
+            focused: true,
         }
     }
     /// Remet l'état à l'application s'il a changé depuis le dernier envoi.

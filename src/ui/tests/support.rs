@@ -21,6 +21,7 @@ pub(super) enum Msg {
     Select(u64, u64),
     Toggle(u64, bool),
     Drop(u64, crate::ui::drag_drop::DropEvent),
+    Pan(u64, crate::ui::drag_drop::PanEvent),
     Menu(u64, crate::ui::popover::ContextMenuRequest),
 }
 

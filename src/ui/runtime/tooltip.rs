@@ -8,6 +8,7 @@ impl UiRuntime {
             self.motions.next_wake(),
             self.interaction.hover_frozen,
             self.smooth_scroll_wake(),
+            self.pan_settle_wake(),
             self.invalidation.graveyard_wake,
             self.frame_work_wake(),
             self.held_rebuild_wake(),

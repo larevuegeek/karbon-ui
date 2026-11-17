@@ -6,6 +6,7 @@ mod components;
 mod drag_drop;
 mod layout;
 mod overlays;
+mod pan;
 mod runtime;
 mod styling;
 mod support;

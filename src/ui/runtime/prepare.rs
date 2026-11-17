@@ -292,6 +292,9 @@ impl UiRuntime {
             self.invalidation.stats.layouts += 1;
             self.invalidation.stats.layout_time += stage.elapsed();
             self.apply_scroll_requests(scroll_requests);
+            // Bloc déplacé (`onpan` dans un `pan_frame`) : il reste sous le pointeur, ou
+            // glisse vers la place que l'application vient de lui donner.
+            self.pan_after_layout(now);
             // Plages défilables changées : signalées après la disposition, comme un
             // `ResizeObserver` (la reconstruction qu'elles demandent vient à l'image suivante).
             for message in scroll_ranges {

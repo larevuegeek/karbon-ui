@@ -80,6 +80,8 @@ pub(super) fn activate(window: Hwnd, default_proc: impl FnOnce() -> isize) -> is
     if !state::options().transparent {
         shadow::update(window);
     }
+    // Focus gagné ou perdu : `WindowState::focused`.
+    change::notify(window);
     result
 }
 /// WM_WINDOWPOSCHANGED.

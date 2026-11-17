@@ -237,6 +237,7 @@ pub fn events(kind: Kind, input: Option<&str>) -> Vec<&'static str> {
         "onpress",
         "onfocus",
         "ondblclick",
+        "onpan",
     ]);
     list
 }
@@ -256,6 +257,7 @@ pub const EVENTS: &[&str] = &[
     "onpress",
     "onfocus",
     "ondblclick",
+    "onpan",
 ];
 /// Attributs communs acceptés sur tout élément bloc.
 pub const COMMON: &[&str] = &[

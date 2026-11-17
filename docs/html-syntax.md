@@ -121,6 +121,7 @@ d'ici là, les styles viennent de `css_file!` / `styles!`.
 | `data-drag-region` | sans valeur, `"true"`, `"false"` ou `{bool}` : la zone déplace la fenêtre (barre de titre personnalisée, comme `data-tauri-drag-region`) ; un appui hors des boutons, champs et curseurs lance le déplacement natif, un double clic agrandit ou restaure. Inactif quand un menu, popover ou dialogue est ouvert |
 | `data-no-drag` | sans valeur, `"true"`, `"false"` ou `{bool}` : la partie est exclue de la zone `data-drag-region` qui l'englobe (`-webkit-app-region: no-drag`) ; un appui sur un vide de cette partie ne déplace pas la fenêtre. Une zone `data-drag-region` imbriquée déplace de nouveau ; l'élément le plus profond qui déclare l'un des deux l'emporte |
 | `data-resize-region` | `"bottom-right"` (ou `left`, `right`, `top`, `bottom`, `top-left`, `top-right`, `bottom-left`) : poignée qui redimensionne la fenêtre par ce bord ou ce coin, même quand elle n'est pas redimensionnable (`WindowChange::Resizable(false)`) ; un appui hors des cibles interactives commence le geste, suivi par karbon-ui sous Windows et macOS (proportions et bornes de la fenêtre, voir [windows.md](windows.md)). L'emporte sur `data-drag-region` ; inactif quand un menu, popover ou dialogue est ouvert |
+| `data-pan-frame` | sans valeur : bloc déplacé par le moteur pendant un `onpan` dans son sous-arbre (placement translaté, une peinture par mouvement, borné à la fenêtre), puis glissé vers la place que l'application donne au relâchement ([drag-drop.md](drag-drop.md#déplacement-libre-onpan)) |
 | `role`, `aria-expanded`, `aria-haspopup` | Rôle d’accessibilité et déclencheur de menu (§11) |
 | `aria-pressed`, `aria-checked`, `aria-selected`, `aria-current` | États exposés aux lecteurs d’écran : bouton bascule, case ou radio dessinés, onglet, élément courant (§11) |
 | `tabindex="-1"` | Exclu de la navigation clavier |
@@ -147,6 +148,7 @@ d'ici là, les styles viennent de `css_file!` / `styles!`.
 | `onscrollrange={Msg::X}` | Conteneur `overflow: auto / scroll` | `ScrollMetrics` à l'apparition puis quand la taille de la vue ou l'étendue du contenu change ([scroll.md](scroll.md)) |
 | `onhover={Msg::X}`, `onpress={Msg::X}`, `onfocus={Msg::X}` | Tout élément et composant | `bool` : entrée ou début (`true`), sortie ou fin (`false`), descendants compris |
 | `ondblclick={msg}` | Tout élément et composant | aucune (message cloné) |
+| `onpan={Msg::X}` | Élément cliquable (`button`, ou portant `onclick`) | `PanEvent` (`phase` : `Start`, `Move`, `End` ; `x`, `y` ; `dx`, `dy` depuis l'appui) : au-delà de 4 unités, l'appui devient un déplacement et le clic est supprimé ([drag-drop.md](drag-drop.md#déplacement-libre-onpan)) |
 | `onwheel={…}` | Tout élément | `WheelEvent` (`delta_x`, `delta_y`, `x`, `y`) ; le gestionnaire rend `Option<Msg>`, voir ci-dessous |
 
 Un événement non applicable à la balise (`oninput` sur une case à cocher)

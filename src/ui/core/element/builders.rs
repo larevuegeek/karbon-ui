@@ -42,6 +42,7 @@ impl Element {
             semantics_hidden: false,
             drag_region: None,
             resize_region: None,
+            pan_frame: false,
             expanded: None,
             aria: Default::default(),
         }
@@ -57,6 +58,15 @@ impl Element {
     /// `aria-hidden="true"`; painting, clicks and keyboard focus are unchanged.
     pub fn accessibility_hidden(mut self, hidden: bool) -> Self {
         self.semantics_hidden = hidden;
+        self
+    }
+    /// Mark this block as moved by a pan inside it (`data-pan-frame`): while a button
+    /// in its subtree is panned ([`on_pan`](Self::on_pan)), the runtime moves the block
+    /// itself, kept in the window, by translating its placement: one paint per motion,
+    /// no rebuild or layout. On release the application gives its final place (a
+    /// rebuild); the block then glides there from where it was dropped.
+    pub fn pan_frame(mut self) -> Self {
+        self.pan_frame = true;
         self
     }
     /// Let the user move the window by dragging this element (`true`), like Tauri's

@@ -120,6 +120,10 @@ pub struct WindowOptions {
     /// Activate the window when shown and list it in the taskbar; `false` creates a
     /// non-activating tool window (not available under Wayland).
     pub activate: bool,
+    /// List an activating window in the taskbar (and Alt+Tab). `false` with `activate`:
+    /// a pop-up that takes the focus without a taskbar button, such as a player opened
+    /// from the tray icon. Windows only for now; ignored elsewhere.
+    pub taskbar: bool,
     /// Keep the window above non-topmost windows (not available under Wayland).
     pub topmost: bool,
     /// Use the light theme instead of the dark one.
@@ -166,6 +170,7 @@ impl WindowOptions {
         transparent: false,
         click_through: false,
         activate: true,
+        taskbar: true,
         topmost: false,
         light: false,
         profile: false,

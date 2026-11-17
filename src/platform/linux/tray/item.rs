@@ -55,7 +55,7 @@ pub(super) const INTROSPECTION: &str = "<interface name=\"org.kde.StatusNotifier
 /// n'ont pas d'effet.
 pub(super) fn call(message: &Message, notify: &dyn Fn(TrayEvent)) -> Option<Message> {
     match message.member().as_str() {
-        "Activate" => notify(TrayEvent::Activated),
+        "Activate" => notify(TrayEvent::Activated { anchor: None }),
         "SecondaryActivate" | "ContextMenu" | "Scroll" | "ProvideXdgActivationToken" => {}
         _ => return message.error(UNKNOWN_METHOD, "unknown method"),
     }

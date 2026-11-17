@@ -9,6 +9,10 @@ impl UiRuntime {
         if moved {
             self.interaction.hover_frozen = None;
         }
+        if self.pan_move(p) {
+            result.handled = true;
+            return;
+        }
         if self.components.inputs.pointer_move(p) {
             self.invalidation.repaint = true;
             result.handled = true;
@@ -64,6 +68,7 @@ impl UiRuntime {
 
     pub(super) fn pointer_down_event(&mut self, p: PointF, extend: bool, result: &mut EventResult) {
         self.interaction.pointer = Some(p);
+        self.components.pan = None;
         self.interaction.focus_visible = false;
         self.interaction.keyboard_pressed = None;
         self.interaction.hovered = self.hit(p);
@@ -110,6 +115,7 @@ impl UiRuntime {
                     self.select_virtual(list, index);
                 }
                 self.interaction.pressed = Some(id);
+                self.pan_begin(id, p);
                 result.capture = true;
                 result.handled = true;
             }
@@ -190,6 +196,12 @@ impl UiRuntime {
 
     pub(super) fn pointer_up_event(&mut self, p: PointF, result: &mut EventResult) {
         self.interaction.pointer = Some(p);
+        // Un geste `onpan` se termine sans clic.
+        if self.pan_end() {
+            self.interaction.pressed = None;
+            result.release = true;
+            result.handled = true;
+        }
         if self.components.inputs.dragging.take().is_some() {
             result.release = true;
             result.handled = true;
@@ -223,6 +235,10 @@ impl UiRuntime {
     }
 
     pub(super) fn cancel_pointer_event(&mut self, result: &mut EventResult) {
+        if self.pan_end() {
+            result.release = true;
+            result.handled = true;
+        }
         if self.components.inputs.dragging.take().is_some() {
             result.release = true;
             result.handled = true;

@@ -261,6 +261,13 @@ impl Generator {
             let handler = self.message(a)?;
             post += &format!("__ui_el=__ui_el.on_wheel({handler});");
         }
+        if let Some(a) = e.attr("onpan") {
+            let handler = self.message(a)?;
+            post += &format!("__ui_el=__ui_el.on_pan({handler});");
+        }
+        if e.attr("data-pan-frame").is_some() {
+            post += "__ui_el=__ui_el.pan_frame();";
+        }
         post += &self.listeners(e)?;
         if let Some(a) = e.attr("data-exit") {
             post += &format!("__ui_el=__ui_el.exit_animation({});", self.exit(a)?);

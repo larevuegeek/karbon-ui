@@ -250,6 +250,7 @@ impl UiRuntime {
         }
         self.invalidation.repaint |= self.motions.tick(now);
         self.invalidation.repaint |= self.smooth_scroll_tick(now);
+        self.invalidation.repaint |= self.pan_settle_tick(now);
         self.invalidation.repaint |= self.thaw_hover(now);
         if self.components.tooltips.tick(now) {
             self.invalidation.repaint_semantics();
