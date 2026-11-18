@@ -55,9 +55,19 @@ pub(in crate::platform::linux) struct Surface {
     gpu: Rc<Gpu>,
 }
 impl Surface {
+    /// Le compositeur garde l'alpha des images (coins transparents possibles).
+    pub(in crate::platform::linux) fn has_alpha(&self) -> bool {
+        self.alpha != VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
+    }
     /// Surface Vulkan de la fenêtre `native` ; `transparent` : l'alpha des images est
-    /// conservé par le compositeur.
-    pub(super) fn new(gpu: &Rc<Gpu>, native: Native, transparent: bool) -> crate::Result<Self> {
+    /// conservé par le compositeur (exigé avec `required`, sinon seulement préféré : sans
+    /// mode alpha, la surface reste opaque plutôt que de passer à Cairo).
+    pub(super) fn new(
+        gpu: &Rc<Gpu>,
+        native: Native,
+        transparent: bool,
+        required: bool,
+    ) -> crate::Result<Self> {
         let (Some(fns), Some(_)) = (&gpu.surface, &gpu.swapchain) else {
             return Err(unsupported("Vulkan presentation unavailable"));
         };
@@ -156,6 +166,7 @@ impl Surface {
                 (!transparent, VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR),
                 (true, VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR),
                 (true, VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR),
+                (transparent && !required, VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR),
             ]
             .into_iter()
             .find(|&(wanted, bit)| wanted && supported & bit != 0)

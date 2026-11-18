@@ -29,7 +29,15 @@ impl Renderer {
         native: Native,
         transparent: bool,
     ) -> crate::Result<Surface> {
-        Surface::new(&self.gpu, native, transparent)
+        Surface::new(&self.gpu, native, transparent, true)
+    }
+    /// Surface Vulkan qui garde l'alpha si le pilote le permet, opaque sinon
+    /// ([`Surface::has_alpha`]).
+    pub(in crate::platform::linux) fn surface_preferring_alpha(
+        &self,
+        native: Native,
+    ) -> crate::Result<Surface> {
+        Surface::new(&self.gpu, native, true, false)
     }
     /// Dessine `scene` à `scale` sur une image de `size` pixels de `surface` et la
     /// présente ; `before` est appelé juste avant la présentation (requêtes de la surface

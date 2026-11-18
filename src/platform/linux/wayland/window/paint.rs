@@ -409,17 +409,23 @@ pub(super) fn gpu(
     let gpu = gpu?;
     let created = vulkan::Renderer::on(gpu).and_then(|renderer| {
         let native = vulkan::Native::Wayland { display, surface };
-        // Canal alpha aussi pour une fenêtre opaque : ses coins arrondis sont transparents.
-        let target = renderer.surface(native, true)?;
+        // Canal alpha aussi pour une fenêtre opaque, si le pilote le permet : ses coins
+        // arrondis sont transparents (sinon coins carrés, mais toujours le GPU).
+        let target = if options.transparent {
+            renderer.surface(native, true)?
+        } else {
+            renderer.surface_preferring_alpha(native)?
+        };
         Ok((renderer, target))
     });
     match created {
         Ok((renderer, target)) => {
             if options.profile {
                 eprintln!(
-                    "karbon-ui: Vulkan sur {}, présentation {}",
+                    "karbon-ui: Vulkan sur {}, présentation {}, alpha {}",
                     renderer.device_name(),
-                    target.mode()
+                    target.mode(),
+                    if target.has_alpha() { "oui" } else { "non" }
                 );
             }
             Some((renderer, target))

@@ -199,9 +199,10 @@ impl Window {
         // Premier envoi sans image : le compositeur répond par la configuration initiale.
         request!(surface, wl_surface::COMMIT);
         let mut session = Session::new(id, options, (runtime, renderer), wake);
+        // Tampons ARGB (Cairo) ou surface Vulkan à canal alpha : le moteur arrondit les
+        // coins ; une surface Vulkan opaque les garde carrés.
+        session.rounded_frame = gpu.as_ref().is_none_or(|(_, target)| target.has_alpha());
         session.gpu = gpu;
-        // Tampons ARGB et surface Vulkan à canal alpha : le moteur arrondit les coins.
-        session.rounded_frame = true;
         Ok(Self {
             session,
             surface,
