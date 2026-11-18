@@ -265,3 +265,28 @@ fn a_resize_region_inside_a_drag_region_keeps_both_gestures() {
         assert_eq!(ui.resize_region_at(center(&ui, id)), None);
     }
 }
+
+#[test]
+fn a_rounded_window_clips_the_whole_scene_until_its_radius_returns_to_zero() {
+    use crate::ui::scene::DrawCommand;
+    let mut ui = view_runtime(|| Element::column(1, vec![widgets::text(2, "Fenêtre")]));
+    let mut measure = Measure::default();
+    ui.set_window_radius(12.);
+    prepare(&mut ui, &mut measure);
+    let commands = &ui.scene().commands;
+    assert!(matches!(
+        commands.first(),
+        Some(DrawCommand::PushShapeClip { radii, rect }) if *radii == [12.; 4] && rect.right == 600.
+    ));
+    assert!(matches!(commands.last(), Some(DrawCommand::PopShapeClip)));
+    ui.scene().validate().unwrap();
+    // Maximisée : plus de découpe.
+    ui.set_window_radius(0.);
+    prepare(&mut ui, &mut measure);
+    assert!(
+        !ui.scene()
+            .commands
+            .iter()
+            .any(|c| matches!(c, DrawCommand::PushShapeClip { .. }))
+    );
+}

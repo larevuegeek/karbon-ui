@@ -349,10 +349,11 @@ impl Window {
     /// fenêtre traversée par les clics.
     fn declare_regions(&mut self, compositor: Ptr) {
         let size = (self.session.width, self.session.height);
-        if self.regions == Some(size) {
+        let radius = self.session.window_radius().ceil() as i32;
+        if self.regions == Some((size.0, size.1, radius as u32)) {
             return;
         }
-        self.regions = Some(size);
+        self.regions = Some((size.0, size.1, radius as u32));
         let region = |whole: bool| -> Ptr {
             let region = create!(
                 compositor,
@@ -361,7 +362,25 @@ impl Window {
                 Kind::Silent,
                 NEW
             );
-            if whole {
+            if whole && radius > 0 {
+                // Coins arrondis transparents : tout sauf les quatre carrés des coins.
+                request!(
+                    region,
+                    wl_region::ADD,
+                    radius,
+                    0i32,
+                    size.0 - 2 * radius,
+                    size.1
+                );
+                request!(
+                    region,
+                    wl_region::ADD,
+                    0i32,
+                    radius,
+                    size.0,
+                    size.1 - 2 * radius
+                );
+            } else if whole {
                 request!(region, wl_region::ADD, 0i32, 0i32, size.0, size.1);
             }
             region
@@ -390,7 +409,8 @@ pub(super) fn gpu(
     let gpu = gpu?;
     let created = vulkan::Renderer::on(gpu).and_then(|renderer| {
         let native = vulkan::Native::Wayland { display, surface };
-        let target = renderer.surface(native, options.transparent)?;
+        // Canal alpha aussi pour une fenêtre opaque : ses coins arrondis sont transparents.
+        let target = renderer.surface(native, true)?;
         Ok((renderer, target))
     });
     match created {

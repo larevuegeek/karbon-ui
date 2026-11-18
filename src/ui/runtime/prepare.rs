@@ -387,6 +387,20 @@ impl UiRuntime {
                     &|node| self.motions.paint_clip(node),
                 )?;
             }
+            // Fenêtre aux coins arrondis : toute la scène y est découpée.
+            let rounded = self.window_radius > 0.;
+            if rounded {
+                let height = context.height
+                    + if chrome.visible {
+                        TITLE_BAR_HEIGHT as f32
+                    } else {
+                        0.
+                    };
+                self.scene.commands.push(DrawCommand::PushShapeClip {
+                    rect: RectF::new(0., 0., context.width, height),
+                    radii: [self.window_radius; 4],
+                });
+            }
             paint_chrome(&mut self.scene, context, chrome);
             let state = self.interaction.paint_state();
             if let Some(root) = &self.root {
@@ -435,6 +449,9 @@ impl UiRuntime {
             self.components
                 .tooltips
                 .paint(&mut self.scene, context.theme);
+            if rounded {
+                self.scene.commands.push(DrawCommand::PopShapeClip);
+            }
             self.invalidation.repaint = false;
             self.invalidation.stats.paints += 1;
             self.invalidation.stats.paint_time += stage.elapsed();

@@ -134,6 +134,9 @@ pub struct UiRuntime {
     pub(super) invalidation: Invalidation,
     /// Redimensionnement interactif de la fenêtre en cours.
     pub(super) live_resize: bool,
+    /// Rayon des coins de la fenêtre (cadre dessiné par le moteur, surface transparente) :
+    /// toute la scène y est découpée ; 0 la laisse carrée.
+    pub(super) window_radius: f32,
     /// Mesures de texte gardées d'une image à l'autre.
     pub(super) text_cache: text_cache::TextCache,
 }
@@ -164,6 +167,7 @@ impl UiRuntime {
             components: ComponentStates::default(),
             invalidation: Invalidation::default(),
             live_resize: false,
+            window_radius: 0.,
             text_cache: Default::default(),
         })
     }
@@ -236,6 +240,21 @@ impl UiRuntime {
         self.invalidation.system_dark = dark;
     }
 
+    /// Rounds the window: the whole scene is clipped to a rectangle with this corner
+    /// radius (logical units), outside of which the surface stays transparent. Backends
+    /// that draw their own window frame on a transparent surface set it (Wayland), and
+    /// reset it to `0` while the window is maximized, tiled or full screen.
+    pub fn set_window_radius(&mut self, radius: f32) {
+        let radius = if radius.is_finite() {
+            radius.max(0.)
+        } else {
+            0.
+        };
+        if self.window_radius != radius {
+            self.window_radius = radius;
+            self.invalidation.repaint = true;
+        }
+    }
     /// When `reduced` is `true`, disable animation durations and apply final states immediately.
     pub fn set_reduced_motion(&mut self, reduced: bool) {
         if self.motions.reduced != reduced {

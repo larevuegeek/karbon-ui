@@ -67,7 +67,8 @@ pub(crate) struct Window {
     pub(super) stretched: bool,
     pub(super) buffers: Vec<Buffer>,
     /// Taille logique et transparence des régions déjà déclarées.
-    pub(super) regions: Option<(i32, i32)>,
+    /// Taille et rayon des coins des régions déclarées.
+    pub(super) regions: Option<(i32, i32, u32)>,
     /// Bordure de redimensionnement hors du contenu (`border.rs`), si le compositeur a
     /// des sous-surfaces et des viewports.
     pub(super) border: Option<super::border::Border>,
@@ -199,6 +200,8 @@ impl Window {
         request!(surface, wl_surface::COMMIT);
         let mut session = Session::new(id, options, (runtime, renderer), wake);
         session.gpu = gpu;
+        // Tampons ARGB et surface Vulkan à canal alpha : le moteur arrondit les coins.
+        session.rounded_frame = true;
         Ok(Self {
             session,
             surface,

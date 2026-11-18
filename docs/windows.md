@@ -163,6 +163,14 @@ Ce que chaque plateforme honore (un changement impossible est ignoré) :
 | `WindowState::dragging` | oui (`WM_ENTERSIZEMOVE`, poignée) | oui (poignée, redimensionnement) | non | oui (`resizing`) |
 | Poignée `data-resize-region` | oui (suivie à la main) | oui (suivie à la main) | oui (`_NET_WM_MOVERESIZE`, règles du gestionnaire) | oui (`xdg_toplevel.resize`, règles du compositeur) |
 
+Coins arrondis : Windows 11 (DWM) et macOS arrondissent eux-mêmes une fenêtre sans
+barre de titre du système. Sous Wayland, le moteur dessine le cadre : la surface a un
+canal alpha (tampons ARGB, alpha prémultiplié en Vulkan), toute la scène est découpée à
+12 px comme une fenêtre libadwaita (`UiRuntime::set_window_radius`) et la région opaque
+déclarée exclut les quatre coins ; maximisée, en mosaïque ou en plein écran, la fenêtre
+redevient carrée. Une fenêtre `transparent` garde sa forme à elle. Sous X11, les coins
+restent carrés (sans gestionnaire composite, des coins transparents seraient noirs).
+
 Sous Windows, une fenêtre non redimensionnable perd `WS_THICKFRAME` et
 `WS_MAXIMIZEBOX` (ni bords, ni Aero Snap, ni agrandissement au double clic) ; le plein
 écran retire aussi les coins arrondis et l’ombre. `WM_NCHITTEST` ne rend alors aucun bord :

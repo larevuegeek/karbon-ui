@@ -85,7 +85,13 @@ pub(in crate::platform::linux) struct Session {
     /// La fenêtre reçoit des rappels de trame (Wayland) : la fin de l'attente de l'écran
     /// est exacte, la cadence d'une image s'applique par défaut (`shared/pacing.rs`).
     frame_clocked: bool,
+    /// Surface à canal alpha dont le moteur dessine le cadre (Wayland) : coins arrondis
+    /// comme les fenêtres GTK et libadwaita, sauf maximisée, en mosaïque ou plein écran.
+    pub rounded_frame: bool,
 }
+
+/// Rayon des coins d'une fenêtre au cadre dessiné par le moteur, comme libadwaita.
+pub const WINDOW_RADIUS: f32 = 12.;
 
 /// Avance accordée aux réveils au rappel de trame : une image. Le défilement doux et les
 /// animations demandent « dernier échantillon + 16,67 ms » ; attendue par `poll` (arrondi
@@ -137,6 +143,22 @@ impl Session {
             facts: Default::default(),
             frame_clock: false,
             frame_clocked: false,
+            rounded_frame: false,
+        }
+    }
+    /// Rayon des coins de la fenêtre : [`WINDOW_RADIUS`] pour un cadre dessiné par le
+    /// moteur sur une surface transparente, 0 maximisée, en mosaïque ou plein écran.
+    pub fn window_radius(&self) -> f32 {
+        if self.rounded_frame
+            && !self.options.transparent
+            && !self.server_decorated
+            && !self.maximized
+            && !self.tiled
+            && !self.facts.fullscreen
+        {
+            WINDOW_RADIUS
+        } else {
+            0.
         }
     }
     /// La barre de titre du moteur est dessinée (pas de décorations du système).
@@ -180,6 +202,7 @@ impl Session {
         self.runtime.set_reduced_motion(reduce);
         self.runtime
             .set_system_dark(crate::platform::linux::desktop::dark());
+        self.runtime.set_window_radius(self.window_radius());
         let chrome = ChromeState {
             visible: self.chrome_visible(),
             hovered: self.hovered,
