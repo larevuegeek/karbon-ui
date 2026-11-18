@@ -1,8 +1,8 @@
 //! Commandes d'une fenêtre ouverte sous Wayland. Le protocole `xdg_toplevel` laisse le
 //! client choisir la taille d'une fenêtre flottante, annoncer ses bornes et demander
 //! l'agrandissement ou le plein écran ; il ne donne ni position, ni premier plan, ni
-//! masquage, ni activation sans jeton : ces changements sont sans effet
-//! (`docs/windows.md`).
+//! activation sans jeton : ces changements sont sans effet (`docs/windows.md`). Le
+//! masquage passe par le démappage de la surface (`visibility.rs`).
 use super::{
     super::{display::request, protocol::xdg_toplevel},
     Window,
@@ -57,12 +57,14 @@ impl Window {
             WindowChange::Fullscreen(false) => {
                 request!(self.toplevel, xdg_toplevel::UNSET_FULLSCREEN)
             }
+            WindowChange::Visible(visible) => self.set_visible(visible),
+            // Sans jeton d'activation, seule une fenêtre masquée peut revenir au premier
+            // plan : elle est remappée (`visibility.rs`).
+            WindowChange::Focus => self.set_visible(true),
             WindowChange::Topmost(_)
             | WindowChange::Position { .. }
             | WindowChange::Center
-            | WindowChange::KeepOnScreen
-            | WindowChange::Visible(_)
-            | WindowChange::Focus => {}
+            | WindowChange::KeepOnScreen => {}
         }
     }
     /// Bornes de taille annoncées au compositeur (fixes pour une fenêtre non

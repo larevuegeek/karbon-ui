@@ -5,6 +5,7 @@ mod access;
 mod border;
 mod change;
 mod paint;
+mod visibility;
 
 pub(super) use border::MARGIN;
 pub(super) use paint::shared_gpu;

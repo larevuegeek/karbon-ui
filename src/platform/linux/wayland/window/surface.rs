@@ -52,6 +52,9 @@ pub(crate) struct Window {
     /// Réduite ou masquée (état `suspended` de xdg-shell 6) : aucune image n'est
     /// dessinée jusqu'à la configuration qui la rend visible.
     pub(super) suspended: bool,
+    /// Masquée par l'application (`WindowChange::Visible(false)`) : surface démappée,
+    /// remappée par `Visible(true)` ou `Focus` (`visibility.rs`).
+    pub(super) hidden: bool,
     /// Échelle fractionnaire préférée (×120), si le compositeur la donne.
     pub scale120: Option<u32>,
     /// Échelle entière préférée par le compositeur (`wl_surface.preferred_buffer_scale`).
@@ -216,6 +219,7 @@ impl Window {
             configured: false,
             acked: false,
             suspended: false,
+            hidden: false,
             scale120: None,
             preferred_scale: None,
             integer_scale: 1,

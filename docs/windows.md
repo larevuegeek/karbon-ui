@@ -158,7 +158,7 @@ Ce que chaque plateforme honore (un changement impossible est ignoré) :
 | `AspectRatio` | oui (`WM_SIZING`) | oui | oui (`WM_NORMAL_HINTS`) | non (aucun protocole) |
 | `Topmost` | oui | oui (niveau flottant) | oui (`_NET_WM_STATE_ABOVE`) | non |
 | `Position`, `Center`, `KeepOnScreen` | oui | oui | oui (`_NET_WORKAREA`) | non : le compositeur place les fenêtres |
-| `Visible`, `Focus` | oui | oui | oui (`_NET_ACTIVE_WINDOW`) | non (activation sans jeton refusée) |
+| `Visible`, `Focus` | oui | oui | oui (`_NET_ACTIVE_WINDOW`) | `Visible` : oui (surface démappée puis remappée) ; `Focus` : ramène une fenêtre masquée, sans effet sur une fenêtre affichée (activation sans jeton refusée) |
 | `WindowState::x`, `y` | oui | oui | oui | toujours 0 |
 | `WindowState::dragging` | oui (`WM_ENTERSIZEMOVE`, poignée) | oui (poignée, redimensionnement) | non | oui (`resizing`) |
 | Poignée `data-resize-region` | oui (suivie à la main) | oui (suivie à la main) | oui (`_NET_WM_MOVERESIZE`, règles du gestionnaire) | oui (`xdg_toplevel.resize`, règles du compositeur) |

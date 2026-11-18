@@ -33,10 +33,12 @@ const MOTION_REFINE_DELAY: Duration = Duration::from_millis(120);
 const TRIM_DELAY: Duration = Duration::from_secs(1);
 
 impl Window {
-    /// Une image peut être envoyée maintenant : configuration reçue, image précédente
-    /// affichée (ou nouvelle configuration à confirmer) et un tampon disponible.
+    /// Une image peut être envoyée maintenant : fenêtre non masquée, configuration reçue,
+    /// image précédente affichée (ou nouvelle configuration à confirmer) et un tampon
+    /// disponible.
     pub fn ready(&self) -> bool {
-        self.configured
+        !self.hidden
+            && self.configured
             && (self.frame.is_null() || self.acked)
             && (self.session.gpu.is_some()
                 || self.buffers.len() < BUFFERS
@@ -81,9 +83,11 @@ impl Window {
         // Mouvement qui change toute la fenêtre (défilement, changement de page, repli d'un
         // panneau) à l'échelle 2 ou plus : image en demi-résolution, étirée par le
         // compositeur (viewport), comme sous macOS ; l'image nette suit l'arrêt du
-        // mouvement. Les petites zones restent redessinées nettes.
+        // mouvement. Les petites zones restent redessinées nettes. En dessous de 2 (150 %),
+        // l'image réduite à l'échelle 1 et étirée de 1,5 floute le texte, et le passage
+        // flou / net d'une image à l'autre se voit comme un scintillement.
         let motion = !self.viewport.is_null()
-            && low < scale
+            && scale >= 2.
             && (self
                 .session
                 .runtime
