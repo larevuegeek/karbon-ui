@@ -349,3 +349,18 @@ fn element_custom_properties_take_precedence_over_application_variables() {
         Some(Color::hex(0xff0000))
     );
 }
+
+#[test]
+fn style_vars_declares_a_list_of_custom_properties() {
+    // Noms choisis à l'exécution parmi des noms fixes : une largeur par colonne. Les
+    // cellules sans classe lisent aussi les variables héritées.
+    const NAMES: [&str; 2] = ["--c0", "--c1"];
+    let widths = [40f32, 70.];
+    let mut root = ui! {@styles(css);<div style="display: flex" style:vars={NAMES.iter().copied().zip(widths.map(Length::Px))}>
+        <div style="width: var(--c0, 0px); height: 8px; flex-shrink: 0"></div>
+        <div style="width: calc(var(--c1, 0px) + 10px); height: 8px; flex-shrink: 0"></div>
+    </div>};
+    arrange_headless(&mut root, 200., 100.);
+    assert_eq!(layout::width(root.children[0].bounds()), 40.);
+    assert_eq!(layout::width(root.children[1].bounds()), 80.);
+}

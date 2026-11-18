@@ -548,13 +548,18 @@ son sous-arbre :
 - Sources : déclaration `--nom: valeur` dans une classe ou un état (`:hover`…),
   `style="--w: 12px"` littéral, ou `style:--h={expr}` dont la valeur est un
   nombre (`f32`, `i32`…), une `Color`, une `Length`, des `Insets` ou une famille
-  `&'static str`. Les valeurs déclarées hors de `:root` sont littérales : nombre,
+  `&'static str`. `style:vars={…}` en déclare une liste dont les noms sont choisis à
+  l'exécution parmi des noms fixes (`impl IntoIterator<Item = (&'static str, V)>`) :
+  une largeur par colonne d'un tableau, par exemple. Des lignes mémorisées
+  (`memo`) qui lisent ces largeurs ne sont pas reconstruites quand elles changent,
+  seulement redisposées. Les valeurs déclarées hors de `:root` sont littérales : nombre,
   longueur (px, %, em, calc…), couleur constante ou famille entre guillemets ;
   un `var()` y est refusé.
 - Lecture à l’exécution : couleurs (`color`, fonds unis, bordures, `accent-color`,
   canaux de `oklch()`/`hsl()`/`rgb()`/`color-mix()`), couleurs des dégradés et des
   ombres de boîte, dimensions `width`, `height`, `flex-basis`, `top/right/bottom/left`
-  (aussi dans `calc()`) et `font-size`. Les autres propriétés (padding, marges, gap,
+  (aussi dans `calc()`, y compris dans le `style="…"` d'un élément sans classe) et
+  `font-size`. Les autres propriétés (padding, marges, gap,
   rayons, filtres) lisent seulement les variables de l’application au moment de la
   construction de la vue, puis le `:root`.
 - Priorité, de la plus forte à la plus faible : déclaration de l’élément le plus

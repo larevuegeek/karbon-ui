@@ -284,6 +284,7 @@ Précisions (comportements que la spécification ne fixait pas) :
 Extensions ajoutées (utiles aux exemples portés) : `class:nom={cond}`,
 `style:propriété={expr}` (valeur Rust typée, ex. `style:width={FILL}`),
 `style:--nom={expr}` (propriété personnalisée héritée, voir [css.md](css.md#propriétés-personnalisées-héritées)),
+`style:vars={[("--a", valeur), …]}` (liste de propriétés personnalisées aux noms choisis à l'exécution),
 `style={ViewStyle}`, `{#each …}{:else}…{/each}`, `{@include "f.ui" slot="x"}`,
 `<form onsubmit>` avec `button type="submit"` et Entrée dans les champs,
 `indeterminate` sur une case, `readonly`, `maxlength`, `option selected`,

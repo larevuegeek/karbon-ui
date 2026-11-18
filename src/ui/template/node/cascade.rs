@@ -152,6 +152,22 @@ impl<W: Widget + 'static> Node<W> {
         custom.push((name, value.into()));
         self
     }
+    /// Declares several custom properties at once (`style:vars={…}`), for names picked at
+    /// run time among static ones: one width per table column, say. A later declaration
+    /// of the same name wins.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a name does not start with `--` or is just `--`.
+    pub fn custom_property_list<V: Into<crate::ui::styling::VariableValue>>(
+        mut self,
+        values: impl IntoIterator<Item = (&'static str, V)>,
+    ) -> Self {
+        for (name, value) in values {
+            self = self.custom_property(name, value);
+        }
+        self
+    }
     /// Sets a colour evaluated while styles resolve (custom properties, `currentColor`);
     /// it replaces the constant colour of `target`.
     pub fn color_expression(

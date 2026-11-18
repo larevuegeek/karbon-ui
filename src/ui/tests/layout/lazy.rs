@@ -316,3 +316,62 @@ fn an_absolute_descendant_anchored_above_a_moved_subtree_stays_in_place() {
     spacer.set(35.);
     assert_eq!(place(&mut ui, &mut measure), (75., 7., 45.));
 }
+
+#[test]
+fn a_reused_subtree_follows_a_custom_property_of_its_ancestor() {
+    // Largeur de colonne posée par une variable sur la liste : les lignes mémorisées ne
+    // sont pas reconstruites, leur cellule suit la nouvelle valeur.
+    use crate::ui::layout::{ComputedLength, Expression};
+    static WIDTH: Expression = Expression::Variable {
+        name: "--w",
+        fallback: &Expression::Px(10.),
+        length: true,
+    };
+    // Élément de gabarit : porte des styles, donc la portée des variables.
+    fn styled(mut e: Element) -> Element {
+        e.styles = Some(Default::default());
+        e
+    }
+    let width = Rc::new(Cell::new(120.));
+    let built = Rc::new(Cell::new(0));
+    let (w, b) = (width.clone(), built.clone());
+    let mut ui = view_runtime(move || {
+        let rows = (0..5u64)
+            .map(|n| {
+                lazy(100 + n, &n, || {
+                    b.set(b.get() + 1);
+                    Element::row(
+                        100 + n,
+                        vec![
+                            styled(
+                                widgets::text(1000 + n, "Cellule")
+                                    .width(Length::Computed(ComputedLength::new(&WIDTH))),
+                            ),
+                            widgets::text(2000 + n, "Suite"),
+                        ],
+                    )
+                })
+            })
+            .collect();
+        let mut list = Element::column(2, rows);
+        list.styles
+            .get_or_insert_with(Default::default)
+            .custom
+            .push(("--w", w.get().into()));
+        Element::scroll(1, Axis::Vertical, list)
+    });
+    let mut measure = Measure::default();
+    let cell = |ui: &UiRuntime, id: u64| {
+        let r = ui.root().unwrap().find(ElementId(id)).unwrap().rect;
+        (r.right - r.left, r.left)
+    };
+    prepare(&mut ui, &mut measure);
+    assert_eq!(cell(&ui, 1003).0, 120.);
+    let next = cell(&ui, 2003).1;
+    width.set(200.);
+    ui.invalidate();
+    prepare(&mut ui, &mut measure);
+    assert_eq!(built.get(), 5, "aucune ligne reconstruite");
+    assert_eq!(cell(&ui, 1003).0, 200.);
+    assert_eq!(cell(&ui, 2003).1, next + 80.);
+}

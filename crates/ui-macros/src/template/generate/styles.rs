@@ -263,6 +263,12 @@ impl Generator {
                         "style:{name} expects a Rust value; use style=\"{name}: …\" for literal CSS"
                     )));
                 };
+                if name == "vars" {
+                    // Liste de propriétés personnalisées (style:vars={[("--a", 1.), …]}).
+                    let value = self.out.value(t);
+                    code += &format!("let __ui_node=__ui_node.custom_property_list({value});");
+                    continue;
+                }
                 if name.starts_with("--") {
                     // Propriété personnalisée héritée (style:--h={expr}).
                     let value = self.out.value(t);

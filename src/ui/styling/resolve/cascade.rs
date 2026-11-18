@@ -66,6 +66,11 @@ pub(crate) fn resolve_inherited(
             .layout_cache
             .is_some()
             .then(|| std::mem::take(&mut changes.layout));
+        // Longueur calculée d'un élément sans classe (`style="width: var(--w)"`) : il lui
+        // faut une portée de styles pour lire les propriétés héritées.
+        if node.styles.is_none() && declared.is_some() && computed_lengths(node) {
+            node.styles = Some(Default::default());
+        }
         let parent_clipped = pointer_clipped;
         let pointer_clipped = clipped(node, &env, parent_clipped);
         record_container(node);
@@ -452,4 +457,15 @@ pub(crate) fn resolve_inherited(
         &mut changes,
     )?;
     Ok(changes)
+}
+
+/// L'élément a une dimension ou un décalage calculé (`calc()`, `var()`…).
+fn computed_lengths(node: &Element) -> bool {
+    use crate::ui::element::Length;
+    let computed = |l: &Option<Length>| matches!(l, Some(Length::Computed(_)));
+    matches!(node.style.width, Length::Computed(_))
+        || matches!(node.style.height, Length::Computed(_))
+        || node.rules.as_ref().is_some_and(|r| {
+            r.offsets.iter().any(computed) || r.relative_limits.iter().any(computed)
+        })
 }
