@@ -1,11 +1,33 @@
 {
   "name": "karbon-ui-language",
   "displayName": "Karbon UI",
-  "description": "Templates HTML Karbon UI : balises HTML, blocs {#if}/{#each}, expressions Rust, indentation et snippets.",
-  "version": "0.1.1",
-  "publisher": "karbon",
-  "private": true,
-  "license": "UNLICENSED",
+  "description": "Syntax highlighting, indentation and snippets for karbon-ui .ui templates (HTML-like markup with Rust expressions).",
+  "version": "0.2.0",
+  "publisher": "LaRevueGeek",
+  "license": "(MIT OR Apache-2.0)",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#0f1626",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/larevuegeek/karbon-ui",
+    "directory": "tools/vscode-karbon-ui"
+  },
+  "homepage": "https://github.com/larevuegeek/karbon-ui/tree/main/tools/vscode-karbon-ui",
+  "bugs": {
+    "url": "https://github.com/larevuegeek/karbon-ui/issues"
+  },
+  "keywords": [
+    "karbon",
+    "karbon-ui",
+    "rust",
+    "ui",
+    "template",
+    "html",
+    "desktop"
+  ],
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -29,6 +51,9 @@
         "aliases": [
           "Karbon UI",
           "karbon-ui"
+        ],
+        "extensions": [
+          ".ui"
         ],
         "configuration": "./language-configuration.json"
       }

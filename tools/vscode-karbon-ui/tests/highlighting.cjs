@@ -225,6 +225,8 @@ async function main() {
     }
     walk(path.join(projectRoot, 'examples'));
     walk(path.join(projectRoot, 'tests'));
+    // Gabarits d'un autre projet (dossiers séparés par `;` sous Windows, `:` ailleurs).
+    for (const extra of (process.env.KARBON_UI_TEMPLATES || '').split(path.delimiter).filter(Boolean)) walk(extra);
     console.log('Grammar OK: HTML tags, attributes, entities, comments, Svelte blocks, Rust embedding, '
         + snippetCount + ' snippets and ' + count + ' project templates.');
     registry.dispose();

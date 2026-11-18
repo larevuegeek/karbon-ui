@@ -68,18 +68,22 @@ choisit les couleurs ; la coloration ne fournit pas l'analyse de rust-analyzer.
 
 ## Installation locale
 
-Depuis la racine du projet, avec PowerShell :
+Publiée sur le Visual Studio Marketplace et Open VSX sous `LaRevueGeek.karbon-ui-language`
+(README en anglais : `README.md`). Pour fabriquer le paquet avec l'outil officiel, depuis
+ce dossier :
 
 ```powershell
-./tools/vscode-karbon-ui/package.ps1
-code --install-extension ./artifacts/karbon-ui-language-0.1.1.vsix --force
+npx @vscode/vsce package --out ../../artifacts/
+code --install-extension ../../artifacts/karbon-ui-language-0.2.0.vsix --force
 ```
 
+`package.ps1` fabrique un paquet local sans Node (sans icône ni licence).
+
 Puis lancer **Développeur : Recharger la fenêtre** depuis `Ctrl+Shift+P`.
-Les fichiers `.ui` du projet sont associés à **Karbon UI** par
-`.vscode/settings.json`. Le mode est aussi sélectionnable en bas à droite.
-L'extension ne capture pas globalement l'extension `.ui` des autres projets,
-qui peut notamment appartenir à Qt.
+Les fichiers `.ui` s'ouvrent en **Karbon UI**. Dans un projet Qt, dont les `.ui`
+sont du XML, rendre l'association à ce format dans `.vscode/settings.json` :
+`"files.associations": { "*.ui": "xml" }`. Le mode est aussi sélectionnable en
+bas à droite.
 
 ## Périmètre
 
@@ -106,7 +110,8 @@ $env:ELECTRON_RUN_AS_NODE = '1'
 ```
 
 Un second argument permet de tester une autre grammaire `source.rust`, par
-exemple celle de Rust Syntax.
+exemple celle de Rust Syntax. `KARBON_UI_TEMPLATES` ajoute les gabarits d'autres
+projets (dossiers séparés par `;` sous Windows, `:` ailleurs).
 
 Le test vérifie les portées attendues (balises, attributs, événements,
 directives, entités, blocs, Rust imbriqué), que le texte brut ne devient ni
