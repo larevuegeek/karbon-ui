@@ -148,7 +148,7 @@ d'ici là, les styles viennent de `css_file!` / `styles!`.
 | `onscrollrange={Msg::X}` | Conteneur `overflow: auto / scroll` | `ScrollMetrics` à l'apparition puis quand la taille de la vue ou l'étendue du contenu change ([scroll.md](scroll.md)) |
 | `onhover={Msg::X}`, `onpress={Msg::X}`, `onfocus={Msg::X}` | Tout élément et composant | `bool` : entrée ou début (`true`), sortie ou fin (`false`), descendants compris |
 | `ondblclick={msg}` | Tout élément et composant | aucune (message cloné) |
-| `onpan={Msg::X}` | Élément cliquable (`button`, ou portant `onclick`) | `PanEvent` (`phase` : `Start`, `Move`, `End` ; `x`, `y` ; `dx`, `dy` depuis l'appui) : au-delà de 4 unités, l'appui devient un déplacement et le clic est supprimé ([drag-drop.md](drag-drop.md#déplacement-libre-onpan)) |
+| `onpan={Msg::X}` | Élément cliquable (`button`, ou portant `onclick`) | `PanEvent` (`phase` : `Start`, `Move`, `End` ; `x`, `y` ; `dx`, `dy` depuis l'appui ; `parent_width`, `parent_height` : taille du parent à l'appui) : au-delà de 4 unités, l'appui devient un déplacement et le clic est supprimé ([drag-drop.md](drag-drop.md#déplacement-libre-onpan)) |
 | `onwheel={…}` | Tout élément | `WheelEvent` (`delta_x`, `delta_y`, `x`, `y`) ; le gestionnaire rend `Option<Msg>`, voir ci-dessous |
 
 Un événement non applicable à la balise (`oninput` sur une case à cocher)

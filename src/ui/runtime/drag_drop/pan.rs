@@ -42,6 +42,11 @@ pub struct PanEvent {
     pub dx: f32,
     /// Motion since the press, logical pixels (bounded like `dx`).
     pub dy: f32,
+    /// Width of the button's parent when the gesture started, logical pixels: the column
+    /// or panel that a resize handle sizes.
+    pub parent_width: f32,
+    /// Height of the button's parent when the gesture started, logical pixels.
+    pub parent_height: f32,
 }
 
 /// Bloc déplacé par le moteur : son coin au début du geste et les décalages permis.
@@ -63,6 +68,8 @@ pub(in crate::ui::runtime) struct PanState {
     frame: Option<Frame>,
     /// Décalage appliqué au bloc (borné).
     offset: (f32, f32),
+    /// Taille du parent du bouton à l'appui.
+    parent: (f32, f32),
 }
 
 /// Bloc qui glisse vers la place donnée par l'application après le relâchement.
@@ -153,6 +160,13 @@ impl UiRuntime {
             place(root, settle.id, to);
         }
         let root = self.root.as_ref().unwrap();
+        let parent = ids
+            .len()
+            .checked_sub(2)
+            .and_then(|i| root.find(ids[i]))
+            .map_or((0., 0.), |n| {
+                (n.rect.right - n.rect.left, n.rect.bottom - n.rect.top)
+            });
         let frame = frame_id.and_then(|fid| {
             let r = root.find(fid)?.rect;
             let window = root.rect;
@@ -177,6 +191,7 @@ impl UiRuntime {
             active: false,
             frame,
             offset: (0., 0.),
+            parent,
         });
     }
 
@@ -346,6 +361,8 @@ impl UiRuntime {
             y: p.y,
             dx: state.offset.0,
             dy: state.offset.1,
+            parent_width: state.parent.0,
+            parent_height: state.parent.1,
         };
         if self.app.update(handler.emit(event)) {
             self.invalidate();

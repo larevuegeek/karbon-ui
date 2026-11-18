@@ -68,7 +68,9 @@ l'appui devient un déplacement, le clic est supprimé et l'application reçoit 
 `PanEvent` au début (`PanPhase::Start`), à chaque mouvement (`Move`) puis au
 relâchement (`End`, aussi sur Échap, perte de focus ou de capture). L'événement donne la
 position du pointeur dans la fenêtre (`x`, `y`) et le déplacement depuis l'appui (`dx`,
-`dy`), en unités logiques.
+`dy`), en unités logiques, ainsi que la taille du parent du bouton à l'appui
+(`parent_width`, `parent_height`) : une poignée placée au bord d'une colonne ou d'un
+panneau part ainsi de sa largeur à l'écran, même quand elle est automatique.
 
 ```html
 <button onclick={Msg::Toggle} onpan={|e: PanEvent| Msg::Moved(e)}>…</button>

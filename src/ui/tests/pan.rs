@@ -75,6 +75,10 @@ fn a_drag_reports_start_moves_and_end_without_a_click_across_rebuilds() {
     assert_eq!(phases, [PanPhase::Start, PanPhase::Move, PanPhase::End]);
     assert_eq!((pans[1].dx, pans[1].dy), (30., -40.));
     assert_eq!((pans[2].x, pans[2].y), (p.x + 30., p.y - 40.));
+    // Le parent du bouton : la colonne, mesurée à l'appui.
+    let column = ui.root().unwrap().rect;
+    assert_eq!(pans[0].parent_width, column.right - column.left);
+    assert_eq!(pans[0].parent_height, column.bottom - column.top);
     assert_eq!(data.borrow().clicks, 0);
 }
 #[test]
