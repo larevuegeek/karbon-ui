@@ -46,6 +46,8 @@ pub(in crate::platform::linux) const CONTENT_ALPHA: c_int = 0x2000;
 pub(in crate::platform::linux) const OPERATOR_SOURCE: c_int = 1;
 pub(in crate::platform::linux) const EXTEND_PAD: c_int = 3;
 pub(in crate::platform::linux) const FILTER_GOOD: c_int = 1;
+/// Plus proche voisin : copie exacte d'une image posée par une translation entière.
+pub(in crate::platform::linux) const FILTER_NEAREST: c_int = 3;
 pub(in crate::platform::linux) const FILTER_BILINEAR: c_int = 4;
 pub(in crate::platform::linux) const FILL_WINDING: c_int = 0;
 pub(in crate::platform::linux) const FILL_EVEN_ODD: c_int = 1;

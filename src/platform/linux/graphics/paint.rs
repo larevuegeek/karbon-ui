@@ -4,7 +4,8 @@ use super::{canvas::Canvas, text::rgba};
 use crate::{
     platform::{
         linux::ffi::cairo::{
-            Context, EXTEND_PAD, FILL_EVEN_ODD, FILL_WINDING, FILTER_GOOD, Matrix, Pattern,
+            Context, EXTEND_PAD, FILL_EVEN_ODD, FILL_WINDING, FILTER_GOOD, FILTER_NEAREST, Matrix,
+            Pattern,
         },
         shared::linear_points,
     },
@@ -91,13 +92,26 @@ impl Canvas<'_> {
         });
         self.context.fill();
     }
-    /// Remplit le chemin tracé par `path` avec `fill`, posé sur `rect` pour les dégradés.
+    /// Remplit le chemin tracé par `path` avec `fill`, posé sur `rect` pour les dégradés
+    /// (rastérisés une fois et recopiés ensuite, `gradients.rs`).
     pub(super) fn fill_background(
-        &self,
+        &mut self,
         path: impl FnOnce(&Context),
         fill: &Background,
         rect: RectF,
     ) -> crate::Result<()> {
+        if let Some((image, matrix)) = self.cached_gradient(fill, rect)? {
+            let pattern = Pattern::surface(&*image)?;
+            pattern.set_filter(FILTER_NEAREST);
+            pattern.set_matrix(matrix);
+            let c = self.context;
+            c.save();
+            c.set_source(&pattern);
+            path(c);
+            self.fill_path(false);
+            c.restore();
+            return Ok(());
+        }
         match fill {
             Background::Solid(color) => self.set_fill(*color),
             Background::Linear(gradient) => {

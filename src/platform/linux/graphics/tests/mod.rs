@@ -3,6 +3,7 @@
 mod damage;
 mod effects;
 mod glyphs;
+mod gradients;
 mod paint;
 mod support;
 mod text;

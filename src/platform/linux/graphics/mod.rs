@@ -5,6 +5,7 @@ mod cache;
 mod canvas;
 mod geometry;
 pub(super) mod gpu;
+mod gradients;
 mod layers;
 mod paint;
 mod renderer;

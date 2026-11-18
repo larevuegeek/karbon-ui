@@ -49,6 +49,8 @@ pub(super) struct Caches {
     pub refine: bool,
     used_filters: HashSet<ElementId>,
     used_backdrops: HashSet<BackdropKey>,
+    /// Dégradés rastérisés à leur taille d'affichage (`gradients.rs`).
+    pub gradients: super::gradients::Gradients,
 }
 impl Caches {
     /// Début d'une peinture : rien n'est encore marqué utilisé.
@@ -56,6 +58,7 @@ impl Caches {
         self.used_scaled.clear();
         self.used_filters.clear();
         self.used_backdrops.clear();
+        self.gradients.begin();
     }
     /// Fin d'une peinture : les entrées inutilisées sont libérées.
     pub fn end(&mut self) {
@@ -63,6 +66,7 @@ impl Caches {
         self.filters.retain(|k, _| self.used_filters.contains(k));
         self.backdrops
             .retain(|k, _| self.used_backdrops.contains(k));
+        self.gradients.end();
         for (id, sizes) in self.requesting.drain() {
             self.requested.insert(id, sizes);
         }

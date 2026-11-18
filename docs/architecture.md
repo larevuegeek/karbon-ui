@@ -324,7 +324,15 @@ exports, repli), Vulkan pour le GPU des fenêtres. Liaisons C écrites à la mai
   moteur lues sans copie. Cairo n’a pas d’opacité globale : l’opacité d’un groupe d’un
   seul élément multiplie chaque source, un groupe de plusieurs éléments est un groupe
   Cairo borné au contenu ; `mask-image` est un groupe recomposé par `cairo_mask`,
-  `background-clip: text` un masque d’alpha des glyphes.
+  `background-clip: text` un masque d’alpha des glyphes. Dégradés gardés d’une image à
+  l’autre (`graphics/gradients.rs`) : pixman les calcule pixel par pixel, ils sont
+  rastérisés une fois à leur taille d’affichage puis recopiés (translation entière,
+  plus proche voisin) ; la clé ne porte pas la position, un défilement les retrouve.
+  Repère tourné, dégradé de moins de 4 096 pixels ou de plus de 4 Mpx : calculés
+  directement. Écarts d’une unité sur quelques pixels (pas de dégradé de pixman, repris
+  au bord de l’image et non de la cible). Accueil de RustMusic en rendu logiciel,
+  1920 × 1350 (VM, 4 cœurs) : défilement 23 → 11 ms par image (p50), animation
+  17 → 7,5 ms.
 
 #### Boucles de fenêtres (`linux/shell/`)
 
