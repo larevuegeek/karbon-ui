@@ -235,6 +235,28 @@ pub(super) fn placed(
             },
             text,
         )?;
+        // Largeur ajustée au contenu (`shrink-to-fit`) : bornée par la place restante,
+        // sauf un contenu qui ne peut pas y tenir (texte `nowrap`, bloc plus large), qui
+        // déborde comme en CSS au lieu d'être coupé.
+        if auto_w && (left.is_none() || right.is_none()) {
+            let content = node.intrinsic.width
+                + if node.content_box() {
+                    0.
+                } else {
+                    edges.horizontal()
+                };
+            if content > node.style.max_width + 0.01 && content <= original.3 {
+                node.style.max_width = content;
+                size = measure(
+                    node,
+                    SizeF {
+                        width: content + m.horizontal(),
+                        height: h,
+                    },
+                    text,
+                )?;
+            }
+        }
         let auto = node.auto_margins();
         if let (Some(left), Some(right)) = (left, right)
             && auto.count(true) > 0

@@ -38,9 +38,13 @@ pub(super) fn sized(main: f32, cross: f32, row: bool) -> SizeF {
         }
     }
 }
+/// `definite` : la taille principale du conteneur est connue. Sinon (colonne de hauteur
+/// automatique en cours de mesure), une base en pourcentage (`flex-1`, `basis-1/2`) vaut
+/// la taille du contenu, comme en CSS (Flexbox §9.2.3).
 pub(super) fn plan(
     node: &mut Element,
     size: SizeF,
+    definite: bool,
     text: &mut dyn TextMeasurer,
 ) -> crate::Result<Vec<Line>> {
     let row = matches!(node.layout, Layout::Row);
@@ -84,7 +88,12 @@ pub(super) fn plan(
         let shrink = rule
             .and_then(|r| r.flex_shrink)
             .unwrap_or(if css { 1. } else { 0. });
-        let measured_basis = if matches!(basis, Length::Fill(_)) {
+        let relative = match basis {
+            Length::Percent(_) => true,
+            Length::Computed(v) => v.expression.relative(),
+            _ => false,
+        };
+        let measured_basis = if matches!(basis, Length::Fill(_)) || (relative && !definite) {
             Length::Auto
         } else {
             basis
@@ -201,16 +210,15 @@ pub(super) fn plan(
     Ok(lines)
 }
 /// CSS automatic minimum size (`min-height: auto`) applies to items without an explicit
-/// minimum that are not scroll containers: `overflow: hidden | auto | scroll` may shrink
-/// (`clip`, the engine default, is not a scroll container in CSS).
+/// minimum (`min-h-0` is one) that are not scroll containers: `overflow: hidden | auto |
+/// scroll` may shrink (`clip`, the engine default, is not a scroll container in CSS).
 fn automatic_minimum(child: &Element, min_height: f32) -> bool {
     let scrolls = |o: Overflow| matches!(o, Overflow::Hidden | Overflow::Auto | Overflow::Scroll);
     min_height == 0.
         && !matches!(child.layout, Layout::Scroll(_) | Layout::VirtualList)
-        && child
-            .rules
-            .as_ref()
-            .is_none_or(|r| !scrolls(r.overflow_x) && !scrolls(r.overflow_y))
+        && child.rules.as_ref().is_none_or(|r| {
+            !r.min_height_declared && !scrolls(r.overflow_x) && !scrolls(r.overflow_y)
+        })
 }
 pub(super) fn distribute(line: &mut Line, target: f32) {
     // CSS Flexbox 9.7: preserve bases while freezing min/max violations. Factors

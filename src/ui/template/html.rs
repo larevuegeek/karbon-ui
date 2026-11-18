@@ -227,6 +227,13 @@ impl<W: Widget + 'static> Node<W> {
         }
         self
     }
+    /// Text colour of this inline element when it reads custom properties
+    /// (`text-(--accent)`): evaluated by the paragraph when styles resolve.
+    pub fn span_color(&self) -> Option<&'static crate::ui::styling::ColorExpression> {
+        self.element.styles.as_ref().and_then(|s| {
+            s.normal.color_expressions[crate::ui::styling::ColorTarget::Text as usize]
+        })
+    }
     /// Text style declared on this node (size, family, weight, colour, decoration), used
     /// for inline runs styled by classes or `style="…"`.
     pub fn span_style(&self) -> crate::ui::styling::text::SpanStyle {

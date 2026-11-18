@@ -114,7 +114,9 @@ pub(super) fn property(name: &str, value: &str, next: Next) -> Result<Properties
             let (grow, shrink, basis) = match parts.as_slice() {
                 [v] if v == "none" => ("0", "0", "auto"),
                 [v] if v == "auto" => ("1", "1", "auto"),
-                [v] => (v.as_str(), "1", "0px"),
+                // Comme les navigateurs : `flex: 1` vaut `1 1 0%` ; dans un conteneur de taille
+                // indéfinie, cette base vaut la taille du contenu.
+                [v] => (v.as_str(), "1", "0%"),
                 [g, s, b] => (g.as_str(), s.as_str(), b.as_str()),
                 _ => return Err("Use flex: grow shrink basis, auto, none or a grow factor".into()),
             };

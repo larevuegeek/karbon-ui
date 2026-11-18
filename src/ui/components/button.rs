@@ -31,6 +31,8 @@ pub struct Button {
     pub(crate) css: Option<Box<crate::ui::styling::ComputedStyle>>,
     /// The label only replaces the missing content of an empty `<button aria-label>`.
     fallback_label: bool,
+    /// Accessible name replacing the label (`aria-label` on a text button).
+    name: Option<Arc<str>>,
 }
 impl Button {
     /// Button emitting a clone of `message` when activated.
@@ -44,22 +46,25 @@ impl Button {
             text_height: Cell::new(0.),
             css: None,
             fallback_label: false,
+            name: None,
         }
     }
+    /// Accessible name announced instead of the visible label, like `aria-label` on an
+    /// HTML `<button>` (a short label such as "×" named "Close").
+    pub fn accessible_name(mut self, name: impl Into<Arc<str>>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
     /// Mark the label as a stand-in for missing content (an empty `<button>` named by
-    /// `aria-label`): it stays the accessible name but is not drawn when the stylesheet
-    /// paints a background image, such as the cross of Bootstrap's `.btn-close`.
+    /// `aria-label`): it stays the accessible name but is never drawn, as in HTML; the
+    /// stylesheet may paint an icon instead, such as the cross of Bootstrap's `.btn-close`.
     pub fn fallback_label(mut self, fallback: bool) -> Self {
         self.fallback_label = fallback;
         self
     }
-    /// The label is hidden behind the stylesheet's icon.
+    /// Empty button named by `aria-label`: nothing drawn but the stylesheet's box.
     fn icon_only(&self) -> bool {
         self.fallback_label
-            && self
-                .css
-                .as_ref()
-                .is_some_and(|c| !c.local.background_images.is_empty())
     }
     /// Disable the button: it is greyed out and ignores activation.
     pub fn disabled(mut self) -> Self {
@@ -262,7 +267,7 @@ impl Widget for Button {
     fn semantics(&self) -> Semantics<'_> {
         Semantics {
             role: Role::Button,
-            name: &self.label,
+            name: self.name.as_deref().unwrap_or(&self.label),
             enabled: self.enabled,
         }
     }

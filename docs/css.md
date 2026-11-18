@@ -184,7 +184,14 @@ Le flex distribue l’espace avec gel des éléments arrivés à leurs min/max ;
 le shrink est pondéré par la taille de base. Les grilles répartissent les
 fractions après les pistes fixes et les gaps.
 `flex-basis: auto` (dont `flex: 0 0 auto`) reprend la dimension principale déclarée
-(`width` d’une rangée), comme en CSS. Un `display` visible écrit dans `style="…"`
+(`width` d’une rangée), comme en CSS. `flex: 1` vaut `1 1 0%`, comme dans les
+navigateurs : dans une colonne de hauteur automatique (bornée par `max-height`), cette
+base vaut la taille du contenu, que la colonne reprend. `min-height: 0` (`min-h-0`)
+retire le minimum automatique d’un élément de colonne (jamais plus petit que son
+contenu). Un bloc non étiré d’un conteneur flex (`items-center`, `items-end`, colonne
+dans une rangée) prend la largeur de son contenu (`fit-content`). Une piste
+`minmax(0, 1fr)` (`grid-rows-2`) ne grandit pas avec son contenu, et une hauteur en
+pourcentage (`h-full`) d’une cellule se résout contre sa ligne. Un `display` visible écrit dans `style="…"`
 annule le `display: none` des classes.
 Les facteurs flex dont la somme est inférieure à 1 ne consomment qu’une partie
 de l’espace libre, y compris après gel aux min/max ; voir
@@ -192,7 +199,9 @@ de l’espace libre, y compris après gel aux min/max ; voir
 
 `relative` conserve sa place dans le flux. `absolute` utilise la boîte de
 padding du plus proche ancêtre positionné, ou le viewport. Deux offsets
-opposés étirent une dimension auto ; sans eux, la hauteur `auto` est celle du contenu,
+opposés étirent une dimension auto ; sans eux, la largeur `auto` est celle du contenu,
+bornée par la place restante sauf un contenu qui ne peut pas y tenir (texte `nowrap`,
+bloc plus large), qui déborde comme en CSS ; la hauteur `auto` est celle du contenu,
 qui peut déborder du bloc conteneur (une colonne flexible `top: 50%` n'est pas
 rétrécie à la place restante) ; seule une zone qui défile verticalement
 (`overflow-y: auto | scroll`) prend cette place pour borne. `fixed` reste attaché au viewport et
@@ -202,7 +211,8 @@ sans sortir de la boîte de contenu de son parent : en-tête de section qui lais
 au suivant (`layout/sticky.rs`). Il n'ancre pas le défilement ; `z-index` le garde
 au-dessus du contenu qui passe dessous, pour le dessin comme pour les clics. Pas de
 collage horizontal. Chaque conteneur définit ici
-un contexte d’empilement ; dessin et clics emploient le même ordre de z-index
+un contexte d’empilement ; dessin et clics emploient le même ordre de z-index, et un
+enfant positionné sans `z-index` passe après les enfants du flux, comme en CSS
 (les feuilles de framework font remonter le `z-index` d’un descendant à travers
 ses ancêtres sans `z-index`, comme en CSS : voir [css-frameworks.md](css-frameworks.md)).
 Les calques modaux restent au-dessus de leur page.
@@ -247,11 +257,11 @@ Barres de défilement d’un conteneur défilant :
 
 | Propriété | Effet |
 | --- | --- |
-| `scrollbar-width: auto` | Défaut du moteur : piste de 12 px toujours réservée, pouce de 6 px, couleurs du thème (accent au survol ou au focus) |
-| `scrollbar-width: thin` | Gouttière de 10 px réservée **seulement si le contenu déborde** (barres classiques de Chromium), pouce de 4 px aux bouts arrondis, piste transparente ; le pouce s’opacifie (alpha × 1,55) au survol du conteneur, comme `.scrollbar-app:hover` de RustMusic |
+| `scrollbar-width: auto` | Défaut du moteur : piste de 12 px réservée **seulement si le contenu déborde** (barres classiques de Chromium ; toujours avec `overflow: scroll`), pouce de 6 px, couleurs du thème (accent au survol ou au focus) |
+| `scrollbar-width: thin` | Gouttière de 10 px réservée comme la barre par défaut, pouce de 4 px aux bouts arrondis, piste transparente ; le pouce s’opacifie (alpha × 1,55) au survol du conteneur, comme `.scrollbar-app:hover` de RustMusic |
 | `scrollbar-width: none` | Ni barre ni place réservée ; le contenu défile toujours (molette, clavier) |
 | `scrollbar-color: pouce piste` / `auto` | Couleurs constantes du pouce et de la piste (`transparent` : piste non peinte) |
-| `scrollbar-gutter: stable` / `auto` | Réserve la gouttière d’une barre fine même sans débordement (`both-edges` refusé) |
+| `scrollbar-gutter: stable` / `auto` | Réserve la gouttière même sans débordement (`both-edges` refusé) |
 | `.x::-webkit-scrollbar { width: 8px }` | Épaisseur de la gouttière (barres `auto` et `thin`), comme WebView2/Chromium qui lit ce pseudo-élément ; `width` et `height` en px (0 à 64), égaux s’ils sont tous deux donnés. Les autres déclarations et `::-webkit-scrollbar-thumb/track` sont refusés : le pouce et la piste viennent de `scrollbar-color` |
 
 Ces propriétés ne sont pas conditionnelles (refusées dans `:hover` ou `@media`). Il n’y

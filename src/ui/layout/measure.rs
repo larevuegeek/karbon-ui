@@ -244,8 +244,10 @@ fn measure_box(
             width: local.width,
             height: if !matches!(node.style.height, Length::Auto) {
                 local.height
-            } else if let Some(content) = node.children.first_mut() {
-                scroll_content_height(content, local, axis, text)?
+            } else if !node.children.is_empty() {
+                let bar = super::scrolling::bar_thickness(node);
+                let always = super::scrolling::gutter_always(node, axis);
+                scroll_content_height(&mut node.children[0], local, axis, (bar, always), text)?
             } else {
                 0.
             },
@@ -305,14 +307,10 @@ fn measure_box(
                 // s'ils remplissent la largeur offerte (`Fill`), comme le max-content CSS.
                 let cross_size = if row {
                     size.height
-                } else if matches!(child.style.width, Length::Fill(_)) && !hidden(child) {
-                    let (min, max) = limits(child, true);
-                    (child.intrinsic.width + box_edges(child).horizontal()).clamp(min, max)
-                        + child.style.margin.horizontal()
                 } else {
-                    size.width
+                    fit_width(child, size.width)
                 };
-                cross = cross.max(cross_size.min(size.width));
+                cross = cross.max(cross_size);
             }
             let gap = if row {
                 node.style.horizontal_gap()
@@ -339,7 +337,7 @@ fn measure_box(
             let mut row_heights = vec![0f32; rows];
             let widths = super::tracks::columns(node, local, &positions, columns, text)?;
             for (child, (r, c, span)) in node.children.iter_mut().zip(positions) {
-                let size = measure(
+                let size = super::grid::row_contribution(
                     child,
                     SizeF {
                         width: widths[c..c + span].iter().sum::<f32>()
@@ -401,6 +399,18 @@ fn measure_box(
         .clamp(min_height, max_height),
     })
 }
+/// Largeur d'un enfant déjà mesuré (`measured`, marges comprises) qui n'est pas étiré :
+/// un bloc (`Fill`) prend la largeur de son contenu, bornée par la place mesurée, comme le
+/// `fit-content` d'un élément flex ou le max-content d'un bloc.
+pub(super) fn fit_width(child: &Element, measured: f32) -> f32 {
+    if !matches!(child.style.width, Length::Fill(_)) || hidden(child) {
+        return measured;
+    }
+    let (min, max) = limits(child, true);
+    ((child.intrinsic.width + box_edges(child).horizontal()).clamp(min, max)
+        + child.style.margin.horizontal())
+    .min(measured)
+}
 /// The parent has already resolved the main-axis length into this allocation.
 pub(super) fn measure_main(
     node: &mut Element,
@@ -448,13 +458,32 @@ pub(super) fn measure_main(
 /// Natural height of a scroller: its content laid out in the viewport as
 /// [`super::scrolling::place`] does (a horizontal scroller at its scrolled width, plus
 /// its reserved bar). A `Fill` content height (stretch to the viewport) counts as `Auto`.
+/// `gutter` is the bar thickness and whether it is reserved even when the content fits;
+/// otherwise the content is first measured without it, as `place` does.
 fn scroll_content_height(
     content: &mut Element,
     local: SizeF,
     axis: Axis,
+    gutter: (f32, bool),
     text: &mut dyn TextMeasurer,
 ) -> crate::Result<f32> {
-    let bar = crate::ui::scroll::BAR_SIZE;
+    let (bar, always) = gutter;
+    let previous = content.style.height;
+    if bar > 0. && !always {
+        if matches!(previous, Length::Fill(_)) {
+            content.style.height = Length::Auto;
+        }
+        let natural = measure(content, local, text);
+        content.style.height = previous;
+        let natural = natural?;
+        let fits = match axis {
+            Axis::Horizontal => natural.width <= local.width + 0.01,
+            Axis::Vertical => natural.height <= local.height + 0.01,
+        };
+        if fits {
+            return Ok(natural.height);
+        }
+    }
     let viewport = match axis {
         Axis::Horizontal => SizeF {
             width: local.width,
@@ -465,7 +494,6 @@ fn scroll_content_height(
             height: local.height,
         },
     };
-    let previous = content.style.height;
     if matches!(previous, Length::Fill(_)) {
         content.style.height = Length::Auto;
     }

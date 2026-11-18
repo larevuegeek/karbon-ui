@@ -136,35 +136,58 @@ pub(crate) fn contains_rounded(
     }
     true
 }
+/// Enfant positionné (`relative`, `absolute`, `fixed`, `sticky`).
+fn positioned(node: &Element) -> bool {
+    node.rules
+        .as_ref()
+        .is_some_and(|r| r.position != Position::Static)
+}
 /// Indices des enfants dans l'ordre de peinture ; aucun quand le contenu est sauté
-/// (`content-visibility`) : ni peint ni touché.
+/// (`content-visibility`) : ni peint ni touché. Sans ordre calculé (`z-index`), les
+/// enfants positionnés passent après ceux du flux, comme en CSS : deux parcours des
+/// enfants, sans allocation (un parent sans règles de layout n'en reçoit pas pour ça).
 pub(crate) fn paint_order(node: &Element) -> impl DoubleEndedIterator<Item = usize> + '_ {
     let count = if node.content_skipped {
         0
     } else {
         node.children.len()
     };
-    (0..count).map(|i| {
-        node.rules
-            .as_ref()
-            .filter(|r| !r.paint_order.is_empty())
-            .map_or(i, |r| r.paint_order[i])
+    let order = node
+        .rules
+        .as_ref()
+        .map(|r| r.paint_order.as_slice())
+        .filter(|o| !o.is_empty());
+    let tiered = order.is_none()
+        && node.children.iter().any(positioned)
+        && !node.children.iter().all(positioned);
+    let passes = if tiered { 2 } else { 1 };
+    (0..count * passes).filter_map(move |k| match order {
+        Some(order) => Some(order[k]),
+        None if !tiered => Some(k),
+        None => {
+            let (late, i) = (k >= count, k % count);
+            (positioned(&node.children[i]) == late).then_some(i)
+        }
     })
 }
 pub(crate) fn update_paint_order(node: &mut Element) {
     // Rang d'un enfant : son `z-index`, sinon celui qu'un descendant de feuille de
     // framework fait remonter (un `.accordion-button:focus { z-index: 3 }` passe devant
     // l'élément d'accordéon suivant, comme dans un navigateur).
+    // Comme CSS, un enfant positionné sans `z-index` passe après les enfants du flux
+    // (une icône `absolute` posée avant un champ opaque reste visible). Sans `z-index`,
+    // `paint_order` en tient compte sans ordre calculé.
     let key = |c: &Element| {
-        c.rules.as_ref().map_or(0, |r| {
-            if r.z_index != 0 {
+        c.rules.as_ref().map_or((0, 0), |r| {
+            let z = if r.z_index != 0 {
                 r.z_index
             } else {
                 r.lifted_z
-            }
+            };
+            (z, i32::from(z == 0 && r.position != Position::Static))
         })
     };
-    if node.children.iter().any(|c| key(c) != 0) {
+    if node.children.iter().any(|c| key(c).0 != 0) {
         let mut order = (0..node.children.len()).collect::<Vec<_>>();
         order.sort_by_key(|i| key(&node.children[*i]));
         node.layout_rules().paint_order = order;

@@ -17,9 +17,11 @@ impl<W: Widget + 'static> Node<W> {
         self.element.style.min_width = value;
         self.fixed_limit(0)
     }
-    /// Sets the minimum height in pixels.
+    /// Sets the minimum height in pixels. Even `0` replaces the automatic minimum of a
+    /// flex column item (never below its content), as `min-height: 0` does in CSS.
     pub fn min_height(mut self, value: f32) -> Self {
         self.element.style.min_height = value;
+        self.element.layout_rules().min_height_declared = true;
         self.fixed_limit(1)
     }
     /// Sets the maximum width in pixels.
@@ -43,9 +45,11 @@ impl<W: Widget + 'static> Node<W> {
     /// `index` is 0 for min-width, 1 min-height, 2 max-width, 3 max-height. Layout
     /// resolves it against the space offered by the parent.
     pub fn relative_limit(mut self, (index, value): (usize, Length)) -> Self {
-        if let Some(slot) = self.element.layout_rules().relative_limits.get_mut(index) {
+        let rules = self.element.layout_rules();
+        if let Some(slot) = rules.relative_limits.get_mut(index) {
             *slot = Some(value);
         }
+        rules.min_height_declared |= index == 1;
         self
     }
     /// Sets the preferred width / height ratio (`aspect-ratio`); `None` is `auto`.

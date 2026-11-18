@@ -104,6 +104,12 @@ impl<W: Widget + 'static> Node<W> {
         }
         self
     }
+    /// Content of a `<button>`: in block layout (neither flex nor grid), centred
+    /// vertically in a button taller than it, as browsers do.
+    pub fn button_content(mut self) -> Self {
+        self.element.layout_rules().button_content = true;
+        self
+    }
     /// Make the node clickable: activation emits a clone of `message`.
     pub fn on_click<M: Clone + 'static>(mut self, message: M) -> Self {
         self.action = Some(crate::application::Action::new(message));

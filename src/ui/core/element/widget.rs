@@ -291,6 +291,15 @@ pub trait Widget {
     fn apply_style(&mut self, _style: &crate::ui::styling::ComputedStyle) -> bool {
         false
     }
+    /// Called after [`apply_style`](Self::apply_style) with the custom properties in
+    /// scope and the computed text colour, for content whose colours read `var()`
+    /// (spans of a paragraph). Paint only: it cannot affect layout.
+    fn apply_variables(
+        &mut self,
+        _variables: Option<&crate::ui::styling::CssVariables>,
+        _current: crate::ui::theme::Color,
+    ) {
+    }
     /// Optional validation specific to a custom widget, run before layout.
     ///
     /// # Errors

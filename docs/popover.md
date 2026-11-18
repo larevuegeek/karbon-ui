@@ -124,7 +124,9 @@ envoie son message puis la fermeture. Le champ pilote la surbrillance par
 `TextInput::on_key` (`onkeydown`). Dans un
 template, `<k-popover menu|listbox placement=… offset=… match-width>` et l’attribut
 `role="menuitem|option"` sur des boutons ou des `div onclick` construisent ces menus
-avec un contenu libre (icônes SVG, textes, séparateurs) : voir
+avec un contenu libre (icônes SVG, textes, séparateurs). Un élément focalisable du
+gabarit sans ce rôle est refusé à la compilation ; seul le contenu d’un composant Rust
+est vérifié à l’exécution. Voir
 [html-syntax.md §11](html-syntax.md#11-menus-listes-de-choix-et-infobulles).
 
 ## Placement, focus et fermeture

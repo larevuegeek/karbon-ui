@@ -287,6 +287,11 @@ fn main() {
             "either a menu, a listbox or a combobox",
         ),
         (
+            "menu_role",
+            r#"<div><button id="a" onclick={()}>A</button><k-popover anchor="a" aria-label="M" onclose={()} menu><button onclick={()}>Copier</button></k-popover></div>"#,
+            "A focusable <button> in a menu needs role=\"menuitem\"",
+        ),
+        (
             "cross_offset",
             r#"<div><button id="a" onclick={()}>A</button><k-popover anchor="a" aria-label="M" onclose={()} cross-offset="400"></k-popover></div>"#,
             "cross-offset=\"400\" must be a shift",

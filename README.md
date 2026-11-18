@@ -241,7 +241,8 @@ component kit ([kit.md](docs/kit.md)), windows, tasks, images, drag-and-drop,
 accessibility, headless testing ([headless.md](docs/headless.md)), translations and
 locale-aware formatting ([intl.md](docs/intl.md)), the inbox ([tasks.md](docs/tasks.md)),
 navigation history ([navigation.md](docs/navigation.md)), preferences and secrets ([storage.md](docs/storage.md)), the test organisation
-([tests.md](docs/tests.md)) and the resume point ([next-session.md](docs/next-session.md)).
+([tests.md](docs/tests.md)), the resume point ([next-session.md](docs/next-session.md))
+and the known gaps still to fill ([roadmap.md](docs/roadmap.md)).
 [tools/vscode-karbon-ui](tools/vscode-karbon-ui/README.md) adds `.ui` syntax highlighting,
 indentation and snippets to VS Code.
 

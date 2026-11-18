@@ -1,5 +1,6 @@
 //! Utilitaires Tailwind dans les templates (`@import "tailwindcss"` dans la feuille) :
 //! mise en page, couleurs et variantes, effets, curseurs et défilement.
+mod controls;
 mod effects;
 mod interaction;
 mod placement;

@@ -1,4 +1,23 @@
 use super::*;
+/// Gouttière réservée même quand le contenu tient : `overflow: scroll` ou
+/// `scrollbar-gutter: stable`. Sinon, comme CSS (`overflow: auto`), elle n'apparaît
+/// qu'avec le débordement.
+pub(super) fn gutter_always(node: &Element, axis: Axis) -> bool {
+    node.rules.as_ref().is_some_and(|r| {
+        r.scrollbar.gutter_stable
+            || match axis {
+                Axis::Horizontal => r.overflow_x == Overflow::Scroll,
+                Axis::Vertical => r.overflow_y == Overflow::Scroll,
+            }
+    })
+}
+/// Épaisseur de la barre d'une zone qui défile (aucune avec `scrollbar-width: none`).
+pub(super) fn bar_thickness(node: &Element) -> f32 {
+    node.rules
+        .as_ref()
+        .map_or(Default::default(), |r| r.scrollbar)
+        .thickness()
+}
 pub(super) fn place(
     node: &mut Element,
     area: RectF,
@@ -6,10 +25,7 @@ pub(super) fn place(
     text: &mut dyn TextMeasurer,
     context: LayoutContext,
 ) -> crate::Result<()> {
-    let bar = node
-        .rules
-        .as_ref()
-        .map_or(Default::default(), |r| r.scrollbar);
+    let always = gutter_always(node, axis);
     let overflows = |desired: SizeF, available: SizeF| match axis {
         Axis::Horizontal => desired.width > available.width + 0.01,
         Axis::Vertical => desired.height > available.height + 0.01,
@@ -27,9 +43,9 @@ pub(super) fn place(
         width: (width(viewport) - pad.horizontal()).max(0.),
         height: (height(viewport) - pad.vertical()).max(0.),
     };
-    // Barre fine : la gouttière n'est réservée que si le contenu déborde (comme les
-    // barres classiques d'un navigateur), sauf avec `scrollbar-gutter: stable`.
-    let mut thickness = bar.thickness();
+    // La gouttière n'est réservée que si le contenu déborde, comme les barres classiques
+    // d'un navigateur, sauf avec `overflow: scroll` ou `scrollbar-gutter: stable`.
+    let mut thickness = bar_thickness(node);
     let mut viewport = crate::ui::scroll::viewport(area, axis, thickness);
     let mut available = size(viewport);
     // Un contenu masqué ou positionné est hors flux (`position::take`) : rien à défiler.
@@ -37,7 +53,7 @@ pub(super) fn place(
         Some(content) => measure(content, available, text),
         None => Ok(SizeF::default()),
     };
-    let desired = if bar.width == ScrollbarWidth::Thin && !bar.gutter_stable {
+    let desired = if thickness > 0. && !always {
         let full = crate::ui::scroll::viewport(area, axis, 0.);
         let natural = content(size(full))?;
         if overflows(natural, size(full)) {

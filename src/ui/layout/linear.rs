@@ -67,7 +67,14 @@ pub(super) fn place(
     );
     let used = lengths.iter().sum::<f32>() + gap * node.children.len().saturating_sub(1) as f32;
     let extra = (main_available - used).max(0.);
-    let (offset, gap) = match node.style.justify {
+    // Contenu d'un bouton : centré verticalement, comme dans un navigateur.
+    let justify = match node.style.justify {
+        Justify::Start if !row && node.rules.as_ref().is_some_and(|r| r.button_content) => {
+            Justify::Center
+        }
+        justify => justify,
+    };
+    let (offset, gap) = match justify {
         Justify::Start => (0., gap),
         Justify::Center => (extra / 2., gap),
         Justify::End => (extra, gap),
@@ -113,8 +120,10 @@ pub(super) fn place(
             };
             let (min, max) = limits(child, !row);
             cross_available.clamp(min + margin, max + margin)
+        } else if row {
+            desired.height
         } else {
-            if row { desired.height } else { desired.width }
+            desired.width
         };
         let cross_offset = match node.style.align {
             Align::Center => (cross_available - cross).max(0.) / 2.,

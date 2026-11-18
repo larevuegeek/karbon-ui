@@ -335,6 +335,13 @@ pub(crate) fn resolve_inherited(
         }
         if let Some(widget) = node.widget.as_mut() {
             changes.layout |= widget.apply_style(&computed);
+            widget.apply_variables(
+                node.styles.as_ref().and_then(|s| s.variables.as_ref()),
+                computed
+                    .text
+                    .color
+                    .unwrap_or(crate::ui::theme::Color::rgb(0, 0, 0)),
+            );
         }
         // Classes prêtées au cadre des descendants (sélecteurs combinés), puis rendues.
         let classes = node

@@ -119,11 +119,12 @@ pub enum FlexWrap {
 /// Thickness of a scroll bar, as CSS `scrollbar-width`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ScrollbarWidth {
-    /// Engine default: a 12 px track always reserved, theme colours.
+    /// Engine default: a 12 px track, theme colours. Its gutter is reserved while the content
+    /// overflows, or always with `overflow: scroll` or `scrollbar-gutter: stable`.
     #[default]
     Auto,
-    /// Thin bar: a 10 px gutter reserved only while the content overflows (unless
-    /// `scrollbar-gutter: stable`), a 4 px rounded thumb and a transparent track.
+    /// Thin bar: a 10 px gutter reserved like the default one, a 4 px rounded thumb and a
+    /// transparent track.
     Thin,
     /// No bar and no reserved space; the content still scrolls (wheel, keyboard).
     None,
@@ -215,6 +216,11 @@ pub struct LayoutRules {
     /// stylesheet): a block (non-flex) parent gives it its natural width instead of
     /// stretching it.
     pub inline_level: bool,
+    /// A `min-height` is declared, even `0` (`min-h-0`): a flex column item then loses
+    /// its automatic minimum (`min-height: auto`, never below its content).
+    pub min_height_declared: bool,
+    /// Content of a `<button>`: centred vertically in block layout, as browsers do.
+    pub button_content: bool,
     /// Size limits given as a percentage or an expression (`max-width: 40%`,
     /// `max-height: calc(100vh - 330px)`), in the order min-width, min-height,
     /// max-width, max-height. Layout resolves them against the space offered to the

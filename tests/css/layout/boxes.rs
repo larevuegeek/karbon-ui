@@ -75,6 +75,28 @@ fn z_order_and_visible_overflow_use_the_same_order_for_painting_and_clicks() {
 }
 
 #[test]
+fn positioned_children_paint_after_in_flow_siblings() {
+    use karbon_ui::ui::runtime::UiRuntime;
+    // Icône `absolute` posée avant un champ opaque : peinte après lui, comme en CSS.
+    let mut ui = UiRuntime::new(
+        View(|| {
+            ui! {@styles(css);<div style="position:relative; width:100px; height:40px"><div style="position:absolute; left:0; top:0; width:10px; height:10px; background:#ff0000"></div><div style="width:100px; height:40px; background:#00ff00"></div></div>}
+        }),
+        &Services,
+    )
+    .unwrap();
+    prepare(&mut ui, std::time::Instant::now());
+    let commands = &ui.scene().commands;
+    let fill = |hex| {
+        commands
+            .iter()
+            .position(|c| matches!(c,DrawCommand::Fill{color,..}if *color==Color::hex(hex)))
+            .unwrap()
+    };
+    assert!(fill(0x00ff00) < fill(0xff0000));
+}
+
+#[test]
 fn fixed_control_escapes_parent_clip_and_stays_at_the_viewport_when_scrolling() {
     use karbon_ui::ui::runtime::{UiEvent, UiRuntime};
     let mut ui=UiRuntime::new(View(||ui!{@styles(css);<div><div style="overflow:auto; height:120px"><div style="height:800px"><div style="height:400px"></div><div style="height:50px"><button id="fixed" class="fixed" onclick={Msg::Click(1)}>Fixe</button></div></div></div></div>}),&Services).unwrap();

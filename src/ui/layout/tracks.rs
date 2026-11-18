@@ -80,7 +80,12 @@ pub(super) fn rows(node: &Element, heights: &mut Vec<f32>, available: Option<f32
         match track.max {
             TrackBreadth::Fr(n) => {
                 fractions += n;
-                *height = content.max(min);
+                // `minmax(0, 1fr)` (`grid-rows-2`) : base fixe, le contenu n'élargit pas
+                // la piste ; `1fr` (minimum `auto`) garde au moins son contenu.
+                *height = match track.min {
+                    TrackBreadth::Px(_) | TrackBreadth::Percent(_) => min,
+                    _ => content.max(min),
+                };
             }
             max => {
                 *height = content

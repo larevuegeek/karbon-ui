@@ -2,6 +2,7 @@
 //! `col-span-full`), `space-*`, limites en pourcentage et en expression, translations en
 //! pourcentage, `inline` / `inline-block`.
 use super::{arrange, arrange_in, css, environment, near};
+use crate::support::{Msg, find};
 use karbon_ui::ui::{layout, prelude::*};
 
 #[test]
@@ -183,4 +184,101 @@ fn inline_display_shows_the_element_as_a_box() {
     let row = &page.children[0].children;
     assert!(layout::width(row[1].bounds()) > 50.);
     near(layout::width(row[2].bounds()), 16.);
+}
+
+#[test]
+fn block_items_of_a_flex_column_take_their_content_width_unless_stretched() {
+    let mut page = ui! {@styles(css);
+        <div>
+            <div class="flex flex-col items-center w-[400px]"><div id="badge" class="px-2"><div class="w-[40px] h-[10px]"></div></div></div>
+            <div class="flex flex-wrap w-[1000px]"><div id="title" class="flex flex-col"><div class="w-[104px] h-[10px]"></div></div><div id="tools" class="ml-auto w-[166px] h-[10px]"></div></div>
+            <div class="flex w-[400px]"><div class="flex-1 min-w-0 h-[10px]"></div><div id="side" class="shrink-0 flex flex-col items-end"><div id="short" class="w-[24px] h-[10px]"></div><div class="w-[48px] h-[10px]"></div></div></div>
+        </div>
+    };
+    arrange(&mut page, 1000., 300.);
+    let badge = find(&page, "badge").bounds();
+    near(layout::width(badge), 56.);
+    near(badge.left, 172.);
+    // Une colonne flexible dans une rangée qui passe à la ligne : sa largeur de contenu,
+    // les contrôles restent sur la même ligne.
+    near(layout::width(find(&page, "title").bounds()), 104.);
+    near(
+        find(&page, "tools").bounds().top,
+        find(&page, "title").bounds().top,
+    );
+    near(layout::width(find(&page, "side").bounds()), 48.);
+    near(find(&page, "short").bounds().right, 400.);
+}
+
+#[test]
+fn h_full_in_a_grid_cell_follows_its_row() {
+    let mut page = ui! {@styles(css);
+        <div><div class="grid grid-rows-2 h-[200px] w-[100px]"><div id="cell" class="h-full"></div><div></div></div></div>
+    };
+    arrange(&mut page, 400., 300.);
+    near(layout::height(find(&page, "cell").bounds()), 100.);
+}
+
+#[test]
+fn flex_1_in_an_auto_height_column_takes_its_content_up_to_the_max_height() {
+    let mut page = ui! {@styles(css);
+        <div>
+            <div class="flex flex-col max-h-[300px] w-[200px]"><div class="h-[20px] shrink-0"></div><div id="short" class="flex-1 min-h-0 overflow-y-auto"><div class="h-[100px]"></div></div></div>
+            <div class="flex flex-col max-h-[300px] w-[200px]"><div class="h-[20px] shrink-0"></div><div id="long" class="flex-1 min-h-0 overflow-y-auto"><div class="h-[500px]"></div></div></div>
+        </div>
+    };
+    arrange(&mut page, 400., 1000.);
+    near(layout::height(find(&page, "short").bounds()), 100.);
+    near(layout::height(find(&page, "long").bounds()), 280.);
+}
+
+#[test]
+fn min_h_0_lets_a_column_item_shrink_under_a_max_height_parent() {
+    let mut page = ui! {@styles(css);
+        <div><div class="flex flex-col max-h-[300px] w-[200px]"><div class="h-[69px] shrink-0"></div><div id="body" class="min-h-0 flex flex-col"><div id="inner" class="h-full max-h-[1000px] overflow-hidden"><div class="h-[800px]"></div></div></div></div></div>
+    };
+    arrange(&mut page, 400., 1000.);
+    near(layout::height(find(&page, "body").bounds()), 231.);
+    near(layout::height(find(&page, "inner").bounds()), 231.);
+}
+
+#[test]
+fn a_scroll_area_reserves_its_bar_only_when_the_content_overflows() {
+    let mut page = ui! {@styles(css);
+        <div>
+            <div id="auto" class="max-h-[300px] overflow-y-auto w-[200px]"><div class="flex flex-wrap"><div class="w-[50px] h-[50px]"></div><div class="w-[50px] h-[50px]"></div><div class="w-[50px] h-[50px]"></div><div class="w-[50px] h-[50px]"></div></div></div>
+            <div id="none" class="max-h-[300px] overflow-y-auto w-[200px] [scrollbar-width:none]"><div class="flex flex-wrap"><div class="w-[50px] h-[50px]"></div><div class="w-[50px] h-[50px]"></div><div class="w-[50px] h-[50px]"></div><div class="w-[50px] h-[50px]"></div></div></div>
+            <div id="scroll" class="max-h-[300px] overflow-y-scroll w-[200px]"><div class="flex flex-wrap"><div class="w-[50px] h-[50px]"></div><div class="w-[50px] h-[50px]"></div><div class="w-[50px] h-[50px]"></div><div class="w-[50px] h-[50px]"></div></div></div>
+        </div>
+    };
+    arrange(&mut page, 400., 1000.);
+    // Les quatre cases tiennent sur une ligne : pas de gouttière, ni à la mesure ni au
+    // placement ; `overflow: scroll` la garde.
+    near(layout::height(find(&page, "auto").bounds()), 50.);
+    near(layout::height(find(&page, "none").bounds()), 50.);
+    near(layout::height(find(&page, "scroll").bounds()), 100.);
+}
+
+#[test]
+fn an_absolute_box_wider_than_the_room_left_overflows() {
+    let mut page = ui! {@styles(css);
+        <div><div class="relative w-[400px] h-[100px]"><div id="bar" class="absolute left-1/2"><div class="w-[480px] h-[10px]"></div></div><div id="label" class="absolute left-1/2"><div class="w-[50px] h-[10px]"></div></div></div></div>
+    };
+    arrange(&mut page, 400., 300.);
+    near(layout::width(find(&page, "bar").bounds()), 480.);
+    near(layout::width(find(&page, "label").bounds()), 50.);
+}
+
+#[test]
+fn the_content_of_a_tall_button_is_centered_vertically() {
+    let mut page = ui! {@styles(css);
+        <div>
+            <button class="h-[40px] w-[100px]" onclick={Msg::Click}><div id="block" class="h-[10px] w-[10px]"></div></button>
+            <button class="flex h-[40px] w-[100px]" onclick={Msg::Click}><div id="flex" class="h-[10px] w-[10px]"></div></button>
+        </div>
+    };
+    arrange(&mut page, 400., 300.);
+    near(find(&page, "block").bounds().top, 15.);
+    // `display: flex` : les éléments partent du haut, comme dans un navigateur.
+    near(find(&page, "flex").bounds().top, 40.);
 }

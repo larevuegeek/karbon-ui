@@ -228,8 +228,29 @@ impl Widget for Select {
             text.measure_text("M", 14., false, 1000.)?.height
         };
         self.text_height.set(height);
+        // Comme un navigateur : la plus longue option (ou le texte d'attente), plus la
+        // marge gauche et la place de la flèche.
+        let pad = if self.css.as_ref().is_some_and(|c| c.element_padding) {
+            0.
+        } else {
+            12.
+        };
+        let mut widest = 0f32;
+        for label in self
+            .options
+            .iter()
+            .map(|o| &o.label)
+            .chain(std::iter::once(&self.placeholder))
+        {
+            let width = if self.css.is_some() {
+                crate::ui::styling::text::measure(text, label, self.format(), 100_000.)?.width
+            } else {
+                text.measure_text(label, 14., false, 100_000.)?.width
+            };
+            widest = widest.max(width.ceil());
+        }
         Ok(SizeF {
-            width: 240.,
+            width: pad + widest + 36.,
             height: if self.css.as_ref().is_some_and(|c| c.element_padding) {
                 height
             } else {

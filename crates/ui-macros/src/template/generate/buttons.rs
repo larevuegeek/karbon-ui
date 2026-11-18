@@ -14,11 +14,17 @@ use proc_macro::TokenStream;
 
 impl Generator {
     pub(super) fn button(&mut self, e: &Element) -> Result<String> {
-        // Contenu riche (icône + texte, éléments) : zone cliquable de rôle bouton.
-        if e.children.iter().any(|c| {
-            matches!(c, Node::Element(_))
-                || matches!(c, Node::If { .. } | Node::Each(_)) && !inline(c)
-        }) {
+        // Contenu riche (icône + texte, éléments, inclusion) : zone cliquable de rôle
+        // bouton.
+        fn rich(c: &Node) -> bool {
+            match c {
+                Node::Element(_) | Node::Embed(..) => true,
+                Node::If { .. } | Node::Each(_) => !inline(c),
+                Node::Fragment { nodes, .. } => nodes.iter().any(rich),
+                _ => false,
+            }
+        }
+        if e.children.iter().any(rich) {
             // `disabled` est permis (zone cliquable désactivée) ; `type` reste réservé au
             // bouton texte, seul à envoyer un formulaire.
             if let Some(a) = e.attr("type") {
@@ -35,15 +41,20 @@ impl Generator {
         let site = self.next();
         let id = self.id(e, site)?;
         let label = self.plain_text(&e.children.iter().collect::<Vec<_>>(), "a <button> label")?;
-        // Bouton vide avec `aria-label` : le nom sert de libellé de repli, masqué quand la
-        // feuille dessine une icône de fond (`.btn-close`).
+        // Bouton vide avec `aria-label` : nom accessible seulement, jamais dessiné (la
+        // feuille peut peindre une icône de fond, `.btn-close`).
         let mut name = String::new();
         let label = match e.attr("aria-label") {
             Some(a) if label == "\"\"" => {
                 name = ".fallback_label(true)".into();
                 self.text_attr(a)?
             }
-            _ => label,
+            // Bouton à texte : `aria-label` remplace le texte comme nom accessible.
+            Some(a) => {
+                name = format!(".accessible_name({})", self.text_attr(a)?);
+                label
+            }
+            None => label,
         };
         let kind = match e.attr("type") {
             Some(a) => Self::literal(a)?.to_owned(),

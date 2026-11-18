@@ -55,6 +55,9 @@ pub struct RichText {
     value: Arc<str>,
     links: Vec<Rc<RefCell<Vec<RectF>>>>,
     role: Role,
+    /// Couleurs de portions qui lisent des variables (`text-(--accent)` d'un `<span>`) :
+    /// rang de la portion et expression, évaluée à la résolution des styles.
+    variable_colors: Vec<(usize, &'static crate::ui::styling::ColorExpression)>,
 }
 impl Default for RichText {
     fn default() -> Self {
@@ -73,6 +76,7 @@ impl RichText {
             value: Arc::from(""),
             links: Vec::new(),
             role: Role::Text,
+            variable_colors: Vec::new(),
         }
     }
     /// Sets the accessibility role ([`Role::Text`] by default, [`Role::Heading`] for titles).
@@ -120,6 +124,18 @@ impl RichText {
             style,
             link: Some(Action::new(message)),
         })
+    }
+    /// Colour of the last run read from custom properties, evaluated when styles resolve
+    /// (the colour of a template `<span class="text-(--accent)">`).
+    #[doc(hidden)]
+    pub fn variable_color(
+        mut self,
+        color: Option<&'static crate::ui::styling::ColorExpression>,
+    ) -> Self {
+        if let (Some(color), Some(last)) = (color, self.runs.len().checked_sub(1)) {
+            self.variable_colors.push((last, color));
+        }
+        self
     }
     /// Sets the base font size in logical units.
     pub fn size(mut self, size: f32) -> Self {
@@ -264,6 +280,17 @@ impl RichText {
 impl Widget for RichText {
     fn apply_style(&mut self, style: &crate::ui::styling::ComputedStyle) -> bool {
         crate::ui::styling::text::update(&mut self.css, style)
+    }
+    fn apply_variables(
+        &mut self,
+        variables: Option<&crate::ui::styling::CssVariables>,
+        current: Color,
+    ) {
+        for &(index, color) in &self.variable_colors {
+            if let Some(run) = self.runs.get_mut(index) {
+                run.style.color = Some(color.evaluate(current, variables));
+            }
+        }
     }
     fn validate(&self) -> crate::Result<()> {
         self.validate_font()?;

@@ -147,10 +147,12 @@ impl Reader {
             .unwrap_or(&text)
             .replace("\r\n", "\n");
         self.bytes += text.len();
-        if self.bytes > 2 * 1024 * 1024 {
+        // Garde-fou contre une inclusion qui s'emballe ; un fichier inclus à plusieurs
+        // endroits compte à chaque fois (gabarit d'application de quelques Mio).
+        if self.bytes > 8 * 1024 * 1024 {
             return Err(Error::new(
                 format!(
-                    "Files read by this macro exceed the 2 MiB source limit (at {kind} {path:?})"
+                    "Files read by this macro exceed the 8 MiB source limit (at {kind} {path:?})"
                 ),
                 span,
             ));

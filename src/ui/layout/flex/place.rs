@@ -6,7 +6,13 @@ pub(crate) fn natural(
     text: &mut dyn TextMeasurer,
 ) -> crate::Result<SizeF> {
     let row = matches!(node.layout, Layout::Row);
-    let mut lines = plan(node, size, text)?;
+    let main_length = if row {
+        node.style.width
+    } else {
+        node.style.height
+    };
+    let definite = !matches!(main_length, Length::Auto | Length::MaxContent);
+    let mut lines = plan(node, size, definite, text)?;
     let gap = if row {
         node.style.horizontal_gap()
     } else {
@@ -39,7 +45,12 @@ pub(crate) fn natural(
                 row,
                 text,
             )?;
-            item.cross = axis(desired, row).1;
+            // Largeur naturelle d'une colonne : celle du contenu de ses blocs.
+            item.cross = if row {
+                desired.height
+            } else {
+                super::super::measure::fit_width(&node.children[item.index], desired.width)
+            };
             line.cross = line.cross.max(item.cross);
         }
     }
@@ -96,7 +107,8 @@ pub(crate) fn place(
     } else {
         node.style.horizontal_gap()
     };
-    let mut lines = plan(node, size, text)?;
+    let mut lines = plan(node, size, true, text)?;
+    let css = node.rules.as_ref().is_some_and(|r| r.css_flex);
     let wrap = node
         .rules
         .as_ref()
@@ -209,8 +221,14 @@ pub(crate) fn place(
                 && matches!(cross_length, Length::Auto | Length::Fill(_))
             {
                 line.cross.clamp(min + cm, max + cm)
-            } else {
+            } else if row || !css {
+                // Hors conteneur flex CSS (bloc dont un enfant a des marges `auto`), un bloc
+                // garde la largeur offerte, comme en CSS.
                 axis(desired, row).1
+            } else {
+                // Élément non étiré d'une colonne flex : largeur de son contenu
+                // (`fit-content`).
+                super::super::measure::fit_width(child, desired.width)
             };
             let cross_free = (line.cross - cross).max(0.);
             let (cross, cross_offset) = if auto.count(!row) > 0 {

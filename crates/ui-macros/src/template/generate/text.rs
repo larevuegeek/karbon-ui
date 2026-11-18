@@ -182,7 +182,9 @@ impl Generator {
         ))
     }
     /// Style d'une portion ayant `class` ou `style` : extrait au runtime d'un nœud neutre.
-    pub(super) fn span_style(&mut self, e: &Element, parent: &str) -> Result<String> {
+    /// Code du style d'un élément en ligne sur `parent`. Avec classes ou styles, un bloc
+    /// qui rend la paire (`SpanStyle`, couleur lue dans des variables) ; `true` alors.
+    pub(super) fn span_style(&mut self, e: &Element, parent: &str) -> Result<(String, bool)> {
         let own = html::span_defaults(&e.name);
         let has_style = e.attr("class").is_some()
             || e.attr("style").is_some()
@@ -190,12 +192,15 @@ impl Generator {
                 .iter()
                 .any(|a| a.name.starts_with("class:") || a.name.starts_with("style:"));
         if !has_style {
-            return Ok(format!("({own}).over({parent})"));
+            return Ok((format!("({own}).over({parent})"), false));
         }
         let classes = self.classes(e)?;
         let styles = self.styles(e)?;
-        Ok(format!(
-            "{{let __ui_node={R}::ui::template::Node::element({R}::ui::element::Element::column(0,::std::vec::Vec::new()));{classes}{styles}__ui_node.span_style().over(({own}).over({parent}))}}"
+        Ok((
+            format!(
+                "{{let __ui_node={R}::ui::template::Node::element({R}::ui::element::Element::column(0,::std::vec::Vec::new()));{classes}{styles}(__ui_node.span_style().over(({own}).over({parent})),__ui_node.span_color())}}"
+            ),
+            true,
         ))
     }
     /// Texte sans mise en forme (libellés de boutons, liens, cases) : code d'une `String`.

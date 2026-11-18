@@ -160,6 +160,67 @@ impl Generator {
         .into_iter()
         .filter_map(|(name, call)| e.attr(name).map(|a| (a, call)))
         .collect::<Vec<_>>();
+        // Menu ou liste : chaque élément focalisable porte son rôle, vérifié ici plutôt
+        // qu'à l'exécution (qui arrêterait la fenêtre). Les composants Rust restent
+        // vérifiés à l'exécution.
+        if let [(a, _)] = kinds.as_slice()
+            && matches!(a.name.as_str(), "menu" | "listbox" | "combobox")
+        {
+            let (roles, expected): (&[&str], &str) = if a.name == "menu" {
+                (
+                    &["menuitem", "menuitemradio", "menuitemcheckbox"],
+                    "role=\"menuitem\"",
+                )
+            } else {
+                (&["option"], "role=\"option\"")
+            };
+            fn check(nodes: &[Node], roles: &[&str], expected: &str, kind: &str) -> Result<()> {
+                for node in nodes {
+                    match node {
+                        Node::Element(e) if e.path.is_empty() => {
+                            let focusable = matches!(
+                                e.name.as_str(),
+                                "button" | "input" | "select" | "textarea"
+                            ) || e.attr("onclick").is_some()
+                                || matches!(e.attr("tabindex").map(|a| &a.value), Some(Value::Text(t)) if t == "0");
+                            let role = match e.attr("role").map(|a| &a.value) {
+                                Some(Value::Text(t)) => Some(t.as_str()),
+                                _ => None,
+                            };
+                            if focusable && !role.is_some_and(|r| roles.contains(&r)) {
+                                return Err(e.loc.error(format!(
+                                    "A focusable <{}> in a {kind} needs {expected}",
+                                    e.name
+                                )));
+                            }
+                            check(&e.children, roles, expected, kind)?;
+                        }
+                        Node::If {
+                            branches,
+                            otherwise,
+                            ..
+                        } => {
+                            for (_, b) in branches {
+                                check(b, roles, expected, kind)?;
+                            }
+                            if let Some(b) = otherwise {
+                                check(b, roles, expected, kind)?;
+                            }
+                        }
+                        Node::Each(each) => {
+                            check(&each.body, roles, expected, kind)?;
+                            if let Some(b) = &each.otherwise {
+                                check(b, roles, expected, kind)?;
+                            }
+                        }
+                        Node::Fragment { nodes, .. } => check(nodes, roles, expected, kind)?,
+                        _ => {}
+                    }
+                }
+                Ok(())
+            }
+            check(&e.children, roles, expected, &a.name)?;
+        }
         let menu = match kinds.as_slice() {
             [] => String::new(),
             [(_, call)] => (*call).to_owned(),

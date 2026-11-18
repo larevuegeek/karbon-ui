@@ -247,7 +247,15 @@ Précisions (comportements que la spécification ne fixait pas) :
   leur clip ; un `Element` construit en Rust garde le défaut natif (rognage).
 - **Portions** : seules les propriétés de texte (taille, famille, graisse,
   couleur, décoration, italique par défaut de `i/em`) s'appliquent à une portion ;
-  `id`, `title`, `href` et `onclick` hors `<a>` y sont refusés.
+  `id`, `title`, `href` et `onclick` hors `<a>` y sont refusés. Une couleur lue dans des
+  variables (`<span class="text-(--accent)">`) est évaluée à la résolution des styles,
+  avec les variables du paragraphe ; une portion imbriquée l'hérite.
+- **Boutons** : le contenu d'un `<button>` riche est centré verticalement s'il est
+  disposé en bloc (ni `flex` ni `grid`), comme dans un navigateur ; un `{@include}` seul
+  compte comme contenu riche. `aria-label` remplace le texte d'un bouton comme nom
+  accessible ; sur un bouton vide, il n'est jamais dessiné.
+- **`<select>`** : aussi large que sa plus longue option (ou son texte d'attente), plus
+  la place de la flèche.
 - **`{#each}`** : un chemin (`items`, `self.tracks`, `pair.0`, `data::LISTE`,
   `crate::X`) — identifiants reliés par `.` ou `::`, `static` et `const` compris —
   est parcouru par référence ; toute autre expression (appel, indexation, `0..n`,
@@ -279,7 +287,10 @@ Précisions (comportements que la spécification ne fixait pas) :
 - **`ui!`** : le balisage doit aussi être une suite de jetons Rust valide
   (guillemets équilibrés, pas de `//`) ; les fichiers `.ui` n'ont pas cette limite.
 - **Composants** : `title` et `onclick` sont des props comme les autres ; un
-  littéral `attr="…"` passe un `&str` (les nombres s'écrivent `size={16.}`).
+  littéral `attr="…"` passe un `&str` (les nombres s'écrivent `size={16.}`). `id` reste
+  l'identifiant de l'élément racine, jamais une prop (le compilateur ne voit pas les
+  champs du composant) : le composant le lit dans `cx.id` (son déclencheur de menu, par
+  exemple) ; une prop qui porte un identifiant prend un autre nom (`anchor`).
 
 Extensions ajoutées (utiles aux exemples portés) : `class:nom={cond}`,
 `style:propriété={expr}` (valeur Rust typée, ex. `style:width={FILL}`),

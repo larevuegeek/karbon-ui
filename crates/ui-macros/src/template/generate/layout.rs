@@ -146,7 +146,8 @@ impl Generator {
             &id,
             &before,
             &format!(
-                "{R}::ui::template::Node::element({R}::ui::element::Element::column(__ui_id.0,__ui_children)){painter}"
+                "{R}::ui::template::Node::element({R}::ui::element::Element::column(__ui_id.0,__ui_children)){painter}{}",
+                if e.name == "button" { ".button_content()" } else { "" }
             ),
         )?;
         Ok(match memo {

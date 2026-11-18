@@ -33,14 +33,16 @@ de largeur naturelle, lui donner `.width(Length::Auto)` et des largeurs `Auto`
 ou fixes à ses enfants, plutôt que `Fill`. Chaque viewport gère
 un axe ; deux viewports d’axes différents peuvent être imbriqués.
 
-Une gouttière de 12 unités est réservée pour éviter un changement de largeur
-et de retour à la ligne lorsque la barre apparaît. La barre n’est peinte que
-si le contenu dépasse le viewport. Sa poignée mesure au minimum 40 unités,
+Comme dans un navigateur (`overflow: auto`), la gouttière de 12 unités n’est
+réservée que si le contenu dépasse le viewport, à la mesure comme au placement :
+un contenu qui tient garde toute la largeur. `overflow: scroll` (ou
+`scrollbar-gutter: stable`) la réserve toujours, pour éviter un changement de largeur
+lorsque la barre apparaît. La barre n’est peinte que si le contenu dépasse le viewport. Sa poignée mesure au minimum 40 unités,
 dans la limite de la piste. Couleurs et survol suivent le thème. Le style se
 règle par `Element::layout_rules().scrollbar` ([`Scrollbar`] : `ScrollbarWidth::Auto`,
 `Thin` ou `None`, couleurs du pouce et de la piste, gouttière stable) ou en CSS
 (`scrollbar-width`, `scrollbar-color`, `scrollbar-gutter`, voir [css.md](css.md)) :
-une barre fine ne réserve sa gouttière de 10 unités que si le contenu déborde,
+une barre fine réserve de même sa gouttière de 10 unités,
 `none` n’affiche rien et ne réserve rien. `ScrollMetrics::thickness` donne
 l’épaisseur retenue. Le pouce se saisit sur toute l’épaisseur de la gouttière, pas
 seulement sur son trait (4 unités pour une barre fine). Une barre collée au bord de la fenêtre

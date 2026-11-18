@@ -185,6 +185,9 @@ impl LayoutProperties {
         if let Some(v) = self.min_height {
             node.style.min_height = v;
         }
+        if self.min_height.is_some() || self.limit(1).1.is_some() {
+            node.layout_rules().min_height_declared = true;
+        }
         if let Some(v) = self.max_width {
             node.style.max_width = v;
         }

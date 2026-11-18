@@ -15,7 +15,7 @@ pub(super) fn place(
     let row_gap = node.style.vertical_gap();
     let widths = super::tracks::columns(node, size, &positions, columns, text)?;
     for (child, &(r, c, span)) in node.children.iter_mut().zip(&positions) {
-        let desired = measure(
+        let desired = row_contribution(
             child,
             SizeF {
                 width: widths[c..c + span].iter().sum::<f32>() + column_gap * (span - 1) as f32,
@@ -183,6 +183,27 @@ pub(super) fn place(
     }
 
     Ok(())
+}
+/// Hauteur qu'un élément apporte à sa ligne : mesuré dans `available`, une hauteur en
+/// pourcentage (`h-full`) comptant pour `auto`, comme en CSS (la ligne n'est pas encore
+/// connue). L'élément est ensuite placé dans sa ligne, où le pourcentage se résout.
+pub(super) fn row_contribution(
+    child: &mut Element,
+    available: SizeF,
+    text: &mut dyn TextMeasurer,
+) -> crate::Result<SizeF> {
+    let relative = match child.style.height {
+        Length::Percent(_) => true,
+        Length::Computed(v) => v.expression.relative(),
+        _ => false,
+    };
+    if !relative {
+        return measure(child, available, text);
+    }
+    let height = std::mem::replace(&mut child.style.height, Length::Auto);
+    let result = measure(child, available, text);
+    child.style.height = height;
+    result
 }
 /// Nombre de colonnes d'une grille `repeat(auto-fill|auto-fit, piste)` pour une
 /// largeur de contenu `width` : autant de pistes que la largeur en contient (taille

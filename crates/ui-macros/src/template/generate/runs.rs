@@ -6,12 +6,29 @@ use crate::{
     template::{html::Kind, markup::Node},
 };
 
+/// Style d'une portion : code de son `SpanStyle`, et code de sa couleur lue dans des
+/// variables (`Option<&'static ColorExpression>`), vide sans couleur variable.
+#[derive(Clone, Default)]
+pub(super) struct Span {
+    style: String,
+    color: String,
+}
+impl Span {
+    /// Couleur variable posée sur la portion émise juste avant.
+    fn color(&self) -> String {
+        if self.color.is_empty() {
+            String::new()
+        } else {
+            format!("__ui_rich=__ui_rich.variable_color({});", self.color)
+        }
+    }
+}
 /// Portion d'un texte enrichi, avant regroupement des blancs.
 pub(super) enum Run {
-    Text(String, String),
+    Text(String, Span),
     Break,
-    Value(String, String),
-    Link(String, String, String),
+    Value(String, Span),
+    Link(String, Span, String),
     Prelude(String),
     If(Vec<(String, Vec<Run>)>, Option<Vec<Run>>),
     /// Ouverture, corps et fermeture d'un `{#each}` ou d'un `{@const}`.
@@ -77,21 +94,31 @@ pub(super) fn emit(runs: &[Run]) -> String {
     let mut code = String::new();
     for run in runs {
         match run {
-            Run::Text(text, style) => {
-                code += &format!("__ui_rich=__ui_rich.styled({text:?},{style});")
+            Run::Text(text, span) => {
+                code += &format!(
+                    "__ui_rich=__ui_rich.styled({text:?},{});{}",
+                    span.style,
+                    span.color()
+                )
             }
             Run::Break => {
                 code += &format!(
                     "__ui_rich=__ui_rich.styled(\"\\n\",{R}::ui::styling::text::SpanStyle::new());"
                 )
             }
-            Run::Value(value, style) => {
+            Run::Value(value, span) => {
                 code += &format!(
-                    "__ui_rich=__ui_rich.styled(::std::string::ToString::to_string(&({value})),{style});"
+                    "__ui_rich=__ui_rich.styled(::std::string::ToString::to_string(&({value})),{});{}",
+                    span.style,
+                    span.color()
                 )
             }
-            Run::Link(text, style, message) => {
-                code += &format!("__ui_rich=__ui_rich.styled_link({text},{style},{message});")
+            Run::Link(text, span, message) => {
+                code += &format!(
+                    "__ui_rich=__ui_rich.styled_link({text},{},{message});{}",
+                    span.style,
+                    span.color()
+                )
             }
             Run::Prelude(p) => code += p,
             Run::If(branches, otherwise) => {
@@ -111,12 +138,21 @@ pub(super) fn emit(runs: &[Run]) -> String {
     code
 }
 impl Generator {
+    /// Portions de `node`, dans le style `style` (code d'un `SpanStyle`).
     pub(super) fn runs(&mut self, node: &Node, style: &str, out: &mut Vec<Run>) -> Result<()> {
+        let span = Span {
+            style: style.into(),
+            color: String::new(),
+        };
+        self.spans(node, &span, out)
+    }
+    fn spans(&mut self, node: &Node, span: &Span, out: &mut Vec<Run>) -> Result<()> {
+        let style = span.style.as_str();
         match node {
-            Node::Text(t, _) => out.push(Run::Text(t.clone(), style.into())),
+            Node::Text(t, _) => out.push(Run::Text(t.clone(), span.clone())),
             Node::Expr(t, _) => {
                 let value = self.out.value(t);
-                out.push(Run::Value(value, style.into()));
+                out.push(Run::Value(value, span.clone()));
             }
             Node::Element(e) => {
                 let kind = kind_of(e)?;
@@ -153,13 +189,28 @@ impl Generator {
                                 )));
                             }
                         }
-                        let child_style = self.span_style(e, style)?;
-                        let prelude_var = if child_style.starts_with('{') {
+                        let (child_style, styled) = self.span_style(e, style)?;
+                        let child = if styled {
+                            // Couleur lue dans des variables : la sienne, sinon celle du
+                            // span englobant.
                             let n = self.next();
-                            out.push(Run::Prelude(format!("let __ui_span_{n}={child_style};")));
-                            format!("__ui_span_{n}")
+                            let inherited = if span.color.is_empty() {
+                                "::core::option::Option::None".to_owned()
+                            } else {
+                                span.color.clone()
+                            };
+                            out.push(Run::Prelude(format!(
+                                "let (__ui_span_{n},__ui_spancolor_{n})={child_style};let __ui_spancolor_{n}=__ui_spancolor_{n}.or({inherited});"
+                            )));
+                            Span {
+                                style: format!("__ui_span_{n}"),
+                                color: format!("__ui_spancolor_{n}"),
+                            }
                         } else {
-                            child_style
+                            Span {
+                                style: child_style,
+                                color: span.color.clone(),
+                            }
                         };
                         let hidden = match e.attr("hidden") {
                             Some(a) => Some(self.boolean(a)?),
@@ -172,11 +223,11 @@ impl Generator {
                             let message = self.message(click)?;
                             let text = self
                                 .plain_text(&e.children.iter().collect::<Vec<_>>(), "link text")?;
-                            inner.push(Run::Link(text, prelude_var, message));
+                            inner.push(Run::Link(text, child, message));
                         } else {
-                            for child in &e.children {
-                                self.inline_only(child, &e.name)?;
-                                self.runs(child, &prelude_var, &mut inner)?;
+                            for c in &e.children {
+                                self.inline_only(c, &e.name)?;
+                                self.spans(c, &child, &mut inner)?;
                             }
                         }
                         match hidden {
@@ -204,7 +255,7 @@ impl Generator {
                     let cond = self.out.condition(cond);
                     let mut inner = Vec::new();
                     for n in body {
-                        self.runs(n, style, &mut inner)?;
+                        self.spans(n, span, &mut inner)?;
                     }
                     list.push((cond, inner));
                 }
@@ -212,7 +263,7 @@ impl Generator {
                     Some(body) => {
                         let mut inner = Vec::new();
                         for n in body {
-                            self.runs(n, style, &mut inner)?;
+                            self.spans(n, span, &mut inner)?;
                         }
                         Some(inner)
                     }
@@ -229,13 +280,13 @@ impl Generator {
                 let (open, close) = self.each_header(each);
                 let mut inner = Vec::new();
                 for n in &each.body {
-                    self.runs(n, style, &mut inner)?;
+                    self.spans(n, span, &mut inner)?;
                 }
                 out.push(Run::Each(open, inner, close));
             }
             Node::Fragment { nodes, .. } => {
                 for n in nodes {
-                    self.runs(n, style, out)?;
+                    self.spans(n, span, out)?;
                 }
             }
             Node::Embed(_, loc) => {
