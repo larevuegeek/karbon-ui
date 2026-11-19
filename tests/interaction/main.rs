@@ -6,6 +6,7 @@
 mod combobox;
 mod menus;
 mod previews;
+mod submenu;
 
 use karbon_ui::ui::prelude::*;
 css_file!(mod css, "menus.css");

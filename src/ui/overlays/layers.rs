@@ -199,9 +199,13 @@ pub(crate) fn validate(root: &Element) -> crate::Result<()> {
                 return Err(invalid());
             }
         } else if let Some(p) = popover::config(node) {
-            let last = root.children.last().map(|n| n.id);
+            // Les popovers sont au sommet de la pile : un sous-menu ouvert depuis un
+            // popover se pose au-dessus de lui, jamais un dialogue.
+            let above = root.children.iter().skip_while(|n| n.id != node.id).skip(1);
+            let on_top = root.children.iter().any(|n| n.id == node.id)
+                && above.clone().all(|n| popover::config(n).is_some());
             if !modal_slot
-                || last != Some(node.id)
+                || !on_top
                 || !matches!(node.layout, Layout::Column)
                 || p.label.trim().is_empty()
                 || p.initial_focus.is_some_and(|id| node.find(id).is_none())
@@ -269,14 +273,17 @@ pub(crate) fn hoist(mut root: Element) -> Element {
         while index < node.children.len() {
             if overlay(&node.children[index]) {
                 let mut layer = node.children.remove(index);
-                // Un dialogue peut lui-même en ouvrir un autre.
+                // Un dialogue peut lui-même en ouvrir un autre, un popover un sous-menu :
+                // la couche ouverte depuis une autre se pose au-dessus d'elle.
+                let mut nested = Vec::new();
                 for child in &mut layer.children {
-                    extract(child, found);
+                    extract(child, &mut nested);
                 }
                 if let Some(memo) = layer.memo.as_deref_mut() {
                     memo.hoisted = true;
                 }
                 found.push(layer);
+                found.extend(nested);
                 moved = true;
             } else {
                 moved |= extract(&mut node.children[index], found);

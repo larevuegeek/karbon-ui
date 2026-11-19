@@ -222,7 +222,12 @@ pub(crate) fn anchor(root: &Element, popup: &Element) -> Option<RectF> {
     match config(popup)?.anchor {
         Anchor::Point(p) => Some(RectF::new(p.x, p.y, 0., 0.)),
         Anchor::Element(id) => {
-            let node = root.children.iter().rev().nth(1)?.find(id)?;
+            // Dans les couches sous ce popover (la page, ou le popover qui l'a ouvert).
+            let below = root.children.iter().position(|n| n.id == popup.id)?;
+            let node = root.children[..below]
+                .iter()
+                .rev()
+                .find_map(|n| n.find(id))?;
             if node.widget.as_ref().is_some_and(|w| !w.semantics().enabled) {
                 return None;
             }
