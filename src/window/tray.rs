@@ -122,7 +122,9 @@ pub enum TrayEvent {
         /// Where the icon is, as `(x, y)` in the coordinates of
         /// [`WindowOptions::x`](super::WindowOptions::x) (logical pixels at the primary
         /// screen's scale, y downwards): the pointer on a click, the icon on a keyboard
-        /// choice. Windows only for now; `None` elsewhere.
+        /// choice on Windows; on macOS the middle of the icon's bottom edge, which may lie
+        /// outside the primary screen's work area when the icon is on another screen's
+        /// menu bar. `None` on Linux.
         anchor: Option<(i32, i32)>,
     },
     /// The menu entry with this identifier was chosen.

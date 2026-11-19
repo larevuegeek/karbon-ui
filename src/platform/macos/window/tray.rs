@@ -6,7 +6,8 @@
 //! Contrôle + clic) ouvre le menu, dont le choix remet `TrayEvent::MenuItem`. Le bouton
 //! envoie son action aux deux relâchements (`sendActionOn:`) ; pour le clic secondaire,
 //! le menu est attaché le temps d'un `performClick:` (AppKit l'ouvre sous l'icône), puis
-//! détaché pour que le clic principal reste une action.
+//! détaché pour que le clic principal reste une action. Le clic principal porte la place
+//! de l'icône (`anchor`), pour ouvrir une petite fenêtre juste dessous.
 use crate::window::{TrayEvent, TrayIcon, TrayMenuItem, WindowId};
 use objc2::{
     AllocAnyThread, DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send,
@@ -52,7 +53,8 @@ define_class!(
             if secondary {
                 self.show_menu();
             } else {
-                super::tray_event(self.ivars().id, TrayEvent::Activated { anchor: None });
+                let anchor = self.anchor();
+                super::tray_event(self.ivars().id, TrayEvent::Activated { anchor });
             }
         }
 
@@ -77,6 +79,24 @@ impl Target {
         });
         // SAFETY : initialiseur de NSObject.
         unsafe { msg_send![super(this), init] }
+    }
+
+    /// Place de l'icône remise avec `TrayEvent::Activated` : milieu du bas de son bouton
+    /// (le bord de la barre des menus), au repère de `WindowOptions::x` (`change.rs`).
+    /// Une icône dans la barre des menus d'un autre écran que l'écran principal donne des
+    /// coordonnées hors de sa zone utile ; `session::place` ouvre alors la fenêtre sur
+    /// l'écran de l'icône.
+    fn anchor(&self) -> Option<(i32, i32)> {
+        let mtm = self.mtm();
+        let item = self.ivars().item.borrow().clone()?;
+        let button = item.button(mtm)?;
+        let window = button.window()?;
+        let icon = window.convertRectToScreen(button.convertRect_toView(button.bounds(), None));
+        let area = super::change::primary_area(mtm)?;
+        Some((
+            (icon.origin.x + icon.size.width / 2. - area.origin.x).round() as i32,
+            (area.origin.y + area.size.height - icon.origin.y).round() as i32,
+        ))
     }
 
     /// Ouvre le menu sous l'icône : attaché le temps du suivi, détaché ensuite.

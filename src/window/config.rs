@@ -122,7 +122,10 @@ pub struct WindowOptions {
     pub activate: bool,
     /// List an activating window in the taskbar (and Alt+Tab). `false` with `activate`:
     /// a pop-up that takes the focus without a taskbar button, such as a player opened
-    /// from the tray icon. Windows only for now; ignored elsewhere.
+    /// from the tray icon. On macOS such a pop-up joins the current Space (also over a
+    /// full-screen application), stays out of Mission Control and of the ⌘` cycle, and
+    /// brings the application to the front when opened from the background. Ignored on
+    /// Linux.
     pub taskbar: bool,
     /// Keep the window above non-topmost windows (not available under Wayland).
     pub topmost: bool,

@@ -32,7 +32,7 @@ struct Grip {
 thread_local! { static GRIP: Cell<Option<Grip>> = const { Cell::new(None) }; }
 
 /// Zone utile de l'écran principal : origine du repère des positions.
-fn primary_area(mtm: MainThreadMarker) -> Option<NSRect> {
+pub(super) fn primary_area(mtm: MainThreadMarker) -> Option<NSRect> {
     NSScreen::mainScreen(mtm).map(|screen| screen.visibleFrame())
 }
 /// Zone utile de l'écran de la fenêtre.

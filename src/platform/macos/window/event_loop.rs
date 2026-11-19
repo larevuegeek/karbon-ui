@@ -190,13 +190,28 @@ pub(super) fn open(descriptor: WindowDescriptor, mtm: MainThreadMarker) -> crate
     SESSIONS.with(|s| s.borrow_mut().push(session));
     with(id, |s| s.paint());
     // Hors de l'emprunt des sessions : la fenêtre devenue clé le signale aussitôt.
-    let activate = with(id, |s| Ok(s.options.activate)).unwrap_or(false);
+    let (activate, popup) = with(id, |s| {
+        Ok((s.options.activate, s.options.activate && !s.options.taskbar))
+    })
+    .unwrap_or((false, false));
     if let Some(window) = window_of(id) {
         if activate {
             window.makeKeyAndOrderFront(None);
         } else {
             window.orderFront(None);
         }
+    }
+    // Fenêtre surgissante ouverte quand l'application n'est pas au premier plan (clic sur
+    // l'icône de la barre des menus) : sans activation, elle n'aurait jamais le focus et
+    // ne se refermerait pas au clic ailleurs. Seules ses fenêtres principale et clé (la
+    // nouvelle) passent devant, pas les autres fenêtres de l'application.
+    if popup && !NSApplication::sharedApplication(mtm).isActive() {
+        // L'option « ignorer les autres » n'a plus d'effet depuis macOS 14 (activation
+        // coopérative) ; la demande, faite juste après un clic sur l'icône, reste.
+        #[allow(deprecated)]
+        objc2_app_kit::NSRunningApplication::currentApplication().activateWithOptions(
+            objc2_app_kit::NSApplicationActivationOptions::ActivateIgnoringOtherApps,
+        );
     }
     Ok(())
 }

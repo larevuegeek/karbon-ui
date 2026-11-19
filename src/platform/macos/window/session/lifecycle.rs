@@ -142,6 +142,18 @@ impl Session {
         if options.topmost {
             window.setLevel(objc2_app_kit::NSFloatingWindowLevel);
         }
+        if options.activate && !options.taskbar {
+            // Fenêtre surgissante (le lecteur ouvert depuis l'icône de la barre des menus) :
+            // sur le bureau en cours quel qu'il soit, au-dessus d'une application en plein
+            // écran, hors de Mission Control et du passage d'une fenêtre à l'autre (⌘`).
+            window.setCollectionBehavior(
+                window.collectionBehavior()
+                    | objc2_app_kit::NSWindowCollectionBehavior::CanJoinAllSpaces
+                    | objc2_app_kit::NSWindowCollectionBehavior::FullScreenAuxiliary
+                    | objc2_app_kit::NSWindowCollectionBehavior::Transient
+                    | objc2_app_kit::NSWindowCollectionBehavior::IgnoresCycle,
+            );
+        }
         if options.transparent {
             // Fond transparent : seuls les pixels peints par l'application sont visibles.
             window.setOpaque(false);
@@ -430,21 +442,41 @@ impl Session {
     }
 }
 /// Coin haut-gauche de la fenêtre à (`x`, `y`) points de celui de la zone utile de l'écran
-/// principal (repère de Windows, y vers le bas), ramené dans l'écran.
+/// principal (repère de Windows, y vers le bas), ramené dans l'écran qui contient le
+/// centre de la fenêtre (l'écran principal si aucun ne le contient) : une position sur
+/// un autre écran y ouvre la fenêtre, comme le bureau virtuel de Windows.
 pub(super) fn place(window: &NSWindow, options: &WindowOptions, mtm: MainThreadMarker) {
-    let Some(screen) = objc2_app_kit::NSScreen::mainScreen(mtm) else {
+    let Some(main) = objc2_app_kit::NSScreen::mainScreen(mtm) else {
         window.center();
         return;
     };
+    let origin = main.visibleFrame();
+    let left = origin.origin.x + f64::from(options.x);
+    let top = origin.origin.y + origin.size.height - f64::from(options.y);
+    let size = window.frame().size;
+    let center = NSPoint::new(left + size.width / 2., top - size.height / 2.);
+    let screen = objc2_app_kit::NSScreen::screens(mtm)
+        .iter()
+        .find(|screen| contains(screen.frame(), center))
+        .unwrap_or(main);
     let area = screen.visibleFrame();
     // Fenêtre plus haute que l'écran : réduite tout de suite (AppKit le ferait à
     // l'affichage), pour que la première image soit dessinée à la bonne taille.
     let frame = window.constrainFrameRect_toScreen(window.frame(), Some(&screen));
     window.setFrame_display(frame, false);
     let frame = window.frame();
-    let max_x = (area.size.width - frame.size.width).max(0.);
-    let max_y = (area.size.height - frame.size.height).max(0.);
-    let x = area.origin.x + f64::from(options.x).clamp(0., max_x);
-    let top = area.origin.y + area.size.height - f64::from(options.y).clamp(0., max_y);
-    window.setFrameTopLeftPoint(NSPoint::new(x, top));
+    let max_left = area.origin.x + (area.size.width - frame.size.width).max(0.);
+    let min_top = area.origin.y + frame.size.height.min(area.size.height);
+    let area_top = area.origin.y + area.size.height;
+    window.setFrameTopLeftPoint(NSPoint::new(
+        left.clamp(area.origin.x, max_left),
+        top.clamp(min_top, area_top),
+    ));
+}
+/// `point` est dans `rect` (bord bas et gauche compris, comme `NSPointInRect`).
+fn contains(rect: NSRect, point: NSPoint) -> bool {
+    point.x >= rect.origin.x
+        && point.x < rect.origin.x + rect.size.width
+        && point.y >= rect.origin.y
+        && point.y < rect.origin.y + rect.size.height
 }

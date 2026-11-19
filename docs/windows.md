@@ -303,10 +303,13 @@ entrée grisée (`disabled_item`) ou un séparateur ne remettent rien.
 
 `anchor` donne la place de l'icône, `(x, y)` aux coordonnées de `WindowOptions::x` (le
 pointeur au clic, l'icône au clavier) : de quoi ouvrir une petite fenêtre juste à côté,
-comme le lecteur de la zone de notification de RustMusic. Windows pour l'instant ; `None`
-ailleurs. Une telle fenêtre s'ouvre sans cadre (`title_bar: false`), sans bouton dans la
+comme le lecteur de la zone de notification de RustMusic. Sous macOS, le milieu du bas
+de l'icône (le bord de la barre des menus) : la fenêtre s'ouvre juste dessous, sur l'écran
+de l'icône si sa barre des menus n'est pas celle de l'écran principal. `None` sous Linux. Une telle fenêtre s'ouvre sans cadre (`title_bar: false`), sans bouton dans la
 barre des tâches mais avec le focus (`taskbar: false`), et se referme quand
-`WindowState::focused` passe à `false` (clic ailleurs).
+`WindowState::focused` passe à `false` (clic ailleurs). Sous macOS, elle rejoint le bureau
+en cours (aussi par-dessus une application en plein écran), reste hors de Mission
+Control et de ⌘`, et passe l'application au premier plan si elle ne l'était pas.
 
 | | Windows | macOS | Linux |
 | --- | --- | --- | --- |
