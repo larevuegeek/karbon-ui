@@ -4,6 +4,7 @@
 mod effects;
 mod gpu;
 mod gradients;
+mod live_images;
 mod paint;
 mod shapes;
 mod svg;

@@ -54,6 +54,24 @@ fn exclusive<R>(window: Hwnd, f: impl FnOnce(&mut DrawingState) -> R) -> Option<
     result
 }
 
+/// L'utilisateur demande la fermeture de la fenêtre : l'application l'accepte-t-elle
+/// (`Application::close_requested`) ? Sans état, ou pendant un appel de l'application,
+/// la fermeture suit son cours, comme avant.
+pub(crate) fn close_allowed(window: Hwnd) -> bool {
+    let allowed = exclusive(window, |state| {
+        let allowed = state.runtime.close_requested();
+        if !allowed && let Err(error) = state.prepare(window) {
+            record_error(error);
+        }
+        allowed
+    })
+    .unwrap_or(true);
+    if !allowed {
+        invalidate(window);
+    }
+    allowed
+}
+
 pub(crate) fn take_window_commands(window: Hwnd) -> Vec<crate::window::WindowCommand> {
     exclusive(window, |state| state.runtime.take_window_commands()).unwrap_or_default()
 }

@@ -108,6 +108,19 @@ impl<A: Application> HeadlessApp<A> {
         self.prepare()?;
         Ok(rebuilt)
     }
+    /// Ask the application whether the window may close, as the close button of the
+    /// title bar does ([`Application::close_requested`]), then prepare the next frame.
+    /// Returns its answer; the headless window never closes.
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`prepare`](Self::prepare).
+    pub fn request_close(&mut self) -> crate::Result<bool> {
+        self.prepare()?;
+        let allowed = self.ui.close_requested();
+        self.prepare()?;
+        Ok(allowed)
+    }
     /// Change the application directly, then rebuild and prepare the view.
     ///
     /// # Errors

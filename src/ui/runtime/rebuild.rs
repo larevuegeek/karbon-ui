@@ -107,6 +107,14 @@ impl UiRuntime {
             self.interaction.release_pending = true;
         }
         self.interaction.retain_focusable(&live);
+        // Champ `autofocus` apparu dans cette vue : il prend le clavier.
+        if crate::ui::text_input::take_autofocus_built()
+            && let Some(id) = autofocus::target(&root, self.root.as_ref())
+            && self.interaction.focus_order.contains(&id)
+        {
+            self.interaction.focused = Some(id);
+            self.interaction.keyboard_pressed = None;
+        }
         if let Some(mut old) = self.root.take() {
             carry_caches(&mut old, &mut root, &live);
             // Grand arbre (liste de morceaux : ~10 000 éléments, 4 à 8 ms) : libéré plus

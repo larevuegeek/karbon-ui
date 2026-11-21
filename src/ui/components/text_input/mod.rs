@@ -20,6 +20,7 @@ pub use menu::{DEFAULT_MENU_LABELS, EditMenuLabels};
 pub(crate) use menu::{EditMenu, MenuAnchor, MenuResponse};
 pub use style::InputStyle;
 pub use widget::TextInput;
+pub(crate) use widget::take_autofocus_built;
 pub use wrap::WrappedLine;
 // Mise en page d'une ligne seule : servie aux mesureurs natifs (DirectWrite, Core Text,
 // Pango).

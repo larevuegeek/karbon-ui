@@ -16,6 +16,17 @@ impl UiRuntime {
         self.send(message)
     }
 
+    /// Ask the application whether the window may close
+    /// ([`Application::close_requested`]). A refusal rebuilds the view, so the
+    /// application can show its question.
+    pub fn close_requested(&mut self) -> bool {
+        let allowed = self.app.close_requested();
+        if !allowed {
+            self.invalidate();
+        }
+        allowed
+    }
+
     /// Drain the background work requested by the application
     /// (see [`Application::take_task_commands`]), followed by the decodes of its
     /// [`ImageLoader`](crate::resources::ImageLoader) and the subscription of its

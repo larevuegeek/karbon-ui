@@ -9,5 +9,6 @@ mod nonclient;
 mod pointer;
 mod procedure;
 mod raw_input;
+mod scancode;
 pub(crate) mod text;
 pub(crate) use procedure::*;

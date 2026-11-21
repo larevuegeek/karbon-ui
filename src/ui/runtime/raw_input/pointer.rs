@@ -30,6 +30,9 @@ pub enum PointerPhase {
     Move,
     /// A button was released.
     Up,
+    /// The wheel turned, over an element with an `on_pointer_wheel` handler
+    /// ([`Element::on_pointer_wheel`]); the amount is in [`PointerEvent::wheel`].
+    Wheel,
 }
 
 /// A button of the mouse pressed, held while the pointer moves, or released, over an
@@ -55,7 +58,23 @@ pub struct PointerEvent {
     pub control: bool,
     /// Alt is held.
     pub alt: bool,
+    /// Rank of this press in a series of quick presses of the same button at the same
+    /// place: `1` for a single click, `2` for a double click, `3` for a triple click. A
+    /// release carries the rank of its press; a move and the wheel carry `0`. A press
+    /// follows the previous one within 500 ms and 4 logical pixels (the defaults of
+    /// Windows).
+    pub clicks: u8,
+    /// Wheel turn for [`PointerPhase::Wheel`], in notches (`1.0` per notch of a mouse
+    /// wheel, fractions from a touchpad), positive to the right and towards the user
+    /// (downwards); `(0.0, 0.0)` for the other phases. The vertical amount stays vertical
+    /// with Shift held: the handler decides what Shift means.
+    pub wheel: (f32, f32),
 }
+
+/// Délai et distance qui font d'un appui la suite du précédent (double-clic), comme les
+/// valeurs par défaut de Windows (`GetDoubleClickTime`, `SM_CXDOUBLECLK`).
+const MULTI_CLICK_TIME: std::time::Duration = std::time::Duration::from_millis(500);
+const MULTI_CLICK_DISTANCE: f32 = 4.;
 
 /// Ce qu'un backend dit au runtime d'un bouton ou d'un mouvement de la souris.
 #[derive(Clone, Copy, Debug)]
@@ -85,6 +104,35 @@ impl PointerHandler {
 pub(crate) struct RawPointerState {
     target: Option<ElementId>,
     held: u8,
+    /// Dernier appui (instant, position, bouton) et son rang dans la série en cours.
+    last_press: Option<(Instant, PointF, PointerButton)>,
+    clicks: u8,
+}
+
+impl RawPointerState {
+    /// Rang de l'appui `input` dans sa série (1, 2, 3…) ; le relâchement garde celui de
+    /// son appui, un mouvement vaut 0.
+    pub(crate) fn count_clicks(&mut self, input: &PointerInput, now: Instant) -> u8 {
+        match (input.phase, input.button) {
+            (PointerPhase::Down, Some(button)) => {
+                let follows = self.last_press.is_some_and(|(at, place, previous)| {
+                    previous == button
+                        && now.saturating_duration_since(at) <= MULTI_CLICK_TIME
+                        && (place.x - input.position.x).abs() <= MULTI_CLICK_DISTANCE
+                        && (place.y - input.position.y).abs() <= MULTI_CLICK_DISTANCE
+                });
+                self.clicks = if follows {
+                    self.clicks.saturating_add(1)
+                } else {
+                    1
+                };
+                self.last_press = Some((now, input.position, button));
+                self.clicks
+            }
+            (PointerPhase::Up, Some(_)) => self.clicks,
+            _ => 0,
+        }
+    }
 }
 
 /// Bit d'un bouton dans `RawPointerState::held`.
@@ -148,6 +196,7 @@ impl UiRuntime {
     /// jusqu'au premier qui rend un message.
     pub(crate) fn pointer_input(&mut self, input: PointerInput) -> EventResult {
         let mut result = EventResult::default();
+        let clicks = self.raw_pointer.count_clicks(&input, Instant::now());
         let path = self.pointer_path(input.position);
         let mut taken = None;
         for (id, rect, handler) in path {
@@ -161,6 +210,8 @@ impl UiRuntime {
                 shift: input.shift,
                 control: input.control,
                 alt: input.alt,
+                clicks,
+                wheel: (0., 0.),
             };
             if let Some(message) = (handler.0)(event) {
                 self.send(message);
@@ -220,5 +271,69 @@ impl UiRuntime {
         let mut path = Vec::new();
         handlers(scope, found, &mut path);
         path
+    }
+}
+
+/// Gestionnaires `on_pointer_wheel` de `target` et de ses ancêtres, de la cible à la
+/// racine, chacun avec l'élément qui le porte.
+fn wheel_handlers(
+    node: &Element,
+    target: ElementId,
+    out: &mut Vec<(RectF, PointerHandler)>,
+) -> bool {
+    if node.id != target && !node.children.iter().any(|c| wheel_handlers(c, target, out)) {
+        return false;
+    }
+    if let Some(handler) = node
+        .listeners
+        .as_ref()
+        .and_then(|l| l.pointer_wheel.clone())
+    {
+        out.push((node.rect, handler));
+    }
+    true
+}
+
+impl UiRuntime {
+    /// Donne un tour de molette (`wheel`, en crans) aux gestionnaires `on_pointer_wheel`
+    /// sous le pointeur, du plus profond à la racine, jusqu'au premier qui rend un
+    /// message. `handled` dit au backend de ne pas faire défiler.
+    pub(crate) fn pointer_wheel(&mut self, input: PointerInput, wheel: (f32, f32)) -> EventResult {
+        let mut result = EventResult::default();
+        let Some(root) = self.root.as_ref() else {
+            return result;
+        };
+        let scope = layers::active(root);
+        let position = input.position;
+        let Some(found) = fixed_result(scope, position, &self.motions, true, target)
+            .or_else(|| target(scope, position, &self.motions, true))
+        else {
+            return result;
+        };
+        let mut path = Vec::new();
+        wheel_handlers(scope, found, &mut path);
+        for (rect, handler) in path {
+            let event = PointerEvent {
+                phase: PointerPhase::Wheel,
+                button: None,
+                x: position.x,
+                y: position.y,
+                local_x: position.x - rect.left,
+                local_y: position.y - rect.top,
+                shift: input.shift,
+                control: input.control,
+                alt: input.alt,
+                clicks: 0,
+                wheel,
+            };
+            if let Some(message) = (handler.0)(event) {
+                self.send(message);
+                result.handled = true;
+                self.invalidation.repaint = true;
+                result.repaint = true;
+                break;
+            }
+        }
+        result
     }
 }

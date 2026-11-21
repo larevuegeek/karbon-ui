@@ -171,3 +171,12 @@ sur GPU, sur WARP et avec un fond transparent.
 
 La copie CPU de la texture pour présenter la fenêtre reste inchangée. Les gains
 du cœur UI ne suppriment pas ce coût de rendu.
+
+## Montrer une ligne (`reveal`, 0.3.23)
+
+`VirtualList::reveal(index)` fait défiler la liste, à la mise en page de la vue qui la
+porte, juste assez pour que la ligne `index` soit entière à l'écran (en haut si elle était
+au-dessus, en bas si elle était au-dessous, rien si elle est visible). C'est la ligne où
+le clavier de l'application a mené (l'arbre de `ui::editor` s'en sert). La demande vaut
+pour une vue : la laisser hors des vues suivantes, sinon la liste revient à la ligne à
+chaque reconstruction. Sans `reveal`, rien ne change.

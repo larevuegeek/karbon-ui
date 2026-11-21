@@ -34,6 +34,17 @@ pub struct TextInput {
     pub(crate) css: Option<Box<crate::ui::styling::ComputedStyle>>,
     /// Labels of the built-in context menu (cut, copy, paste, select all).
     pub(crate) menu_labels: EditMenuLabels,
+    /// Prend le clavier en apparaissant (`autofocus`).
+    pub(crate) autofocus: bool,
+}
+thread_local! {
+    /// Un champ `autofocus` a été construit depuis la dernière lecture : sans lui, la
+    /// reconstruction ne cherche aucun champ à focaliser.
+    static AUTOFOCUS_BUILT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+/// `true` si un champ `autofocus` a été construit depuis le dernier appel.
+pub(crate) fn take_autofocus_built() -> bool {
+    AUTOFOCUS_BUILT.with(|built| built.replace(false))
 }
 impl TextInput {
     pub(crate) fn format(&self) -> crate::ui::styling::text::TextFormat {
@@ -86,7 +97,17 @@ impl TextInput {
             style: InputStyle::default(),
             css: None,
             menu_labels: DEFAULT_MENU_LABELS,
+            autofocus: false,
         }
+    }
+    /// Take the keyboard when the field appears in the view (its element ID was not in
+    /// the previous view), with its whole text selected, like HTML `autofocus`: the box
+    /// that replaces a value clicked to be typed, a name renamed in place. A field that
+    /// was already there keeps the focus where it is.
+    pub fn autofocus(mut self) -> Self {
+        self.autofocus = true;
+        AUTOFOCUS_BUILT.with(|built| built.set(true));
+        self
     }
     /// Translate the built-in context menu (right click, Shift+F10 or the Menu key):
     /// labels of cut, copy, paste and select all, in that order. The menu is drawn by

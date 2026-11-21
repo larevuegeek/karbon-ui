@@ -69,6 +69,13 @@ pub(super) fn release(window: Hwnd, lparam: isize) -> bool {
     // SAFETY : sans argument ; libère la capture prise au WM_LBUTTONDOWN.
     unsafe { ReleaseCapture() };
     invalidate_title_bar(window);
+    // Le bouton de fermeture demande d'abord l'accord de l'application.
+    if released == Some(CaptionButton::Close)
+        && button == CaptionButton::Close
+        && !super::super::present::runtime::close_allowed(window)
+    {
+        return true;
+    }
     // Appuyer puis relâcher sur le même bouton valide le clic.
     if released == Some(button) {
         execute_action(window, button.action());

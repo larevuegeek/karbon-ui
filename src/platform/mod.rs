@@ -32,6 +32,9 @@ pub(crate) use linux::secrets;
 pub(crate) use macos::secrets;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::secrets;
+// Surface partagée sur la carte graphique (`ui::shared_surface`) : Windows seulement.
+#[cfg(target_os = "windows")]
+pub(crate) use windows::shared_surface;
 
 pub use crate::diagnostics::{render_benchmark, render_preview, write_png};
 pub(crate) use backend::{Backend, Offscreen};

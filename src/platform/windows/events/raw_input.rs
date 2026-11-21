@@ -9,6 +9,7 @@ use super::{
     },
     keyboard::is_pressed,
     pointer::point_from_message,
+    scancode,
 };
 use crate::ui::{
     runtime::{KeyCode, KeyPress, PointerButton, PointerPhase, raw_input::PointerInput},
@@ -80,17 +81,65 @@ pub(super) fn side_button(
     default_proc()
 }
 
+/// WM_MOUSEWHEEL et WM_MOUSEHWHEEL : le tour de molette, en crans, pour les gestionnaires
+/// `on_pointer_wheel` sous `client` (pixels du client), avec Maj, Ctrl et Alt. `true`
+/// quand l'un d'eux l'a pris : la molette ne fait alors rien d'autre.
+pub(super) fn wheel(
+    window: Hwnd,
+    (message, wparam): (u32, usize),
+    client: super::super::ffi::Point,
+) -> bool {
+    use windows_sys::Win32::{
+        System::SystemServices::{MK_CONTROL, MK_SHIFT},
+        UI::WindowsAndMessaging::WM_MOUSEHWHEEL,
+    };
+    let notches = f32::from((wparam >> 16) as i16) / 120.;
+    // Vers soi (cran négatif de Windows) et vers la droite sont positifs.
+    let amount = if message == WM_MOUSEHWHEEL {
+        (notches, 0.)
+    } else {
+        (0., -notches)
+    };
+    let factor = scale(window);
+    let input = PointerInput {
+        phase: PointerPhase::Wheel,
+        button: None,
+        position: PointF {
+            x: client.x as f32 / factor,
+            y: client.y as f32 / factor,
+        },
+        shift: wparam & MK_SHIFT as usize != 0,
+        control: wparam & MK_CONTROL as usize != 0,
+        alt: is_pressed(VK_MENU),
+    };
+    let result = runtime::raw_input(window, false, |ui| ui.pointer_wheel(input, amount));
+    if result.repaint {
+        invalidate(window);
+    }
+    result.handled
+}
+
 /// WM_KEYDOWN et WM_KEYUP : la touche pour `Application::key`, avant son traitement
 /// ordinaire, qui suit sans changement.
 pub(super) fn key(window: Hwnd, wparam: usize, lparam: isize, pressed: bool) {
+    // Un relâchement arrive sans lparam par `keyboard::key_up` : celui du message est
+    // déposé par la table de routage.
+    let lparam = if pressed || lparam != 0 {
+        lparam
+    } else {
+        scancode::take_release()
+    };
     let Some(code) = u16::try_from(wparam).ok().and_then(key_code) else {
         return;
     };
+    let scan = scancode::scancode(wparam as u16, lparam);
     let press = KeyPress {
         repeat: pressed && lparam & REPEATED != 0,
         shift: is_pressed(VK_SHIFT),
         control: is_pressed(VK_CONTROL),
         alt: is_pressed(VK_MENU) || is_pressed(VK_LMENU),
+        physical: scancode::physical_key(scan),
+        scancode: scan,
         ..KeyPress::new(code, pressed)
     };
     let result = runtime::raw_input(window, false, |ui| ui.key_input(press));
@@ -99,7 +148,21 @@ pub(super) fn key(window: Hwnd, wparam: usize, lparam: isize, pressed: bool) {
     }
 }
 
-/// La touche de code virtuel `virtual_key`, par sa place sur un clavier américain.
+/// WM_SYSKEYDOWN et WM_SYSKEYUP (touches tenues avec Alt, et F10) : la touche pour
+/// `Application::key`, puis le traitement de Windows, qui ne change pas (Alt+F4 ferme la
+/// fenêtre, Alt seul et F10 ouvrent le menu de la fenêtre).
+pub(super) fn system_key(
+    window: Hwnd,
+    (wparam, lparam): (usize, isize),
+    pressed: bool,
+    default_proc: impl FnOnce() -> isize,
+) -> isize {
+    key(window, wparam, lparam, pressed);
+    default_proc()
+}
+
+/// La touche de code virtuel `virtual_key`. Le code virtuel suit la disposition : sur un
+/// clavier français, la touche marquée Z donne `VK_Z`, donc `KeyCode::Z`.
 fn key_code(virtual_key: u16) -> Option<KeyCode> {
     use KeyCode::*;
     const LETTERS: [KeyCode; 26] = [
@@ -142,7 +205,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn keys_are_named_by_their_place() {
+    fn letters_follow_the_layout() {
         assert_eq!(key_code(0x41), Some(KeyCode::A));
         assert_eq!(key_code(0x5A), Some(KeyCode::Z));
         assert_eq!(key_code(0x30), Some(KeyCode::Digit0));
@@ -150,5 +213,64 @@ mod tests {
         assert_eq!(key_code(VK_ESCAPE), Some(KeyCode::Escape));
         // Une touche sans nom (le pavé numérique, par exemple) n'est pas donnée.
         assert_eq!(key_code(0x60), None);
+    }
+    /// Disposition française (AZERTY) chargée dans un fil d'essai, sans l'activer : la
+    /// touche à la place du W américain (code de balayage 0x11) y donne le code virtuel
+    /// `VK_Z`, donc `KeyCode::Z`, et sa place reste `PhysicalKey::KeyW`.
+    #[test]
+    fn on_a_french_layout_the_key_marked_z_gives_z_at_the_place_of_w() {
+        std::thread::spawn(|| {
+            use crate::ui::runtime::PhysicalKey;
+            use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+                GetKeyboardLayoutList, HKL, KLF_NOTELLSHELL, LoadKeyboardLayoutW, MAPVK_VK_TO_VSC,
+                MAPVK_VSC_TO_VK, MapVirtualKeyExW, UnloadKeyboardLayout, VK_A, VK_Q, VK_W, VK_Z,
+            };
+            let loaded = || {
+                let mut list: [HKL; 64] = [std::ptr::null_mut(); 64];
+                // SAFETY : tampon local de 64 poignées, sa taille est passée.
+                let count = unsafe { GetKeyboardLayoutList(64, list.as_mut_ptr()) };
+                list[..count.max(0) as usize].to_vec()
+            };
+            let before = loaded();
+            let name: Vec<u16> = "0000040C\0".encode_utf16().collect();
+            // SAFETY : nom terminé par un zéro ; la disposition n'est pas activée
+            // (ni KLF_ACTIVATE ni KLF_SETFORPROCESS), le bureau n'en est pas prévenu.
+            let french = unsafe { LoadKeyboardLayoutW(name.as_ptr(), KLF_NOTELLSHELL) };
+            assert!(!french.is_null(), "French layout unavailable");
+            // SAFETY : traductions par une disposition chargée, sans pointeur.
+            let (to_vk, to_scan) = unsafe {
+                (
+                    |code: u32| MapVirtualKeyExW(code, MAPVK_VSC_TO_VK, french) as u16,
+                    |vk: u16| MapVirtualKeyExW(u32::from(vk), MAPVK_VK_TO_VSC, french),
+                )
+            };
+            let checks = [
+                (to_vk(0x11), VK_Z, KeyCode::Z),
+                (to_vk(0x2C), VK_W, KeyCode::W),
+                (to_vk(0x10), VK_A, KeyCode::A),
+                (to_vk(0x1E), VK_Q, KeyCode::Q),
+            ];
+            let places = [to_scan(VK_Z), to_scan(VK_W), to_scan(VK_A), to_scan(VK_Q)];
+            // La disposition n'est rendue que si l'essai l'a ajoutée.
+            if !before.contains(&french) {
+                // SAFETY : poignée rendue par LoadKeyboardLayoutW ci-dessus.
+                unsafe { UnloadKeyboardLayout(french) };
+            }
+            for (vk, expected, key) in checks {
+                assert_eq!(vk, expected);
+                assert_eq!(key_code(vk), Some(key));
+            }
+            let expected = [
+                PhysicalKey::KeyW,
+                PhysicalKey::KeyZ,
+                PhysicalKey::KeyQ,
+                PhysicalKey::KeyA,
+            ];
+            for (scan, place) in places.into_iter().zip(expected) {
+                assert_eq!(scancode::physical_key(scan), Some(place));
+            }
+        })
+        .join()
+        .unwrap();
     }
 }

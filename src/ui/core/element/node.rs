@@ -83,6 +83,7 @@ pub(crate) struct Listeners {
     pub double_click: Option<Action>,
     pub pan: Option<Handler<crate::ui::drag_drop::PanEvent>>,
     pub pointer: Option<crate::ui::runtime::raw_input::PointerHandler>,
+    pub pointer_wheel: Option<crate::ui::runtime::raw_input::PointerHandler>,
 }
 thread_local! {
     /// Un gestionnaire a été posé depuis la dernière lecture.
@@ -139,6 +140,39 @@ impl Element {
     ) -> Self {
         let handler = crate::ui::runtime::raw_input::PointerHandler::new(handler);
         self.listeners_mut().pointer = Some(handler);
+        self
+    }
+    /// React to the mouse wheel over this element with the state of Shift, Ctrl and Alt
+    /// ([`PointerEvent`](crate::ui::runtime::PointerEvent) with the phase
+    /// [`PointerPhase::Wheel`](crate::ui::runtime::PointerPhase::Wheel) and the amount in
+    /// `wheel`): Ctrl+wheel to zoom a timeline, Shift+wheel to scroll it sideways.
+    /// `handler` returns the message to send, or `None` to let the wheel go on.
+    ///
+    /// The handlers of the elements under the pointer run from the deepest to the root,
+    /// before the [`on_wheel`](Self::on_wheel) handlers. The first one that returns a
+    /// message consumes the wheel: no `on_wheel` handler runs and nothing scrolls. When
+    /// every handler returns `None`, the wheel behaves as before. Separate from
+    /// [`on_pointer`](Self::on_pointer), whose handlers never see the wheel. Not delivered
+    /// on macOS and Linux yet.
+    ///
+    /// ```
+    /// use karbon_ui::ui::{prelude::*, runtime::PointerEvent};
+    ///
+    /// #[derive(Clone)]
+    /// enum Msg {
+    ///     Zoom(f32),
+    /// }
+    /// let timeline = column("timeline", []).on_pointer_wheel(|event: PointerEvent| {
+    ///     event.control.then_some(Msg::Zoom(event.wheel.1))
+    /// });
+    /// # let _ = timeline;
+    /// ```
+    pub fn on_pointer_wheel<M: 'static>(
+        mut self,
+        handler: impl Fn(crate::ui::runtime::PointerEvent) -> Option<M> + 'static,
+    ) -> Self {
+        let handler = crate::ui::runtime::raw_input::PointerHandler::new(handler);
+        self.listeners_mut().pointer_wheel = Some(handler);
         self
     }
     /// Reports the focus entering (`true`) and leaving (`false`) this element or its

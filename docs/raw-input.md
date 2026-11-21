@@ -49,10 +49,22 @@ fn key(&mut self, press: KeyPress) -> bool {
 }
 ```
 
-- `KeyCode` nomme une touche par sa place sur un clavier américain : `KeyCode::W` est la
-  touche Z d'un clavier français. Lettres, chiffres, F1 à F12, Échap, Entrée, Tab, Espace,
+- `KeyCode` nomme une touche par ce qui est marqué dessus, dans la disposition active :
+  sous Windows, il vient du code virtuel, qui suit la disposition. Sur un clavier
+  français, la touche marquée Z donne `KeyCode::Z`, comme sur un clavier américain :
+  Ctrl+Z annule pour tout le monde. Pour la place de la touche, lire `physical` (plus
+  bas). Lettres, chiffres, F1 à F12, Échap, Entrée, Tab, Espace,
   retour arrière, Suppr, Inser, Début, Fin, pages, flèches, Maj, Ctrl, Alt.
 - `KeyPress` : la touche, enfoncée ou relâchée, répétée ou non, et Maj, Ctrl, Alt.
+- `KeyPress::physical` : la place de la touche sur le clavier, quelle que soit la
+  disposition (`PhysicalKey`, nommée comme les codes physiques du web :
+  `PhysicalKey::KeyW` est la touche marquée Z sur un clavier français, W sur un
+  américain). Une caméra en ZQSD ou WASD lie `KeyW`, `KeyA`, `KeyS`, `KeyD` et marche
+  sur les deux. `KeyPress::scancode` : le code brut du système (sous Windows, le code
+  de balayage de lparam, avec `0xE000` pour les touches étendues).
+- F10 et les touches tenues avec Alt (`WM_SYSKEYDOWN`, `WM_SYSKEYUP`) arrivent aussi,
+  depuis 0.3.22 ; Windows garde ensuite leur traitement (Alt+F4 ferme la fenêtre, Alt
+  seul et F10 ouvrent le menu de la fenêtre).
 - **Rien n'arrive pendant qu'un champ de saisie a le clavier** : ce qu'on y tape est à
   lui (Ctrl+Z y annule la saisie).
 - La touche garde son effet ordinaire : Tab déplace le focus, Entrée active le contrôle
@@ -80,3 +92,51 @@ fn key(&mut self, press: KeyPress) -> bool {
 - Un test de l'exemple `rustmusic_html` (`title_bar_button_collapses_and_expands_the_sidebar`)
   échoue, **et échouait déjà avant ces ajouts**, de la même façon (vérifié sur une copie
   au dernier commit) : centrage de la barre latérale repliée à 960×700.
+
+## Ajouts de 0.3.22 : place physique et touches système
+
+Code : `src/ui/runtime/raw_input/physical.rs` (`PhysicalKey`),
+`src/platform/windows/events/scancode.rs` (table des codes de balayage de Windows),
+`WM_SYSKEYDOWN` et `WM_SYSKEYUP` dans `events/dispatch.rs`.
+
+- La phrase « Les touches tenues avec Alt (`WM_SYSKEYDOWN`) ne sont pas données », plus
+  haut, valait pour 0.3.21 : elles le sont depuis 0.3.22, avec F10. Une application qui
+  écrit `Application::key` reçoit donc de nouvelles touches : Alt seul, Alt+lettre, F10.
+- `physical` n'est donné que pour les 66 touches de `KeyCode` : une touche sans
+  `KeyCode` (ponctuation, pavé numérique avec Verr. Num.) n'arrive toujours pas.
+  La table connaît pourtant les 120 places de `PhysicalKey`, prête pour la suite.
+- Le relâchement (`WM_KEYUP`) passe par `keyboard::key_up`, qui ne reçoit pas lparam :
+  la table de routage dépose lparam avant de l'appeler (`scancode::remember_release`),
+  pour ne pas changer la signature d'une fonction existante.
+- Sous Linux et macOS, ces entrées n'arrivent pas encore ; `physical` y sera `None` et
+  `scancode` 0 tant qu'elles n'y sont pas branchées.
+
+Contrôles faits :
+
+- tests de la table (codes vers places, bit étendu qui sépare flèches et pavé numérique,
+  une seule place par touche) ;
+- disposition française chargée par `LoadKeyboardLayoutW` dans un fil d'essai, sans
+  l'activer : la touche à la place du W américain y donne `VK_Z`, donc `KeyCode::Z`, et
+  sa place reste `PhysicalKey::KeyW` (et la disposition est rendue si l'essai l'a
+  ajoutée) ;
+- sur une fenêtre cachée : F10, Alt+Q enfoncé et relâché, Alt de droite arrivent à
+  `Application::key` avec leur place ; un Ctrl de droite relâché garde sa place.
+  Contrôle négatif fait : sans les lignes ajoutées à `dispatch.rs`, les deux tests
+  échouent ;
+- **non vérifié par un test** : Alt+F4 qui ferme la fenêtre. Envoyé à une fenêtre
+  cachée, Windows ne poste pas la fermeture (il ne le fait que pour une vraie frappe) ;
+  le code rend à `DefWindowProcW` le message comme avant. À essayer à la main.
+
+## Ajouts de 0.3.23 : rang du clic, molette avec modificateurs
+
+- `PointerEvent::clicks` : rang de l'appui dans une série d'appuis rapprochés du même
+  bouton (1, 2 pour un double-clic, 3…), compté par le runtime à 500 ms et 4 pixels
+  logiques (les valeurs par défaut de Windows) ; le relâchement porte le rang de son
+  appui, un mouvement 0. Test : `src/ui/tests/runtime/raw_input_additions.rs`.
+- `Element::on_pointer_wheel` : la molette avec Maj, Ctrl et Alt, phase
+  `PointerPhase::Wheel`, tour en crans dans `PointerEvent::wheel`. Gestionnaire à part :
+  les `on_pointer` existants ne la voient jamais. Le premier qui rend un message la prend
+  (ni `on_wheel` ni défilement) ; sinon tout se passe comme avant. Sous Windows, ligne
+  ajoutée à `events/pointer.rs` (`wheel`) avant le traitement existant.
+- Voir aussi [les composants d'éditeur](editor.md) : fermeture annulable
+  (`Application::close_requested`), `TextInput::autofocus`, `LiveImage`.

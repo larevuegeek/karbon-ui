@@ -7,9 +7,11 @@
 //! en plus. Un outil de dessin, un jeu, une vue 3D s'en servent pour les gestes que les
 //! contrôles ordinaires ne connaissent pas (bouton droit glissé, raccourcis par lettre).
 mod keys;
+mod physical;
 mod pointer;
 
 pub use keys::{KeyCode, KeyPress};
+pub use physical::PhysicalKey;
 pub use pointer::{PointerButton, PointerEvent, PointerPhase};
 // `PointerInput` ne sert qu'au backend Windows (et aux tests) pour l'instant.
 #[cfg_attr(not(windows), allow(unused_imports))]

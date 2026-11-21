@@ -106,6 +106,14 @@ impl DrawingState {
             premultiplied: composition::premultiplied(state::options().transparent, maximized),
             profiled: started.is_some(),
         };
+        // Surfaces partagées montrées sous l'interface (`surface_visual`) : une chaîne
+        // d'échange changée se rattache même si la peinture est sautée, et le trou de
+        // l'interface demande l'alpha jusque dans une fenêtre agrandie.
+        super::surface_visual::refresh(window);
+        let frame = Frame {
+            premultiplied: frame.premultiplied || super::surface_visual::shown_in(window),
+            ..frame
+        };
         let presented = (
             width,
             height,
@@ -160,6 +168,7 @@ impl DrawingState {
                 elapsed(started),
             ];
             profile.record(timings, (width, height), scale);
+            profile.record_wait(wait_time);
             let gap = profile.presented(Instant::now());
             let after = self.runtime.stats();
             profile.slow_frame(
@@ -226,6 +235,8 @@ impl DrawingState {
                 // voir `runtime::wait_for_frame`) ; attente mesurée à part.
                 self.renderer.wait_for_frame();
                 let wait_time = self.renderer.frame_wait();
+                // Les gabarits de surface partagée de cette image deviennent des trous.
+                let surfaces = super::surface_visual::Painting::begin(window);
                 let started = clock();
                 self.renderer
                     .render_to_swap_chain(scene, width, height, scale, frame.premultiplied)
@@ -246,6 +257,11 @@ impl DrawingState {
                     .swap_chain()
                     .expect("swap chain just presented");
                 visual.bind(chain).map_err(Failure::Submit)?;
+                // Les surfaces partagées suivent leurs éléments ; une première surface
+                // dans une fenêtre agrandie redemande une image, avec l'alpha.
+                if surfaces.finish().map_err(Failure::Submit)? && !frame.premultiplied {
+                    super::super::ffi::invalidate(window);
+                }
                 startup::presented();
                 self.runtime.frame_presented(Instant::now());
                 Ok([surface_time, render_time, elapsed(started), wait_time])

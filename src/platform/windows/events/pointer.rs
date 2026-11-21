@@ -133,6 +133,11 @@ pub(super) fn wheel(
     let Some(p) = screen_to_client(window, point_from_message(lparam)) else {
         return default_proc();
     };
+    // Molette avec Maj, Ctrl et Alt pour les gestionnaires `on_pointer_wheel` : celui qui
+    // la prend empêche le défilement.
+    if super::raw_input::wheel(window, (message, wparam), p) {
+        return 0;
+    }
     let horizontal = message == WM_MOUSEHWHEEL || wparam & MK_SHIFT as usize != 0; // Shift+molette
     let mut units = 3u32;
     // SAFETY : Windows écrit un u32 dans `units`, valide pendant l'appel.

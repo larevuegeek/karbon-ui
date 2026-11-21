@@ -84,11 +84,17 @@ impl TextInputs {
             }
             if let Some(input) = node.widget.as_ref().and_then(|w| w.text_input()) {
                 live.insert(node.id);
+                let fresh = !states.contains_key(&node.id);
                 let editor = states
                     .entry(node.id)
                     .or_insert_with(|| Editor::new(&input.value, input.max_chars, input.multiline));
                 if editor.multiline != input.multiline {
                     *editor = Editor::new(&input.value, input.max_chars, input.multiline);
+                }
+                // Champ `autofocus` qui apparaît : tout son texte est choisi, la frappe le
+                // remplace.
+                if fresh && input.autofocus {
+                    editor.anchor = 0;
                 }
                 let value = editor::sanitize(&input.value, input.max_chars, input.multiline);
                 if rebuilt && editor.text != value {

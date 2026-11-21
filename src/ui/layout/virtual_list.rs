@@ -22,6 +22,8 @@ pub struct VirtualList {
     range: Range<usize>,
     last_pin: Option<usize>,
     builds: u64,
+    /// Ligne à rendre visible à la prochaine mise en page de cette vue (`reveal`).
+    reveal: Option<usize>,
 }
 /// Snapshot of a [`VirtualList`]'s state, for diagnostics and tests.
 #[derive(Debug, Clone)]
@@ -54,7 +56,15 @@ impl VirtualList {
             range: 0..0,
             last_pin: None,
             builds: 0,
+            reveal: None,
         }
+    }
+    /// Scroll just enough, at the next layout of this view, for row `index` to be fully
+    /// visible: the row a keyboard moved to. Applied once per built view; leave it out of
+    /// the views that follow, or the list scrolls back to the row at each rebuild.
+    pub fn reveal(mut self, index: usize) -> Self {
+        self.reveal = Some(index);
+        self
     }
     /// Number of extra rows built above and below the viewport (default 2, at most 64).
     pub fn overscan(mut self, rows: usize) -> Self {
@@ -114,6 +124,24 @@ pub(crate) fn arrange(node: &mut Element, text: &mut dyn TextMeasurer) -> crate:
         .as_ref()
         .ok_or_else(|| invalid("virtual list without an item builder"))?;
     list.validate(node.style.vertical_gap())?;
+    // Ligne demandée par `reveal` : le défilement le plus court qui la montre en entier.
+    if let Some(index) = list.reveal.filter(|&index| index < list.count) {
+        let start = index as f32 * list.stride(node.style.vertical_gap());
+        let end = start + list.row_height;
+        let size = layout::height(layout::content_rect(node));
+        if start < node.scroll_offset {
+            node.scroll_offset = start;
+        } else if end > node.scroll_offset + size {
+            node.scroll_offset = (end - size).min(start);
+        }
+    }
+    if let Some(list) = node.virtual_list.as_mut() {
+        list.reveal = None;
+    }
+    let list = node
+        .virtual_list
+        .as_ref()
+        .ok_or_else(|| invalid("virtual list without an item builder"))?;
     let s = scroll::metrics(
         layout::content_rect(node),
         Axis::Vertical,

@@ -24,6 +24,7 @@ mod imaging;
 mod offscreen;
 mod present;
 pub(crate) mod secrets;
+pub(crate) mod shared_surface;
 #[cfg(test)]
 mod tests;
 mod window;

@@ -42,6 +42,11 @@ pub(super) struct Recorder {
     size_changes: u64,
     last_size: (u32, u32),
     last_scale: f32,
+    /// Travail du fil de l'interface par image : `total` moins l'attente de la place dans
+    /// la file de présentation (millisecondes, voir `record_wait`).
+    work: VecDeque<f64>,
+    /// Cette attente, par image (millisecondes).
+    waits: VecDeque<f64>,
 }
 impl Recorder {
     /// Nouveau segment de mesures pour la même fenêtre et le même chemin.
@@ -65,7 +70,37 @@ impl Recorder {
             size_changes: 0,
             last_size: (0, 0),
             last_scale: 1.,
+            work: VecDeque::with_capacity(SAMPLE_LIMIT),
+            waits: VecDeque::with_capacity(SAMPLE_LIMIT),
         }
+    }
+    /// Note l'attente de la place dans la file de présentation de l'image que `record`
+    /// vient d'enregistrer : la cadence de l'écran, comptée dans `total` mais pas du
+    /// travail. Le travail du fil de l'interface est `total` moins cette attente.
+    pub fn record_wait(&mut self, wait: Duration) {
+        let wait = wait.as_secs_f64() * 1000.;
+        let total = self.samples.back().map_or(0., |sample| sample[4]);
+        if self.work.len() == SAMPLE_LIMIT {
+            self.work.pop_front();
+            self.waits.pop_front();
+        }
+        self.work.push_back((total - wait).max(0.));
+        self.waits.push_back(wait);
+    }
+    /// Travail du fil de l'interface par image et attente de la file de présentation,
+    /// sur les mêmes images que les étapes du rapport.
+    pub fn thread_report(&self) -> String {
+        let sorted = |values: &VecDeque<f64>| {
+            let mut values: Vec<_> = values.iter().copied().collect();
+            values.sort_by(f64::total_cmp);
+            summary(&values)
+        };
+        format!(
+            "{{\"protocol\":\"window-ui-thread-v1\",\"window_id\":{},\"work\":{},\"queue_wait\":{}}}",
+            self.id.0,
+            sorted(&self.work),
+            sorted(&self.waits)
+        )
     }
     pub fn record(&mut self, timings: [Duration; 5], size: (u32, u32), scale: f32) {
         if self.frames > 0 && self.last_size != size {
@@ -191,6 +226,11 @@ impl Recorder {
             "Presentation : {}",
             self.report(backend, reason)
         );
+        let _ = writeln!(
+            std::io::stdout().lock(),
+            "UI thread : {}",
+            self.thread_report()
+        );
     }
 }
 fn summary(sorted: &[f64]) -> String {
@@ -252,5 +292,21 @@ mod tests {
         assert!(report.contains("\"prepare\":null"));
         assert!(report.contains("\"working_set_after_bytes\":100"));
         assert_eq!(recorder.frames, 0);
+    }
+    #[test]
+    fn ui_thread_work_is_the_total_without_the_queue_wait() {
+        let mut recorder = Recorder::new(WindowId(2), Path::Composition);
+        for index in 0..10u64 {
+            let total = Duration::from_millis(5 + index);
+            recorder.record([total; 5], (300, 200), 1.);
+            recorder.record_wait(Duration::from_millis(2));
+        }
+        let report = recorder.thread_report();
+        assert!(report.contains("\"work\":{\"p50_ms\":7.000,\"p95_ms\":12.000,\"max_ms\":12.000}"));
+        assert!(report.contains("\"queue_wait\":{\"p50_ms\":2.000"));
+        // Le rapport des étapes ne change pas.
+        let stages = recorder.report_at("test", "test", Duration::from_secs(1), None);
+        assert!(!stages.contains("work"));
+        assert!(stages.ends_with("\"process\":null}"));
     }
 }

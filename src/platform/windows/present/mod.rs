@@ -9,4 +9,5 @@ pub(crate) mod paint;
 mod recorder;
 pub(crate) mod runtime;
 pub(super) mod surface;
+pub(crate) mod surface_visual;
 pub(crate) use drawing::*;

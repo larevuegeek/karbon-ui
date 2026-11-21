@@ -76,6 +76,8 @@ pub(super) fn teardown(window: Hwnd, run: impl Fn(&dyn Fn())) {
     run(&|| text::shutdown(window));
     run(&accessibility::shutdown);
     run(&shadow::destroy);
+    // Couche des surfaces partagées montrées sous l'interface (`ui::shared_surface`).
+    run(&|| super::super::present::surface_visual::close(window));
 }
 
 /// Le même démontage après une panique : le message interrompu peut encore emprunter un

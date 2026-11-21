@@ -311,9 +311,10 @@ pub trait Application: 'static {
         None
     }
     /// A key pressed or released while no text field has the keyboard
-    /// ([`KeyPress`](crate::ui::runtime::KeyPress)): every key of the keyboard, by its
-    /// place, with Shift, Ctrl and Alt. Shortcuts of a tool or a game (Ctrl+Z, a letter
-    /// per tool) and keys held to move. Return `true` to rebuild the view. Defaults to
+    /// ([`KeyPress`](crate::ui::runtime::KeyPress)): every key of the keyboard, named
+    /// after what the layout prints on it and with its place, with Shift, Ctrl and Alt.
+    /// Shortcuts of a tool or a game (Ctrl+Z, a letter per tool) and keys held to move.
+    /// Return `true` to rebuild the view. Defaults to
     /// ignoring the keys.
     ///
     /// The key keeps its usual effect on the interface: Tab moves the focus, Enter
@@ -322,6 +323,48 @@ pub trait Application: 'static {
     fn key(&mut self, press: crate::ui::runtime::KeyPress) -> bool {
         let _ = press;
         false
+    }
+    /// The user asks to close the window (the close button of the title bar, Alt+F4,
+    /// the taskbar): return `false` to keep it open, for example to ask first whether to
+    /// save the changes. The view is then rebuilt, so the application can show its
+    /// question; it closes the window later with
+    /// [`WindowCommand::Close`](crate::window::WindowCommand::Close) or
+    /// [`WindowCommand::Exit`](crate::window::WindowCommand::Exit), which do not ask
+    /// again. Defaults to `true`: the window closes as before. Asked on Windows only for
+    /// now; macOS and Linux close without asking.
+    ///
+    /// ```
+    /// use karbon_ui::{ui::prelude::*, window::{WindowCommand, WindowId}};
+    ///
+    /// #[derive(Clone)]
+    /// enum Msg {
+    ///     Discard,
+    /// }
+    /// #[derive(Default)]
+    /// struct Editor {
+    ///     unsaved: bool,
+    ///     asking: bool,
+    ///     commands: Vec<WindowCommand>,
+    /// }
+    /// impl Application for Editor {
+    ///     type Message = Msg;
+    ///     fn close_requested(&mut self) -> bool {
+    ///         self.asking = self.unsaved;
+    ///         !self.unsaved
+    ///     }
+    ///     fn update(&mut self, message: Msg) -> bool {
+    ///         let Msg::Discard = message;
+    ///         self.commands.push(WindowCommand::Close(WindowId::MAIN));
+    ///         false
+    ///     }
+    ///     fn take_window_commands(&mut self) -> Vec<WindowCommand> {
+    ///         std::mem::take(&mut self.commands)
+    ///     }
+    ///     # fn view(&self, _: &ViewContext) -> Element { text("t", "") }
+    /// }
+    /// ```
+    fn close_requested(&mut self) -> bool {
+        true
     }
 }
 
@@ -342,6 +385,7 @@ pub(crate) trait DynApplication {
     fn image_loader(&self) -> Option<crate::resources::ImageLoader>;
     fn inbox(&self) -> Option<Arc<dyn crate::task::InboxPort>>;
     fn key(&mut self, press: crate::ui::runtime::KeyPress) -> bool;
+    fn close_requested(&mut self) -> bool;
     /// Accès typé pour le harnais headless, qui connaît le type concret.
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
@@ -415,6 +459,9 @@ impl<A: Application> DynApplication for A {
     }
     fn key(&mut self, press: crate::ui::runtime::KeyPress) -> bool {
         Application::key(self, press)
+    }
+    fn close_requested(&mut self) -> bool {
+        Application::close_requested(self)
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self

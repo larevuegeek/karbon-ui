@@ -38,6 +38,11 @@ pub(super) unsafe fn window_message(
     // SAFETY : relais exact des arguments reçus de Windows pour cette même fenêtre,
     // pendant le traitement du message.
     let default_proc = || unsafe { DefWindowProcW(window, message, wparam, lparam) };
+    // Le relâchement d'une touche garde son code de balayage pour `Application::key`
+    // (`keyboard::key_up` ne reçoit pas lparam).
+    if message == WM_KEYUP {
+        super::scancode::remember_release(lparam);
+    }
     match message {
         timer::FRAME_WAKE => {
             timer::frame_fired();
@@ -123,6 +128,14 @@ pub(super) unsafe fn window_message(
         WM_CAPTURECHANGED => pointer::capture_changed(window),
         WM_KEYDOWN => keyboard::key_down(window, wparam, lparam, default_proc),
         WM_KEYUP => keyboard::key_up(window, wparam, default_proc),
+        // Touches tenues avec Alt, et F10, pour `Application::key` ; Windows garde leur
+        // traitement (Alt+F4 ferme la fenêtre).
+        windows_sys::Win32::UI::WindowsAndMessaging::WM_SYSKEYDOWN => {
+            super::raw_input::system_key(window, (wparam, lparam), true, default_proc)
+        }
+        windows_sys::Win32::UI::WindowsAndMessaging::WM_SYSKEYUP => {
+            super::raw_input::system_key(window, (wparam, lparam), false, default_proc)
+        }
         WM_ERASEBKGND => 1, // Aucun effacement GDI opaque.
         WM_ENTERSIZEMOVE => nonclient::enter_size_move(window),
         WM_EXITSIZEMOVE => nonclient::exit_size_move(window),
@@ -154,6 +167,13 @@ pub(super) unsafe fn window_message(
         }
         WM_DESTROY => {
             teardown(window, |step| step());
+            0
+        }
+        // Fermeture demandée par l'utilisateur (Alt+F4, barre des tâches) : l'application
+        // peut la refuser ; sinon Windows la traite comme avant.
+        windows_sys::Win32::UI::WindowsAndMessaging::WM_CLOSE
+            if !runtime::close_allowed(window) =>
+        {
             0
         }
         // Windows gère les autres messages, dont la fermeture et le fond.

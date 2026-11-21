@@ -442,3 +442,131 @@ Repli/dépli de la barre (`transition: width 200ms`), Windows, GPU :
 Avant : ~4 images par repli de 200 ms. Après : 8 à 15 selon la charge de la machine
 (mesures faites pendant une compilation en parallèle), ~13 ms par image.
 
+
+## Banc « éditeur » : l'interface autour d'une vue 3D vivante (2026-11-21)
+
+Exemple `examples/editor_bench/` (exigence KUI-001 du cahier des charges de l'éditeur de
+karbon-engine) : une interface d'éditeur chargée, faite des composants existants (barre
+de 12 outils, arbre de 100 000 objets en liste virtualisée, frise de 120 clés, 200
+propriétés — 140 champs de texte, 20 cases, 40 curseurs — dans un panneau qui défile,
+100 vignettes de 96 × 64 pixels, ligne d'état), autour d'une vue 3D factice : un fil
+livre à un `ImageSlot` 60 images par seconde de 1740 × 1176 pixels (la taille de la vue
+de l'éditeur), différentes à chaque fois. La ligne d'état change toutes les 500 ms (une
+reconstruction de la vue), comme dans l'éditeur. C'est le **mode copie** : chaque image
+passe par la mémoire de l'ordinateur et Direct2D en fait un bitmap neuf.
+
+```powershell
+cargo build --release --example editor_bench
+./target/release/examples/editor_bench.exe --seconds 20 --feed live    # image neuve à chaque fois
+./target/release/examples/editor_bench.exe --seconds 20 --feed still   # même image relivrée
+```
+
+Le banc active `--profile`, se ferme seul au bout de la durée et écrit trois lignes : le
+rapport `Presentation : {…}` habituel, une ligne `UI thread : {…}` et son résumé.
+
+**Compteur ajouté à `--profile`** (ligne `UI thread`, protocole `window-ui-thread-v1`) :
+`work` est le travail du fil de l'interface par image, `total` moins l'attente de la
+place dans la file de présentation (`queue_wait`, la cadence de l'écran) ; mêmes images
+que les étapes du rapport (les 1 024 dernières). Le rapport `window-present-v4` ne change
+pas.
+
+`--feed still` relivre la même image : la fenêtre repeint autant de fois, mais Direct2D
+garde son bitmap (sa clé est l'adresse de l'image). L'écart avec `live` est donc le prix
+du bitmap neuf (création et envoi de 8 Mo) sur le fil de l'interface.
+
+Relevés : Windows 11, fenêtre 1600 × 1000 unités à 150 % (2400 × 1500 pixels), écran
+3840 × 2160 à 60 Hz branché sur la RTX 4080 (pilote 32.0.16.2114), composition, build
+release, 20 s par tour, 1 190 peintures, statistiques sur les 1 024 dernières. Trois tours
+de chaque, alternés. **karbon-ui a dessiné sur la RTX 4080** : il crée son périphérique
+Direct3D sans désigner de carte, donc sur la première que DXGI énumère, que le banc nomme
+(« NVIDIA GeForce RTX 4080 ») ; aucune préférence de carte n'est réglée pour l'exécutable.
+
+| Tour | `work` p50 / p95 / max | `prepare` p50 / p95 | `render` p50 / p95 | `total` p50 | `queue_wait` p50 | CPU (un cœur) |
+| --- | --- | --- | --- | --- | --- | --- |
+| live 1 | 2,99 / 4,33 / 6,8 ms | 0,61 / 1,11 | 2,29 / 2,97 | 12,74 | 9,73 | 36,0 % |
+| live 2 | 2,95 / 3,64 / 6,2 ms | 0,60 / 0,96 | 2,28 / 2,70 | 16,55 | 13,63 | 32,7 % |
+| live 3 | 2,92 / 3,53 / 5,3 ms | 0,59 / 0,95 | 2,26 / 2,56 | 15,24 | 12,31 | 33,4 % |
+| still 1 | 2,07 / 2,77 / 5,0 ms | 0,60 / 1,08 | 1,34 / 1,80 | 8,67 | 6,52 | 16,8 % |
+| still 2 | 2,10 / 2,88 / 4,6 ms | 0,61 / 1,10 | 1,34 / 1,81 | 7,28 | 5,13 | 18,7 % |
+| still 3 | 2,11 / 3,06 / 5,1 ms | 0,61 / 1,12 | 1,34 / 1,89 | 9,33 | 7,16 | 18,6 % |
+| live, WARP | 4,29 / 6,08 / 10,3 ms | 0,71 / 1,24 | 3,45 / 4,72 | 7,48 | 3,14 | 130,8 % |
+| still, WARP | 3,28 / 4,52 / 6,3 ms | 0,66 / 1,11 | 2,52 / 3,30 | 13,58 | 10,28 | 117,0 % |
+
+Lecture :
+
+- **Mode copie sur la RTX : environ 3 ms de travail du fil de l'interface par image 3D au
+  médian, 3,5 à 4,3 ms au 95ᵉ centile**, pour une image livrée à 60 par seconde (59,5 à
+  60 images reçues par seconde, intervalles entre présentations de 16,7 ms au médian).
+  C'est 18 % d'une image à 60 Hz.
+- Le bitmap neuf coûte **0,9 ms par image** au médian (2,9 contre 2,1 ms), tout entier dans
+  `render` (2,27 contre 1,34 ms), et double le CPU du processus (33 à 36 % d'un cœur contre
+  17 à 19 %) ; 20 Mo de mémoire en plus. Le reste, environ 2,1 ms, est le redessin de toute
+  la fenêtre : la préparation (0,6 ms, vue non reconstruite) et le rendu Direct2D de toute
+  la scène.
+- **Le fil de l'interface reste bloqué dans la peinture** jusqu'à la place suivante dans la
+  file de présentation : `total` vaut 7 à 17 ms selon le tour, dont 5 à 14 ms d'attente
+  (`queue_wait`), parce que le réveil par la vue 3D tombe à une phase quelconque de la
+  cadence de l'écran. Pendant ce temps, l'interface ne traite pas les entrées. Ce n'est pas
+  du travail, mais c'est du temps de réponse ; à creuser avec KUI-003 et KUI-005.
+- Le fil de la vue passe 1,8 ms par image à fabriquer l'image et à la faire vérifier par
+  `Image::new` (hors du fil de l'interface).
+- En rendu logiciel (WARP), 4,3 ms au médian, 6,1 ms au 95ᵉ centile, 1,3 cœur occupé.
+
+**Non mesuré : le Radeon intégré.** karbon-ui ne sait pas encore choisir sa carte (c'est
+KUI-004) et l'écran est branché sur la RTX ; le faire dessiner sur le Radeon demanderait de
+changer la préférence de carte de Windows pour l'exécutable, un réglage de la machine qui
+n'a pas été touché. Ni la mise en page ni le défilement des panneaux ne sont mesurés : rien
+n'est cliqué ni tapé pendant le banc.
+
+### Mode copie allégé (KUI-002, 0.3.23)
+
+`Image::opaque_bgra` (alpha forcé à 255, sans vérifier chaque pixel) et `LiveImage` (le
+bitmap Direct2D de l'image précédente d'une source est repris et mis à jour par
+`CopyFromMemory` quand la taille ne change pas). Le banc s'en sert avec `--image live` ;
+`--image checked` garde l'ancien chemin (`Image::new` dans un `ImageSlot`, un bitmap neuf
+par image).
+
+```powershell
+./target/release/examples/editor_bench.exe --seconds 15 --feed live --image checked
+./target/release/examples/editor_bench.exe --seconds 15 --feed live --image live
+```
+
+Mêmes conditions que plus haut (RTX 4080, 1600 × 1000 unités à 150 %, composition,
+release), 15 s par tour, trois tours de chaque, alternés, 887 à 891 images par tour :
+
+| Tour | `work` p50 / p95 | `render` p50 / p95 | CPU (un cœur) | fil de la vue |
+| --- | --- | --- | --- | --- |
+| checked 1 | 3,29 / 4,74 ms | 2,47 / 3,34 | 40,0 % | 2,35 ms |
+| live 1 | 2,83 / 4,39 ms | 2,03 / 2,92 | 34,4 % | 2,01 ms |
+| checked 2 | 2,77 / 3,77 ms | 2,11 / 2,69 | 35,7 % | 2,10 ms |
+| live 2 | 2,46 / 3,61 ms | 1,79 / 2,36 | 32,4 % | 1,84 ms |
+| checked 3 | 2,66 / 3,46 ms | 2,00 / 2,42 | 34,5 % | 2,12 ms |
+| live 3 | 2,54 / 3,92 ms | 1,83 / 2,73 | 30,4 % | 1,83 ms |
+
+Lecture : **−0,3 ms de travail du fil de l'interface par image 3D au médian** (2,61 contre
+2,91 ms en moyenne des tours, −10 %), tout entier dans `render` (1,88 contre 2,19 ms) ;
+−0,3 ms sur le fil de la vue (`opaque_bgra` au lieu de `Image::new`) ; 4 points de CPU en
+moins. **Le gain est le tiers de ce que coûtait le bitmap neuf** (0,9 ms, écart entre
+`--feed live` et `--feed still` plus haut) : la création du bitmap disparaît, l'envoi des
+8 Mo à la carte reste (`CopyFromMemory`). L'exigence (« baisse d'au moins le coût mesuré
+de `CreateBitmap` ») est tenue si l'on compte la seule création ; pour aller plus loin,
+il faut le partage sur la carte graphique (KUI-003). Le Radeon n'est toujours pas mesuré
+(KUI-004).
+
+### Arbre de 100 000 lignes qui défile (KUI-029, 0.3.23)
+
+```powershell
+./target/release/examples/editor_components.exe --bench 15
+```
+
+L'exemple `editor_components` déplie tout son arbre (100 000 objets sur 8 niveaux) et,
+60 fois par seconde, descend le curseur de trois lignes : la vue est reconstruite et la
+liste défile jusqu'au curseur à chaque image (plus dur qu'un défilement à la molette, qui
+ne reconstruit rien). RTX 4080, fenêtre 1280 × 800 unités à 150 %, 15 s : **890 images,
+aucune en retard**, intervalles de 16,9 ms au médian et 17,6 ms au 95ᵉ centile ; travail
+du fil de l'interface 1,44 ms au médian, 1,96 ms au 95ᵉ centile ; 11 % d'un cœur.
+
+Déplier un nœud de 10 000 enfants dans un arbre de 87 000 lignes visibles :
+**1,7 ms** au médian (`TreeState::set_expanded`, release ;
+`cargo test --release --lib tree_timings -- --ignored --nocapture`). Au plus 60 lignes
+construites en défilant (test `a_hundred_thousand_nodes_build_only_the_visible_rows`).

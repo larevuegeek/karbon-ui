@@ -14,12 +14,14 @@ pub mod animation;
 pub mod bootstrap;
 pub mod components;
 pub mod core;
+pub mod editor;
 pub mod kit;
 pub mod layout;
 pub mod overlays;
 pub mod prelude;
 pub mod rendering;
 pub mod runtime;
+pub mod shared_surface;
 pub mod styling;
 pub mod template;
 #[cfg(test)]

@@ -8,6 +8,8 @@ pub(super) struct Canvas {
     pub(super) brush: ID2D1SolidColorBrush,
     pub(super) bitmaps: HashMap<usize, (Arc<Image>, ID2D1Bitmap)>,
     pub(super) gradients: gradients::Cache,
+    /// Clé du bitmap de la dernière image de chaque source vivante (`LiveImage`).
+    pub(super) live: HashMap<u64, usize>,
 }
 
 impl Canvas {
@@ -36,6 +38,7 @@ impl Canvas {
             gradients: Default::default(),
             shapes: Default::default(),
             svgs: Default::default(),
+            live: HashMap::new(),
         })
     }
     /// Images, formes, SVG et dégradés de `scene`, créés avant la passe de dessin.
@@ -286,6 +289,10 @@ impl Canvas {
                     self.plain_text(format, text_brush(&text_fills), *rect, text, *wrap)?;
                 }
                 DrawCommand::Image { rect, image } => {
+                    // Gabarit d'une surface partagée montrée sous l'interface : un trou.
+                    if self.punch_shared_surface(*rect, image) {
+                        continue;
+                    }
                     self.image(*rect, image);
                 }
                 DrawCommand::PushShapeClip { rect, radii } => {

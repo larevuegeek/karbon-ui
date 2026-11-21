@@ -3,6 +3,9 @@ use super::*;
 
 impl Canvas {
     pub(super) fn prepare_images(&mut self, scene: &Scene) -> crate::Result<()> {
+        // Images vivantes : la nouvelle image d'une source reprend le bitmap de la
+        // précédente, mis à jour en place, avant que celui-ci ne soit écarté ci-dessous.
+        self.update_live_bitmaps(scene)?;
         // Garder seulement les images de la scène courante ; les Arc empêchent la réutilisation d'une adresse encore en cache.
         let used: std::collections::HashSet<usize> = scene
             .commands

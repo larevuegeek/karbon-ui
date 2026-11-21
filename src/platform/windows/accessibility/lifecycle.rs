@@ -219,6 +219,10 @@ pub(super) fn apply(window: Hwnd, command: &Command) -> HRESULT {
                 2 => WindowAction::Close,
                 _ => return UNAVAILABLE,
             };
+            // Le bouton de fermeture demande d'abord l'accord de l'application.
+            if action == WindowAction::Close && !runtime::close_allowed(window) {
+                return OK;
+            }
             execute_action(window, action);
             sync(window);
             return OK;

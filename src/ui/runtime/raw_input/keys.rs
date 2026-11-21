@@ -1,10 +1,13 @@
 //! Toutes les touches du clavier, données à l'application quand aucun champ de saisie
 //! n'a le clavier.
 use super::super::*;
+use super::PhysicalKey;
 
-/// A key of the keyboard, named after its place on a US layout: [`KeyCode::W`] is the key
-/// at the place of W, whatever the layout prints on it (Z on a French keyboard). Games
-/// and tools bind keys by place, so that the same hand position works everywhere.
+/// A key of the keyboard, named after what the active layout prints on it. On Windows a
+/// letter comes from the virtual-key code, which follows the layout: the key marked Z
+/// gives [`KeyCode::Z`] on a French (AZERTY) keyboard as on a US one, so Ctrl+Z means
+/// undo for every user. To bind keys by their place instead (WASD on a US keyboard, ZQSD
+/// on a French one: the same keys), read [`KeyPress::physical`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 #[allow(missing_docs)]
@@ -94,6 +97,15 @@ pub struct KeyPress {
     pub control: bool,
     /// Alt is held.
     pub alt: bool,
+    /// Where the key is on the keyboard, whatever the layout prints on it: the key marked
+    /// Z on a French keyboard is [`PhysicalKey::KeyW`], like W on a US one. `None` for a
+    /// key the table does not know, and where the system does not give it yet.
+    pub physical: Option<PhysicalKey>,
+    /// The raw scan code given by the system, `0` when unknown. On Windows, the set-1 code
+    /// with `0xE000` added for the extended keys (`0xE048` is the up arrow, `0x48` the 8
+    /// of the numeric keypad). Its meaning depends on the system: prefer
+    /// [`physical`](Self::physical).
+    pub scancode: u32,
 }
 
 impl KeyPress {
@@ -107,6 +119,8 @@ impl KeyPress {
             shift: false,
             control: false,
             alt: false,
+            physical: None,
+            scancode: 0,
         }
     }
 }
