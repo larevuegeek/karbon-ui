@@ -10,6 +10,9 @@
 //! [`Element::on_pointer`](crate::ui::element::Element::on_pointer) and keys through
 //! [`Application::key`](crate::application::Application::key), delivered on Windows only
 //! for now. See `docs/editor.md`.
+//! A [`ColorPicker`] chooses a colour: a square of saturation and value, a hue bar, an
+//! opacity bar and the hexadecimal value, with its [`ColorPickerState`].
+mod color;
 mod field;
 mod label;
 mod menu_bar;
@@ -19,6 +22,9 @@ mod properties;
 mod testing;
 mod tree;
 
+pub use color::{
+    ColorEvent, ColorMsg, ColorPicker, ColorPickerState, ColorReply, Hsv, hex_of, parse_hex,
+};
 pub use field::{
     FieldChange, FieldEvent, FieldId, FieldMsg, FieldReply, FieldState, NumberField, VectorField,
 };

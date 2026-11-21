@@ -12,6 +12,8 @@ use karbon_ui::ui::{
     theme::Color,
 };
 
+use karbon_ui::ui::editor::ColorPicker;
+
 const PALETTE: EditorPalette = EditorPalette::DARK;
 
 /// Les menus, décrits d'après l'état (cases, entrées grisées).
@@ -205,11 +207,21 @@ fn properties(editor: &Editor) -> Element {
             "Couleur",
             color_swatch("color", Color::hex(0xFFC27A), Msg::PickColor, &PALETTE),
         ));
+    let color = PropertySection::new(4, "Couleur", open(4)).row(
+        Property::new(
+            "Lumière",
+            ColorPicker::new(1, editor.light, &editor.colors, Msg::Color)
+                .palette(PALETTE)
+                .element(),
+        )
+        .tooltip("Carré : saturation et clarté ; barre : teinte ; ou la valeur tapée."),
+    );
     PropertyGrid::new("properties", Msg::Fold)
         .palette(PALETTE)
         .section(object)
         .section(transform)
         .section(light)
+        .section(color)
         .element()
 }
 

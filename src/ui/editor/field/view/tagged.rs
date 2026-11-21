@@ -123,24 +123,30 @@ mod tests {
         let window = window(app, 400., 120.);
         let commands = &window.scene().commands;
         // Sans réglage : comme avant, le texte du système et le point.
-        assert!(commands.iter().any(
-            |c| matches!(c, DrawCommand::Text { text, .. } if &**text == "1.50")
-        ));
+        assert!(
+            commands
+                .iter()
+                .any(|c| matches!(c, DrawCommand::Text { text, .. } if &**text == "1.50"))
+        );
         // Réglé : la virgule, dans la police donnée.
         assert!(commands.iter().any(|c| matches!(c,
             DrawCommand::FontText { text, font, .. }
                 if &**text == "2,25" && font.family == "Consolas" && font.weight == 500)));
-        assert!(!commands.iter().any(
-            |c| matches!(c, DrawCommand::Text { text, .. } if &**text == "2.25")
-        ));
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, DrawCommand::Text { text, .. } if &**text == "2.25"))
+        );
         // L'onglet de la lettre X, teinté de la couleur de l'axe.
         let tint = crate::ui::theme::Color {
             alpha: 0x1F,
             ..EditorPalette::DARK.axes[0]
         };
-        assert!(commands.iter().any(
-            |c| matches!(c, DrawCommand::Fill { color, rect, .. }
-                if *color == tint && (rect.right - rect.left - super::TAG_WIDTH).abs() < 0.01)
-        ));
+        assert!(
+            commands
+                .iter()
+                .any(|c| matches!(c, DrawCommand::Fill { color, rect, .. }
+                if *color == tint && (rect.right - rect.left - super::TAG_WIDTH).abs() < 0.01))
+        );
     }
 }

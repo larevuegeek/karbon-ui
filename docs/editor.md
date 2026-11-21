@@ -204,3 +204,46 @@ réglages et l'appel du peintre). Ce qui manque encore à karbon-ui pour l'édit
 karbon-engine (couleurs de la barre de titre, séparateurs réglables, bouton à icône, taille
 du texte des listes, icônes dans les menus, police des autres composants) reste à faire :
 l'éditeur peint lui-même ses boutons et ses textes en attendant.
+
+## Sélecteur de couleur (`ColorPicker`, 0.3.26)
+
+Pour la carte Matière de l'éditeur de karbon-engine (couleur de base, couleur d'une
+lumière), et pour toute couleur d'un inspecteur :
+
+```rust
+ColorPicker::new(1, rgb, &self.colors, Msg::Color)
+    .alpha(opacite)      // une barre d'opacité, si on la veut
+    .height(110.)        // hauteur du carré (120 par défaut)
+    .palette(PALETTE)
+    .element()
+// Dans update :
+let reply = self.colors.update(m);
+if let Some(e) = reply.event { /* e.key, e.rgb, e.alpha, e.change */ }
+// Dans Application::key : self.colors.key(press) (Échap pendant un glisser).
+```
+
+- Un carré (saturation en travers, valeur en hauteur) sur la teinte choisie, une barre
+  de teinte, une barre d'opacité au besoin (sur un damier), puis une pastille de la
+  couleur et sa valeur hexadécimale à taper (`#RRGGBB` ou `#RGB`, avec ou sans `#`).
+- Un appui dans le carré ou une barre prend la couleur à cet endroit, le glisser la
+  change : des `FieldChange::Preview` pendant le geste, **un seul** `FieldChange::Commit`
+  au relâchement (pour l'historique), Échap rend la couleur d'avant
+  (`FieldChange::Cancel`). Le geste suit le pointeur hors du carré (bornes tenues).
+- La valeur tapée compte à Entrée, Tab ou quand la zone perd le clavier ; une valeur
+  illisible ne change rien ; Échap l'abandonne.
+- Un gris ou un noir n'a pas de teinte : l'état retient la teinte et la saturation du
+  dernier geste, tant que la couleur reçue est bien celle qu'elles donnent ; la barre de
+  teinte ne saute pas au rouge quand on désature.
+- Rouge, vert, bleu de 0 à 1, dans l'espace que choisit l'application (sRGB pour une
+  couleur montrée telle quelle ; l'éditeur de karbon-engine convertit en lumière
+  linéaire). Conversions publiques : `Hsv::from_rgb`, `Hsv::to_rgb`, `hex_of`,
+  `parse_hex`.
+- La pipette (prendre une couleur à l'écran) n'est pas faite.
+
+Code : `src/ui/editor/color/` (`convert.rs`, `state.rs`, `view.rs`, `tests.rs`), tout neuf ;
+dans `src/ui/editor/mod.rs`, des lignes ajoutées seulement. Aucun composant existant n'est
+changé. Dans l'exemple `editor_components`, une section « Couleur » de la grille de
+propriétés montre le sélecteur (lignes ajoutées). Tests sans fenêtre : aller-retour des
+couleurs et de l'hexadécimal, glisser dans le carré (un seul `Commit`), teinte gardée d'un
+gris, Échap, barre d'opacité, valeur tapée (contrôle négatif fait sur la teinte gardée).
+Le pointeur arrive par `Element::on_pointer`, donc **sous Windows seulement** pour l'instant.

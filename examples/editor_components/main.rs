@@ -16,6 +16,7 @@
 mod view;
 mod world;
 
+use karbon_ui::ui::editor::{ColorMsg, ColorPickerState};
 use karbon_ui::{
     platform,
     task::Inbox,
@@ -42,6 +43,8 @@ pub enum Msg {
     Visible(bool),
     Kind(u64),
     PickColor,
+    /// Un geste sur le sélecteur de couleur de la lumière.
+    Color(ColorMsg),
     Zoom(f32),
     /// Clic droit dans l'arbre : son menu, à cette place.
     TreeMenu(karbon_ui::ui::scene::PointF),
@@ -72,6 +75,9 @@ pub struct Editor {
     pub level: Level,
     pub tree: TreeState,
     pub fields: FieldState,
+    /// Le sélecteur de couleur, et la couleur de la lumière (sRGB, de 0 à 1).
+    pub colors: ColorPickerState,
+    pub light: [f32; 3],
     pub menus: MenuBarState,
     pub folded: HashSet<u64>,
     pub panel: Panel,
@@ -105,6 +111,8 @@ impl Editor {
             level,
             tree,
             fields: FieldState::default(),
+            colors: ColorPickerState::default(),
+            light: [1., 0.76, 0.48],
             menus: MenuBarState::default(),
             folded: HashSet::new(),
             panel: Panel::Tree,
@@ -141,6 +149,21 @@ impl Editor {
             _ => {}
         }
         true
+    }
+
+    /// Un geste sur le sélecteur de couleur : la couleur suit le glisser, et la ligne
+    /// d'état dit la valeur retenue à la fin du geste.
+    fn color_message(&mut self, message: ColorMsg) -> bool {
+        self.panel = Panel::Other;
+        let reply = self.colors.update(message);
+        if let Some(event) = reply.event {
+            self.light = event.rgb;
+            if event.change == FieldChange::Commit {
+                let hex = karbon_ui::ui::editor::hex_of(event.rgb);
+                self.status = format!("Couleur de la lumière : {hex}");
+            }
+        }
+        reply.rebuild
     }
 
     fn field_message(&mut self, message: FieldMsg) -> bool {
@@ -233,6 +256,7 @@ impl Application for Editor {
             }
             Msg::Tree(message) => return self.tree_message(message),
             Msg::Field(message) => return self.field_message(message),
+            Msg::Color(message) => return self.color_message(message),
             Msg::Fold(section) => {
                 if !self.folded.remove(&section) {
                     self.folded.insert(section);
@@ -261,6 +285,11 @@ impl Application for Editor {
         let field = self.fields.key(press);
         if field.rebuild {
             return self.apply_field(field);
+        }
+        let color = self.colors.key(press);
+        if let Some(event) = color.event {
+            self.light = event.rgb;
+            return true;
         }
         if press.pressed && press.control {
             let command = match press.key {
