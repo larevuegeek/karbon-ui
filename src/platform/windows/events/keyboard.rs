@@ -61,6 +61,8 @@ pub(super) fn key_down(
     lparam: isize,
     default_proc: impl FnOnce() -> isize,
 ) -> isize {
+    // L'application reçoit la touche (`Application::key`), puis son traitement ordinaire.
+    super::raw_input::key(window, wparam, lparam, true);
     // Touches de diagnostic : jamais dans une application ordinaire, où F2, F3, F5 et F8
     // appartiennent à l'application ou à Windows.
     let first = lparam & REPEATED == 0 && state::options().profile;
@@ -155,6 +157,7 @@ fn key_command(
 
 /// WM_KEYUP.
 pub(super) fn key_up(window: Hwnd, wparam: usize, default_proc: impl FnOnce() -> isize) -> isize {
+    super::raw_input::key(window, wparam, 0, false);
     if let Some(key) = key(wparam)
         && send_ui(window, UiEvent::KeyUp(key))
     {

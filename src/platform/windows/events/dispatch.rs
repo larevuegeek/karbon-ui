@@ -103,6 +103,23 @@ pub(super) unsafe fn window_message(
         WM_MOUSELEAVE => pointer::mouse_leave(window),
         WM_LBUTTONDOWN => pointer::button_down(window, lparam),
         WM_LBUTTONUP => pointer::button_up(window, lparam),
+        // Boutons droit et du milieu, pour `on_pointer` ; Windows garde leur traitement.
+        windows_sys::Win32::UI::WindowsAndMessaging::WM_RBUTTONDOWN => {
+            let button = (crate::ui::runtime::PointerButton::Secondary, true);
+            super::raw_input::side_button(window, lparam, button, default_proc)
+        }
+        windows_sys::Win32::UI::WindowsAndMessaging::WM_RBUTTONUP => {
+            let button = (crate::ui::runtime::PointerButton::Secondary, false);
+            super::raw_input::side_button(window, lparam, button, default_proc)
+        }
+        windows_sys::Win32::UI::WindowsAndMessaging::WM_MBUTTONDOWN => {
+            let button = (crate::ui::runtime::PointerButton::Middle, true);
+            super::raw_input::side_button(window, lparam, button, default_proc)
+        }
+        windows_sys::Win32::UI::WindowsAndMessaging::WM_MBUTTONUP => {
+            let button = (crate::ui::runtime::PointerButton::Middle, false);
+            super::raw_input::side_button(window, lparam, button, default_proc)
+        }
         WM_CAPTURECHANGED => pointer::capture_changed(window),
         WM_KEYDOWN => keyboard::key_down(window, wparam, lparam, default_proc),
         WM_KEYUP => keyboard::key_up(window, wparam, default_proc),

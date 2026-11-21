@@ -201,6 +201,7 @@ pub(super) fn mouse_move(window: Hwnd, lparam: isize) -> isize {
     }
     caption::update_hover(window, caption::button_from_message(window, lparam));
     send_ui(window, UiEvent::PointerMove(pointer(window, lparam)));
+    super::raw_input::pointer(window, lparam, crate::ui::runtime::PointerPhase::Move, None);
     update_cursor();
     paint::flush_if_due(window);
     if !TRACKING_MOUSE.with(Cell::get) {
@@ -233,12 +234,26 @@ pub(super) fn button_down(window: Hwnd, lparam: isize) -> isize {
                 UiEvent::PointerDown(pointer(window, lparam))
             },
         );
+        let primary = Some(crate::ui::runtime::PointerButton::Primary);
+        super::raw_input::pointer(
+            window,
+            lparam,
+            crate::ui::runtime::PointerPhase::Down,
+            primary,
+        );
     }
     0
 }
 pub(super) fn button_up(window: Hwnd, lparam: isize) -> isize {
     if !grip::finish(window) && !caption::release(window, lparam) {
         send_ui(window, UiEvent::PointerUp(pointer(window, lparam)));
+        let primary = Some(crate::ui::runtime::PointerButton::Primary);
+        super::raw_input::pointer(
+            window,
+            lparam,
+            crate::ui::runtime::PointerPhase::Up,
+            primary,
+        );
     }
     0
 }

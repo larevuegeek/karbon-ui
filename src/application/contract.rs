@@ -310,6 +310,19 @@ pub trait Application: 'static {
     {
         None
     }
+    /// A key pressed or released while no text field has the keyboard
+    /// ([`KeyPress`](crate::ui::runtime::KeyPress)): every key of the keyboard, by its
+    /// place, with Shift, Ctrl and Alt. Shortcuts of a tool or a game (Ctrl+Z, a letter
+    /// per tool) and keys held to move. Return `true` to rebuild the view. Defaults to
+    /// ignoring the keys.
+    ///
+    /// The key keeps its usual effect on the interface: Tab moves the focus, Enter
+    /// activates the focused control, Escape closes a menu. Not delivered on macOS and
+    /// Linux yet.
+    fn key(&mut self, press: crate::ui::runtime::KeyPress) -> bool {
+        let _ = press;
+        false
+    }
 }
 
 /// Façade objet d'une application : le runtime et les fenêtres ignorent son type de message.
@@ -328,6 +341,7 @@ pub(crate) trait DynApplication {
     fn tray_event(&mut self, event: crate::window::TrayEvent) -> bool;
     fn image_loader(&self) -> Option<crate::resources::ImageLoader>;
     fn inbox(&self) -> Option<Arc<dyn crate::task::InboxPort>>;
+    fn key(&mut self, press: crate::ui::runtime::KeyPress) -> bool;
     /// Accès typé pour le harnais headless, qui connaît le type concret.
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
@@ -398,6 +412,9 @@ impl<A: Application> DynApplication for A {
     }
     fn inbox(&self) -> Option<Arc<dyn crate::task::InboxPort>> {
         Application::inbox(self).map(|inbox| inbox.port())
+    }
+    fn key(&mut self, press: crate::ui::runtime::KeyPress) -> bool {
+        Application::key(self, press)
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self

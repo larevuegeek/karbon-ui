@@ -8,5 +8,6 @@ mod keyboard;
 mod nonclient;
 mod pointer;
 mod procedure;
+mod raw_input;
 pub(crate) mod text;
 pub(crate) use procedure::*;

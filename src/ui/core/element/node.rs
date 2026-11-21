@@ -82,6 +82,7 @@ pub(crate) struct Listeners {
     pub focus: Option<Handler<bool>>,
     pub double_click: Option<Action>,
     pub pan: Option<Handler<crate::ui::drag_drop::PanEvent>>,
+    pub pointer: Option<crate::ui::runtime::raw_input::PointerHandler>,
 }
 thread_local! {
     /// Un gestionnaire a été posé depuis la dernière lecture.
@@ -118,6 +119,26 @@ impl Element {
         handler: impl Fn(crate::ui::drag_drop::PanEvent) -> M + 'static,
     ) -> Self {
         self.listeners_mut().pan = Some(Handler::new(handler));
+        self
+    }
+    /// React to the three buttons of the mouse over this element: a button down, the
+    /// pointer moving, a button up
+    /// ([`PointerEvent`](crate::ui::runtime::PointerEvent)), with the position in the
+    /// element. `handler` returns the message to send, or `None` to let the event go to
+    /// the ancestors of the element.
+    ///
+    /// When the handler takes a button down, this element receives the rest of the
+    /// gesture, moves and releases, even outside it and outside the window, until the
+    /// last button is released: the way to turn a 3D view while the right button is held.
+    /// Without a gesture, moves go to the elements under the pointer. The usual effects
+    /// of the primary button (click, drag, selection) and the context menu of the
+    /// secondary one still happen. Not delivered on macOS and Linux yet.
+    pub fn on_pointer<M: 'static>(
+        mut self,
+        handler: impl Fn(crate::ui::runtime::PointerEvent) -> Option<M> + 'static,
+    ) -> Self {
+        let handler = crate::ui::runtime::raw_input::PointerHandler::new(handler);
+        self.listeners_mut().pointer = Some(handler);
         self
     }
     /// Reports the focus entering (`true`) and leaving (`false`) this element or its

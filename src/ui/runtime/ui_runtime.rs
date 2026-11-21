@@ -139,6 +139,8 @@ pub struct UiRuntime {
     pub(super) window_radius: f32,
     /// Mesures de texte gardées d'une image à l'autre.
     pub(super) text_cache: text_cache::TextCache,
+    /// Geste en cours des gestionnaires `on_pointer` (`raw_input`).
+    pub(super) raw_pointer: raw_input::RawPointerState,
 }
 impl UiRuntime {
     /// Load `app` and prepare its first view; messages emitted by the view are
@@ -169,6 +171,7 @@ impl UiRuntime {
             live_resize: false,
             window_radius: 0.,
             text_cache: Default::default(),
+            raw_pointer: Default::default(),
         })
     }
 

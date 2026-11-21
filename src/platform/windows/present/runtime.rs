@@ -213,6 +213,43 @@ pub(crate) fn input(window: Hwnd, event: UiEvent) -> EventResult {
         }
     }
 }
+/// Entrée brute (`ui::runtime::raw_input`) : comme [`input`], par une fonction du
+/// runtime plutôt qu'un `UiEvent`. Un mouvement (`moving`) se sert de l'arbre de l'image
+/// précédente, comme `UiEvent::PointerMove`. Sans état, ou reçue pendant un appel de
+/// l'application, elle est ignorée.
+pub(crate) fn raw_input(
+    window: Hwnd,
+    moving: bool,
+    apply: impl FnOnce(&mut crate::ui::runtime::UiRuntime) -> EventResult,
+) -> EventResult {
+    let result = exclusive(window, |state| -> crate::Result<EventResult> {
+        if !moving {
+            state.prepare(window)?;
+        }
+        let result = apply(&mut state.runtime);
+        if result.repaint && !moving {
+            state.prepare(window)?;
+        }
+        Ok(result)
+    })
+    .unwrap_or_else(|| Ok(EventResult::default()));
+    match result {
+        Ok(result) => result,
+        Err(error) => {
+            record_error(error);
+            // SAFETY : destruction sur le thread propriétaire ; Windows valide le handle.
+            unsafe { DestroyWindow(window) };
+            EventResult::default()
+        }
+    }
+}
+/// Un élément a pris un geste du pointeur (`on_pointer`) qui n'est pas fini.
+pub(crate) fn pointer_gesture() -> bool {
+    DRAWING.with(|slot| {
+        slot.try_borrow()
+            .is_ok_and(|s| s.as_ref().is_some_and(|s| s.runtime.pointer_gesture()))
+    })
+}
 pub(crate) fn print_stats() {
     DRAWING.with(|slot| {
         if let Ok(s) = slot.try_borrow()
