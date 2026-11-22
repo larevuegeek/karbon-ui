@@ -24,7 +24,10 @@ pub fn subtree<T>(build: impl FnOnce() -> T) -> T {
 /// Empty rich text using the context font, at 15 logical pixels scaled by the context
 /// scale; templates append the runs of `<p>`, headings and inline content to it.
 pub fn rich<R>(cx: &TemplateContext<'_, R>) -> RichText {
-    RichText::new().font(cx.font).size(15. * cx.scale)
+    RichText::new()
+        .font(cx.font)
+        .size(15. * cx.scale)
+        .context_variables(cx.variables)
 }
 
 impl Node<RichText> {

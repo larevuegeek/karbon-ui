@@ -100,3 +100,101 @@ fn conditional_root_variables_reach_every_painted_value() -> karbon_ui::Result<(
     assert!(has(&colors(&app), 0xdddddd));
     Ok(())
 }
+
+struct InlineDigits(Rc<Cell<ColorPreferences>>);
+impl Application for InlineDigits {
+    type Message = ();
+    fn view(&self, _: &ViewContext) -> Element {
+        let (dark, contrast) = color_scheme();
+        let cx = TemplateContext::default();
+        let cx = cx.with_variables(css::root_variables(dark, contrast));
+        ui! { @context(cx); @styles(css);
+            <div class="flex flex-wrap items-baseline gap-x-4 text-sm">
+                {#each [("9 440".to_string(), "titres".to_string())] as c (c.1.as_str())}
+                    <span class="whitespace-nowrap"><b class="font-bold text-(--digit)">{c.0}</b> {c.1}</span>
+                {/each}
+                <p><b class="font-bold text-(--digit)">602</b> albums</p>
+            </div>
+        }
+    }
+    fn update(&mut self, _: ()) -> bool {
+        true
+    }
+    fn color_preferences(&self) -> ColorPreferences {
+        self.0.get()
+    }
+}
+
+#[test]
+fn inline_runs_read_the_variables_of_the_current_scheme() -> karbon_ui::Result<()> {
+    let preferences = Rc::new(Cell::new(ColorPreferences {
+        scheme: ColorScheme::Light,
+        high_contrast: false,
+    }));
+    let mut app = HeadlessApp::with_options(InlineDigits(preferences.clone()), options(800., 400.))?;
+    let light = colors_of(&app);
+    assert_eq!(light.len(), 2, "{light:?}");
+    assert!(has(&light, 0x1a1a1a) && !has(&light, 0xf1f1f1), "clair : {light:?}");
+    // Vue reconstruite sans changement de style : la portion garde la couleur du thème.
+    app.send(())?;
+    let light = colors_of(&app);
+    assert!(has(&light, 0x1a1a1a) && !has(&light, 0xf1f1f1), "clair, après mise à jour : {light:?}");
+    Ok(())
+}
+
+fn colors_of(app: &HeadlessApp<InlineDigits>) -> Vec<Color> {
+    let mut out = Vec::new();
+    for command in &app.scene().commands {
+        match command {
+            DrawCommand::RichText { paragraph, .. } => {
+                out.extend(paragraph.spans.iter().filter_map(|r| r.style.color));
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+struct LightSelect;
+impl Application for LightSelect {
+    type Message = u64;
+    fn view(&self, _: &ViewContext) -> Element {
+        let cx = TemplateContext::default();
+        ui! { @context(cx); @styles(css);
+            <div class="flex flex-col p-4">
+                <select id="langue" class="w-40 h-9" value={1u64} onchange={|i: u64| i}>
+                    <option value={1u64}>Français</option>
+                    <option value={2u64}>English</option>
+                </select>
+            </div>
+        }
+    }
+    fn update(&mut self, _: u64) -> bool {
+        false
+    }
+    fn color_preferences(&self) -> ColorPreferences {
+        ColorPreferences {
+            scheme: ColorScheme::Light,
+            high_contrast: false,
+        }
+    }
+}
+
+#[test]
+fn an_open_select_list_follows_the_scheme_the_application_chose() -> karbon_ui::Result<()> {
+    // Fenêtre au thème sombre (défaut du harnais), application en clair.
+    let mut app = HeadlessApp::with_options(LightSelect, options(400., 300.))?;
+    app.click("langue")?;
+    let fills = app
+        .scene()
+        .commands
+        .iter()
+        .filter_map(|c| match c {
+            DrawCommand::Fill { color, .. } => Some(*color),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert!(fills.contains(&karbon_ui::ui::theme::Theme::LIGHT.surface), "{fills:?}");
+    assert!(!fills.contains(&karbon_ui::ui::theme::Theme::DARK.surface), "{fills:?}");
+    Ok(())
+}

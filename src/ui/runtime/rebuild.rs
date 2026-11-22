@@ -141,9 +141,24 @@ impl UiRuntime {
     /// thème du moteur.
     pub(super) fn themed_context(&mut self, context: ViewContext) -> ViewContext {
         self.invalidation.kit_used |= crate::ui::kit::take_used();
+        use crate::ui::theme::Theme;
         if self.invalidation.kit_used {
             ViewContext {
                 theme: crate::ui::kit::engine_theme(self.invalidation.colors.0),
+                ..context
+            }
+        } else if (context.theme == Theme::DARK || context.theme == Theme::LIGHT)
+            && self.app.color_preferences().scheme != crate::application::ColorScheme::System
+        {
+            // Schéma imposé par l'application : la palette intégrée le suit, comme ses
+            // feuilles `prefers-color-scheme` (liste d'un `<select>`, menu d'édition,
+            // infobulles), au lieu de garder celle de la fenêtre.
+            ViewContext {
+                theme: if self.invalidation.colors.0 {
+                    Theme::DARK
+                } else {
+                    Theme::LIGHT
+                },
                 ..context
             }
         } else {

@@ -15,3 +15,8 @@
 @media (prefers-color-scheme: dark) {
     .theme-band { background: linear-gradient(90deg, #abcdef, #fedcba); }
 }
+/* Couleur d'une portion en ligne lue dans une variable (`<b class="text-(--digit)">`). */
+:root { --digit: #f1f1f1; }
+@media (prefers-color-scheme: light) {
+    :root { --digit: #1a1a1a; }
+}

@@ -58,6 +58,9 @@ pub struct RichText {
     /// Couleurs de portions qui lisent des variables (`text-(--accent)` d'un `<span>`) :
     /// rang de la portion et expression, évaluée à la résolution des styles.
     variable_colors: Vec<(usize, &'static crate::ui::styling::ColorExpression)>,
+    /// Variables du template qui a bâti le paragraphe, lues quand son nœud n'en porte pas
+    /// (texte anonyme d'un `{#each}`, `<p>` sans classe autour d'un `<b class>`).
+    context_variables: Option<crate::ui::styling::CssVariables>,
 }
 impl Default for RichText {
     fn default() -> Self {
@@ -77,6 +80,7 @@ impl RichText {
             links: Vec::new(),
             role: Role::Text,
             variable_colors: Vec::new(),
+            context_variables: None,
         }
     }
     /// Sets the accessibility role ([`Role::Text`] by default, [`Role::Heading`] for titles).
@@ -135,6 +139,13 @@ impl RichText {
         if let (Some(color), Some(last)) = (color, self.runs.len().checked_sub(1)) {
             self.variable_colors.push((last, color));
         }
+        self
+    }
+    /// Variables of the template context, read by variable run colours when the
+    /// paragraph's node has none.
+    #[doc(hidden)]
+    pub fn context_variables(mut self, variables: Option<&crate::ui::styling::CssVariables>) -> Self {
+        self.context_variables = variables.cloned();
         self
     }
     /// Sets the base font size in logical units.
@@ -286,6 +297,7 @@ impl Widget for RichText {
         variables: Option<&crate::ui::styling::CssVariables>,
         current: Color,
     ) {
+        let variables = variables.or(self.context_variables.as_ref());
         for &(index, color) in &self.variable_colors {
             if let Some(run) = self.runs.get_mut(index) {
                 run.style.color = Some(color.evaluate(current, variables));
