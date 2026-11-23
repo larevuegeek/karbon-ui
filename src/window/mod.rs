@@ -11,7 +11,11 @@ pub(crate) mod validation;
 pub use change::{WindowChange, WindowState};
 mod dialog;
 pub use dialog::{FileDialog, FileDialogKind, FileDialogResult, FileFilter};
+mod desktop;
 mod tray;
+pub use desktop::{
+    MessageAnswer, MessageButtons, MessageIcon, Monitor, Placement, message_box, monitors,
+};
 pub use tray::{TrayEvent, TrayIcon, TrayMenuItem};
 mod config;
 pub use config::*;

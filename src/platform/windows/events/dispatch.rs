@@ -72,6 +72,8 @@ pub(super) unsafe fn window_message(
             0
         }
         WM_KILLFOCUS => {
+            // Un geste au pointeur verrouillé finit, et le pointeur est rendu.
+            super::pointer_lock::lost(window);
             send_ui(window, UiEvent::Cancel);
             send_ui(window, UiEvent::FocusChanged(false));
             text::reset();

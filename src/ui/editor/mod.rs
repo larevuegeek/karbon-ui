@@ -12,8 +12,13 @@
 //! for now. See `docs/editor.md`.
 //! A [`ColorPicker`] chooses a colour: a square of saturation and value, a hue bar, an
 //! opacity bar and the hexadecimal value, with its [`ColorPickerState`]. A [`Sequencer`]
-//! is a time line of tracks and keys with a play head, with its [`SequencerState`].
+//! is a time line of tracks and keys with a play head, with its [`SequencerState`]. A
+//! [`Toolbar`] shows icon buttons, options and exclusive choices, and puts what does
+//! not fit in an overflow menu. A [`CurveEditor`] edits curves of keys and slopes, on a
+//! 2D view from [`canvas`] (zoom around the pointer, thick Bézier strokes).
+pub mod canvas;
 mod color;
+mod curves;
 mod field;
 mod label;
 mod menu_bar;
@@ -22,10 +27,16 @@ mod properties;
 mod sequencer;
 #[cfg(test)]
 mod testing;
+mod theme_file;
+mod toolbar;
 mod tree;
 
 pub use color::{
     ColorEvent, ColorMsg, ColorPicker, ColorPickerState, ColorReply, Hsv, hex_of, parse_hex,
+};
+pub use curves::{
+    Curve, CurveEditor, CurveEditorState, CurveEvent, CurveKey, CurveMsg, CurveRef, CurveReply,
+    KeyMode,
 };
 pub use field::{
     FieldChange, FieldEvent, FieldId, FieldMsg, FieldReply, FieldState, NumberField, VectorField,
@@ -41,6 +52,7 @@ pub use properties::{
 pub use sequencer::{
     KeyRef, Sequencer, SequencerEvent, SequencerMsg, SequencerReply, SequencerState, SequencerTrack,
 };
+pub use toolbar::{ToolItem, Toolbar, ToolbarMsg, ToolbarState};
 pub use tree::{
     DropPlace, TreeDrop, TreeEvent, TreeItem, TreeMsg, TreeReply, TreeRow, TreeSource, TreeState,
     TreeView,

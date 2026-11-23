@@ -2,6 +2,7 @@
 mod aria;
 mod builders;
 mod id;
+mod input_handlers;
 pub(crate) mod memo;
 mod rules;
 mod types;

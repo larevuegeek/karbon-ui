@@ -172,13 +172,15 @@ impl<A: Application> HeadlessApp<A> {
                 "invalid headless display scale",
             ));
         }
+        // Zoom de l'interface choisi par l'application : moins d'unités, plus grandes.
+        let zoom = self.ui.interface_zoom();
         Ok(ViewContext {
-            width: o.width,
-            height: o.height - title,
+            width: o.width / zoom,
+            height: (o.height - title) / zoom,
             theme: o.theme,
             transparent: o.transparent,
             backend: super::super::LABEL,
-            scale: o.scale,
+            scale: o.scale * zoom,
         })
     }
 

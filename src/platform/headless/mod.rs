@@ -68,7 +68,7 @@ mod resources;
 mod tests;
 mod text;
 
-pub use app::{HeadlessApp, HeadlessOptions};
+pub use app::{HeadlessApp, HeadlessOptions, RawModifiers};
 pub use text::HeadlessTextMeasurer;
 
 pub(crate) use backend::Headless;

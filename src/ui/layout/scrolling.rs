@@ -18,6 +18,32 @@ pub(super) fn bar_thickness(node: &Element) -> f32 {
         .map_or(Default::default(), |r| r.scrollbar)
         .thickness()
 }
+/// Indique au contenu d'une zone qui défile si sa longueur le long du défilement est
+/// définie : c'est le cas quand celle de la zone l'est (`h-full`, `h-64`, `flex-1` d'un
+/// parent déjà résolu…). En CSS, la zone est elle-même le conteneur flex : une base en
+/// pourcentage (`flex-1`) s'y résout contre la zone, et un élément `min-h-0` rétrécit
+/// au lieu de pousser la zone en débordement. Une zone de longueur automatique laisse
+/// la base valoir la taille du contenu.
+pub(super) fn mark_content(node: &mut Element, axis: Axis) {
+    let length = match axis {
+        Axis::Horizontal => node.style.width,
+        Axis::Vertical => node.style.height,
+    };
+    let definite = !matches!(length, Length::Auto | Length::MaxContent);
+    let Some(content) = node.children.first_mut() else {
+        return;
+    };
+    // Seulement le long de l'axe principal du contenu (colonne qui défile verticalement,
+    // rangée qui défile horizontalement).
+    let main = match axis {
+        Axis::Horizontal => matches!(content.layout, Layout::Row),
+        Axis::Vertical => matches!(content.layout, Layout::Column),
+    };
+    let definite = definite && main;
+    if definite || content.rules.is_some() {
+        content.layout_rules().definite_main = definite;
+    }
+}
 pub(super) fn place(
     node: &mut Element,
     area: RectF,
@@ -25,6 +51,7 @@ pub(super) fn place(
     text: &mut dyn TextMeasurer,
     context: LayoutContext,
 ) -> crate::Result<()> {
+    mark_content(node, axis);
     let always = gutter_always(node, axis);
     let overflows = |desired: SizeF, available: SizeF| match axis {
         Axis::Horizontal => desired.width > available.width + 0.01,

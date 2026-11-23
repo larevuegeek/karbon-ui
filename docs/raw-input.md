@@ -140,3 +140,110 @@ Contrôles faits :
   ajoutée à `events/pointer.rs` (`wheel`) avant le traitement existant.
 - Voir aussi [les composants d'éditeur](editor.md) : fermeture annulable
   (`Application::close_requested`), `TextInput::autofocus`, `LiveImage`.
+
+## Ajouts pour l'éditeur de karbon-engine (KUI-012, KUI-013, KUI-014, KUI-046)
+
+Tout est fait par ajout ; une application qui ne se sert pas de ces gestionnaires ne voit
+rien changer (tests de `raw_input` et exports de référence inchangés).
+
+### Les touches manquantes (KUI-012)
+
+- `KeyCode` gagne la ponctuation (`Minus`, `Equal`, `BracketLeft`, `BracketRight`,
+  `Backslash`, `Semicolon`, `Quote`, `Backquote`, `Comma`, `Period`, `Slash`), le pavé
+  numérique (`Numpad0` à `Numpad9`, `NumpadAdd`, `NumpadSubtract`, `NumpadMultiply`,
+  `NumpadDivide`, `NumpadDecimal`), F13 à F24, `Meta` (touche Windows), `CapsLock`,
+  `NumLock`, `ScrollLock`, `PrintScreen`, `Pause`, `ContextMenu`, et `Unidentified`.
+- Une touche de ponctuation est nommée **d'après son caractère dans la disposition
+  active** (`MapVirtualKeyW`) : sur un clavier français, la touche à la place du « ; »
+  américain donne « , », donc `Comma`. Une touche dont le caractère n'a pas de nom (« ^ »,
+  « $ », « ù », « < » d'un AZERTY) arrive comme `Unidentified`, avec sa place dans
+  `physical` (`BracketLeft`, `BracketRight`…) : c'est par elle qu'on la lie.
+- Les touches nommées avant gardent leur nom : la table ajoutée
+  (`platform/windows/events/more_keys.rs`) n'est consultée que si l'ancienne ne connaît
+  pas le code. **Ces touches arrivent maintenant à `Application::key`**, comme Alt+lettre
+  depuis 0.3.22 : une application qui écrit `key` les reçoit en plus.
+- Gauche et droite (Maj, Ctrl, Alt) : `physical` les distingue (`ShiftLeft`,
+  `ShiftRight`…).
+- `KeyPress::meta` et `PointerEvent::meta` : la touche Windows tenue.
+
+### Le clavier du panneau qui a le focus (KUI-013) : `Element::on_key`
+
+```rust
+let view = column("view", children).on_key(|press: KeyPress| {
+    (press.pressed && press.key == KeyCode::Delete).then_some(Msg::RemoveObject)
+});
+let tree = column("tree", rows).on_key(|press: KeyPress| {
+    (press.pressed && press.key == KeyCode::Delete).then_some(Msg::RemoveLine)
+});
+```
+
+- Une touche part de l'élément qui a le focus clavier s'il a changé depuis le dernier
+  appui (Tab), sinon de l'élément où l'on a appuyé en dernier (n'importe quel bouton de
+  la souris), et remonte ses ancêtres jusqu'au premier `on_key` qui rend un message ;
+  sinon elle va à `Application::key`, comme avant.
+- Rien n'y arrive pendant qu'un champ de saisie a le clavier (comme pour `key`).
+- Code : `src/ui/runtime/raw_input/panel_keys.rs`.
+
+### Pointeur verrouillé et mouvement relatif (KUI-014)
+
+```rust
+column("view", [])
+    .on_pointer(|e: PointerEvent| match e.phase {
+        PointerPhase::Move => Some(Msg::Turn(e.delta.0, e.delta.1)),
+        _ => e.button.map(|_| Msg::Grab),
+    })
+    .pointer_lock(self.flying)
+```
+
+- `PointerEvent::delta` : l'écart depuis l'événement précédent (pour tout mouvement).
+- `Element::pointer_lock(true)` : pendant un geste pris par cet élément, Windows cache le
+  pointeur (`ShowCursor`), le tient dans la fenêtre (`ClipCursor`) et le ramène à la
+  place de l'appui après chaque mouvement (`SetCursorPos`) ; `delta` est alors le
+  mouvement propre de la souris, qui ne bute jamais au bord de l'écran. À la fin du
+  geste, le pointeur est rendu, visible, à sa place.
+- La fenêtre perd le clavier (Alt+Tab, `WM_KILLFOCUS`) ou la souris
+  (`WM_CAPTURECHANGED`) : l'élément reçoit le relâchement des boutons tenus et le geste
+  finit (`UiRuntime::pointer_lock_lost`). Sans verrou, rien ne change.
+- Le drapeau est lu sur l'arbre en cours : une application le pose d'après son état
+  (l'éditeur : `pointer_lock(self.camera.is_some())`), la vue étant refaite après l'appui.
+- Code : `src/ui/runtime/raw_input/lock.rs`, `src/platform/windows/events/pointer_lock.rs`.
+
+### Fichiers déposés depuis l'Explorateur (KUI-046) : `Element::on_file_drop`
+
+- `FileDropEvent` : `phase` (`Over` répété, `Leave`, `Drop`), `paths` (chemins complets),
+  position dans la fenêtre et dans l'élément. Le gestionnaire rend un message pour
+  accepter (curseur « copier »), `None` pour refuser (les ancêtres, sinon le curseur
+  interdit) ; l'élément quitté reçoit `Leave`.
+- Sous Windows, la fenêtre s'inscrit comme cible OLE (`RegisterDragDrop`, `IDropTarget`
+  en `#[implement]`, chemins lus de `CF_HDROP`) **seulement** quand un tel gestionnaire a
+  été posé sur son fil : une application qui n'en pose pas ne s'inscrit jamais. Code :
+  `src/ui/runtime/raw_input/file_drop.rs`, `src/platform/windows/events/file_drop.rs`.
+  Le crate `windows` (déjà présent) gagne les fonctions `Win32_Graphics_Gdi`,
+  `Win32_System_Com_StructuredStorage` et `Win32_System_SystemServices`.
+
+### Zoom de l'interface choisi par l'application
+
+`Application::interface_zoom(&self) -> f32` (1 par défaut) : multiplié à l'échelle de
+l'écran sous Windows (`ffi::scale`, par fenêtre) et par la fenêtre simulée ; la vue reçoit
+moins d'unités, plus grandes (`ViewContext::width` divisé, `scale` multiplié). Tenu entre
+0,5 et 3 (`UiRuntime::interface_zoom`). Un changement refait toute l'image suivante.
+
+### Pour les tests : la fenêtre simulée
+
+`HeadlessApp::raw_pointer(phase, bouton, place, RawModifiers)`, `raw_locked_move(place,
+mouvement)`, `pointer_locked()`, `raw_key(KeyPress)`, `drag_files(phase, chemins, place)`
+donnent ces entrées comme une fenêtre (`src/platform/headless/app/raw.rs`).
+
+### Contrôles
+
+Tests sans fenêtre (`src/ui/tests/runtime/raw_input_panels.rs`, `headless/app/raw.rs`,
+`more_keys.rs`, `pointer_lock.rs`, `ffi.rs`) : touche au panneau appuyé puis remontée,
+Tab, champ de saisie, sans `on_key` rien ne change ; 50 mouvements verrouillés de 40
+pixels (2 000 pixels) sans butée ; perte du verrou qui relâche les boutons (témoin : sans
+verrou, le geste reste) ; table des touches ajoutées (pavé distinct des chiffres,
+ponctuation d'un clavier américain et d'un clavier français) ; fichiers acceptés,
+refusés, quittés ; zoom de 1,25 sur un écran à 150 % (largeur 640 au lieu de 800, échelle
+1,875 ; bornes). Contrôles négatifs faits (sans `panel_key`, sans le mouvement de la
+souris : les essais échouent). **Non vérifié à la main** : le verrou dans une vraie
+fenêtre (les essais ne bougent pas le vrai pointeur), un vrai glisser depuis
+l'Explorateur, le zoom dans une vraie fenêtre.

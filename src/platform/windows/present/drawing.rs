@@ -184,6 +184,14 @@ impl DrawingState {
         // SAFETY : simple lecture de l'état de la fenêtre.
         let chrome = chrome(unsafe { IsZoomed(window) } != 0);
         self.runtime.prepare(context, chrome, &mut self.renderer)?;
+        // Un gestionnaire `on_file_drop` posé : la fenêtre devient cible de dépôt.
+        super::super::events::file_drop::ensure(window);
+        // Le zoom de l'interface a changé : l'image suivante refait tout à la nouvelle
+        // échelle.
+        if super::super::ffi::zoom::set(window, self.runtime.interface_zoom()) {
+            self.runtime.invalidate();
+            super::super::ffi::invalidate(window);
+        }
         Ok((area.right.max(0) as u32, area.bottom.max(0) as u32, scale))
     }
 }

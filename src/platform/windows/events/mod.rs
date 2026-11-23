@@ -3,10 +3,13 @@
 pub(crate) mod caption;
 mod clipboard;
 mod dispatch;
+pub(crate) mod file_drop;
 pub(crate) mod grip;
 mod keyboard;
+mod more_keys;
 mod nonclient;
 mod pointer;
+mod pointer_lock;
 mod procedure;
 mod raw_input;
 mod scancode;

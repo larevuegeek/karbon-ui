@@ -53,6 +53,18 @@ pub fn context_menu<M: Clone + 'static>(
     on_close: M,
     palette: EditorPalette,
 ) -> Element {
+    anchored_menu(id, Anchor::Point(at), entries, on_close, palette)
+}
+
+/// Le menu serré d'entrées `entries`, placé contre `anchor` (un point : le menu
+/// contextuel ; un élément : le menu de débordement d'une barre d'outils).
+pub(crate) fn anchored_menu<M: Clone + 'static>(
+    id: impl Into<ElementId>,
+    anchor: Anchor,
+    entries: Vec<MenuEntry<M>>,
+    on_close: M,
+    palette: EditorPalette,
+) -> Element {
     let id = id.into();
     let children = entries
         .into_iter()
@@ -75,10 +87,15 @@ pub fn context_menu<M: Clone + 'static>(
                 shortcut_width: Cell::new(0.),
                 palette,
             };
-            Element::custom(entry_id, widget).height(Length::Px(palette.row_height))
+            let element = Element::custom(entry_id, widget).height(Length::Px(palette.row_height));
+            match entry.tip {
+                Some(text) => element
+                    .tooltip_with(crate::ui::tooltip::Tooltip::new(text).style(palette.tooltip())),
+                None => element,
+            }
         })
         .collect();
-    let popover = Popover::new("Menu", Anchor::Point(at), on_close).menu();
+    let popover = Popover::new("Menu", anchor, on_close).menu();
     Element::popover(
         id.0,
         popover,

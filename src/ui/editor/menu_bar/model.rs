@@ -24,6 +24,8 @@ pub struct MenuEntry<M> {
     pub(super) check: Check,
     pub(super) children: Vec<MenuEntry<M>>,
     pub(super) separator: bool,
+    /// Bulle d'aide au survol (`tip`), aucune par défaut.
+    pub(super) tip: Option<Arc<str>>,
 }
 
 impl<M> MenuEntry<M> {
@@ -61,6 +63,7 @@ impl<M> MenuEntry<M> {
             check: Check::None,
             children: Vec::new(),
             separator: false,
+            tip: None,
         }
     }
 
@@ -86,6 +89,15 @@ impl<M> MenuEntry<M> {
     /// Show a dot when `selected` (one choice among several).
     pub fn radio(mut self, selected: bool) -> Self {
         self.check = Check::Radio(selected);
+        self
+    }
+
+    /// Explain the entry in a tooltip shown when the pointer rests on it, in the look of
+    /// the menu's palette (« Écrit le niveau sur le disque. »). Without it, an entry has
+    /// no tooltip, as before.
+    pub fn tip(mut self, text: impl Into<Arc<str>>) -> Self {
+        let text = text.into();
+        self.tip = (!text.is_empty()).then_some(text);
         self
     }
 }

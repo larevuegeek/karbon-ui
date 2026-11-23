@@ -262,6 +262,13 @@ pub(crate) fn raw_input(
     }
 }
 /// Un élément a pris un geste du pointeur (`on_pointer`) qui n'est pas fini.
+/// Le geste en cours demande le verrouillage du pointeur (`Element::pointer_lock`).
+pub(crate) fn pointer_lock_wanted() -> bool {
+    DRAWING.with(|slot| {
+        slot.try_borrow()
+            .is_ok_and(|s| s.as_ref().is_some_and(|s| s.runtime.pointer_lock_wanted()))
+    })
+}
 pub(crate) fn pointer_gesture() -> bool {
     DRAWING.with(|slot| {
         slot.try_borrow()

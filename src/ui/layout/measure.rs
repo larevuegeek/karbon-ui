@@ -245,6 +245,7 @@ fn measure_box(
             height: if !matches!(node.style.height, Length::Auto) {
                 local.height
             } else if !node.children.is_empty() {
+                super::scrolling::mark_content(node, axis);
                 let bar = super::scrolling::bar_thickness(node);
                 let always = super::scrolling::gutter_always(node, axis);
                 scroll_content_height(&mut node.children[0], local, axis, (bar, always), text)?

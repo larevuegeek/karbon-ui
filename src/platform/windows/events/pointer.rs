@@ -263,6 +263,8 @@ pub(super) fn button_up(window: Hwnd, lparam: isize) -> isize {
     0
 }
 pub(super) fn capture_changed(window: Hwnd) -> isize {
+    // Souris reprise par une autre fenêtre : un geste au pointeur verrouillé finit.
+    super::pointer_lock::lost(window);
     // Capture reprise pendant le geste d'une poignée (fenêtre système, Échap…) : il
     // s'arrête à la taille atteinte.
     grip::finish(window);

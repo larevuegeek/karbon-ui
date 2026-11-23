@@ -12,6 +12,7 @@
 //! in its submodule.
 pub mod animation;
 pub mod bootstrap;
+pub mod commands;
 pub mod components;
 pub mod core;
 pub mod editor;

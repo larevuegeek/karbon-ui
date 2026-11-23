@@ -35,6 +35,12 @@ pub(crate) use windows::secrets;
 // Surface partagée sur la carte graphique (`ui::shared_surface`) : Windows seulement.
 #[cfg(target_os = "windows")]
 pub(crate) use windows::shared_surface;
+// Presse-papiers de l'application (`crate::clipboard`) : Windows seulement.
+#[cfg(target_os = "windows")]
+pub(crate) use windows::app_clipboard;
+// Écrans et boîte de message (`window::monitors`, `window::message_box`).
+#[cfg(target_os = "windows")]
+pub(crate) use windows::desktop;
 
 pub use crate::diagnostics::{render_benchmark, render_preview, write_png};
 pub(crate) use backend::{Backend, Offscreen};

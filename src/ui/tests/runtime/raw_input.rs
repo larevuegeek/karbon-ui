@@ -45,6 +45,8 @@ fn input(phase: PointerPhase, button: Option<PointerButton>, position: PointF) -
         shift: false,
         control: false,
         alt: false,
+        meta: false,
+        motion: None,
     }
 }
 

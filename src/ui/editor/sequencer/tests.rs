@@ -218,6 +218,8 @@ fn ctrl_and_the_wheel_zoom_around_the_pointer() {
         shift: false,
         control: true,
         alt: false,
+        meta: false,
+        motion: None,
     };
     w.runtime_mut().pointer_wheel(input, (0., -2.));
     w.prepare().unwrap();

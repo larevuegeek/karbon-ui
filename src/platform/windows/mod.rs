@@ -15,7 +15,9 @@
 //! | `ffi.rs` | types et conversions Win32 partagés, appartement COM |
 //! | `tests/` | tests du backend sur des fenêtres cachées |
 mod accessibility;
+pub(crate) mod app_clipboard;
 mod backend;
+pub(crate) mod desktop;
 mod events;
 mod ffi;
 mod fonts;

@@ -69,6 +69,14 @@ pub struct PointerEvent {
     /// (downwards); `(0.0, 0.0)` for the other phases. The vertical amount stays vertical
     /// with Shift held: the handler decides what Shift means.
     pub wheel: (f32, f32),
+    /// The Windows key (Cmd on a Mac keyboard) is held.
+    pub meta: bool,
+    /// How far the pointer moved since the previous event, in logical pixels: for a move,
+    /// from the previous position; while the pointer is locked
+    /// ([`Element::pointer_lock`](crate::ui::element::Element::pointer_lock)), the motion
+    /// of the mouse itself, which never stops at the edge of the screen. `(0.0, 0.0)` for
+    /// a press, a release and the wheel.
+    pub delta: (f32, f32),
 }
 
 /// Délai et distance qui font d'un appui la suite du précédent (double-clic), comme les
@@ -85,11 +93,15 @@ pub(crate) struct PointerInput {
     pub shift: bool,
     pub control: bool,
     pub alt: bool,
+    pub meta: bool,
+    /// Mouvement propre de la souris pendant que le pointeur est verrouillé (le backend
+    /// le ramène à sa place à chaque fois) ; `None` ailleurs.
+    pub motion: Option<(f32, f32)>,
 }
 
 /// Gestionnaire `on_pointer` : `None` laisse passer l'événement aux ancêtres.
 #[derive(Clone)]
-pub(crate) struct PointerHandler(Rc<dyn Fn(PointerEvent) -> Option<Message>>);
+pub(crate) struct PointerHandler(pub(super) Rc<dyn Fn(PointerEvent) -> Option<Message>>);
 
 impl PointerHandler {
     /// Le gestionnaire qui rend le message de `handler`, s'il en rend un.
@@ -102,11 +114,15 @@ impl PointerHandler {
 /// bouton).
 #[derive(Default)]
 pub(crate) struct RawPointerState {
-    target: Option<ElementId>,
-    held: u8,
+    pub(super) target: Option<ElementId>,
+    pub(super) held: u8,
     /// Dernier appui (instant, position, bouton) et son rang dans la série en cours.
     last_press: Option<(Instant, PointF, PointerButton)>,
     clicks: u8,
+    /// Dernière position reçue, pour `PointerEvent::delta` (`lock.rs`).
+    pub(super) last_position: Option<PointF>,
+    /// L'élément qui accepte les fichiers survolés (`file_drop.rs`).
+    pub(super) file_target: Option<ElementId>,
 }
 
 impl RawPointerState {
@@ -136,7 +152,7 @@ impl RawPointerState {
 }
 
 /// Bit d'un bouton dans `RawPointerState::held`.
-fn bit(button: PointerButton) -> u8 {
+pub(super) fn bit(button: PointerButton) -> u8 {
     match button {
         PointerButton::Primary => 1,
         PointerButton::Secondary => 2,
@@ -146,7 +162,7 @@ fn bit(button: PointerButton) -> u8 {
 
 /// Élément le plus profond sous `world` qui reçoit les événements du pointeur (cible de
 /// l'événement du DOM).
-fn target(
+pub(super) fn target(
     node: &Element,
     world: PointF,
     motions: &crate::ui::animation::timeline::Timeline,
@@ -197,6 +213,8 @@ impl UiRuntime {
     pub(crate) fn pointer_input(&mut self, input: PointerInput) -> EventResult {
         let mut result = EventResult::default();
         let clicks = self.raw_pointer.count_clicks(&input, Instant::now());
+        let delta = self.raw_pointer.delta_of(&input);
+        self.take_key_focus(&input);
         let path = self.pointer_path(input.position);
         let mut taken = None;
         for (id, rect, handler) in path {
@@ -212,6 +230,8 @@ impl UiRuntime {
                 alt: input.alt,
                 clicks,
                 wheel: (0., 0.),
+                meta: input.meta,
+                delta,
             };
             if let Some(message) = (handler.0)(event) {
                 self.send(message);
@@ -325,6 +345,8 @@ impl UiRuntime {
                 alt: input.alt,
                 clicks: 0,
                 wheel,
+                meta: input.meta,
+                delta: (0., 0.),
             };
             if let Some(message) = (handler.0)(event) {
                 self.send(message);

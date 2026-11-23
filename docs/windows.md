@@ -467,3 +467,27 @@ fenêtres reste une optimisation à mesurer.
 
 Les tâches préparent la validation d’un premier écran RustMusic et du chargement
 de ses ressources, avec des mesures de mémoire et de temps d’affichage.
+
+## Écrans, boîte de message, place retenue (KUI-025, KUI-027, KUI-028)
+
+Ajouts de la vague « terminer l'outil » de karbon-engine (`src/window/desktop.rs`,
+`src/platform/windows/desktop.rs`).
+
+- `window::monitors()` : les écrans du bureau, le principal d'abord (`Monitor` : nom
+  du système, place et taille en pixels physiques, zone sans la barre des tâches,
+  échelle, principal). Windows seulement (`EnumDisplayMonitors`, `GetDpiForMonitor`) ;
+  ailleurs `Error::Unsupported`.
+- `window::message_box(titre, texte, MessageIcon, MessageButtons)` : la boîte de message
+  du système, dans sa langue, modale aux fenêtres du programme ; elle **attend la
+  réponse** (`MessageAnswer`) : à appeler d'un fil de fond ou d'une tâche, jamais depuis
+  un rappel de l'application. Pour ce que l'interface ne peut pas montrer (une erreur au
+  lancement, avant toute fenêtre).
+- `window::Placement` : la place à retenir d'une séance à l'autre. `Placement::after(&état,
+  précédente)` (une fenêtre agrandie garde la place d'avant, avec la marque ; rien de neuf
+  pendant un glisser), une ligne de texte (`to_text`, `parse` : « 120 80 1600 900
+  maximized »), et les changements qui la rendent (`changes` : place, taille,
+  `KeepOnScreen` si l'écran a été débranché, puis agrandie).
+
+Contrôles : liste des écrans de la machine (un principal, zones de travail dans les
+écrans), styles et réponses de la boîte (la boîte n'est pas ouverte par les essais),
+place retenue et relue (témoins : ligne illisible, fenêtre minuscule).

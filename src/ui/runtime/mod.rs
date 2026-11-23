@@ -36,6 +36,7 @@ pub(crate) use accessibility::content_name;
 pub use accessibility::{AccessibilityAction, AccessibilityError, AccessibleElement};
 pub use events::{Cursor, EventResult, Key, UiEvent};
 pub use raw_input::PhysicalKey;
+pub use raw_input::{FileDropEvent, FileDropPhase};
 pub use raw_input::{KeyCode, KeyPress, PointerButton, PointerEvent, PointerPhase};
 pub use wheel::WheelEvent;
 pub(crate) use wheel::WheelHandler;

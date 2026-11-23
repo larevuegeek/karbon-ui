@@ -78,6 +78,70 @@ pub enum KeyCode {
     Shift,
     Control,
     Alt,
+    // Ajouts (KUI-012) : ponctuation nommée d'après le caractère de la touche dans la
+    // disposition active, pavé numérique, F13 à F24, touches système.
+    /// `-` (the character of the key in the active layout).
+    Minus,
+    /// `=`.
+    Equal,
+    /// `[`.
+    BracketLeft,
+    /// `]`.
+    BracketRight,
+    /// `\`.
+    Backslash,
+    /// `;`.
+    Semicolon,
+    /// `'`.
+    Quote,
+    /// `` ` ``.
+    Backquote,
+    /// `,`.
+    Comma,
+    /// `.`.
+    Period,
+    /// `/`.
+    Slash,
+    Numpad0,
+    Numpad1,
+    Numpad2,
+    Numpad3,
+    Numpad4,
+    Numpad5,
+    Numpad6,
+    Numpad7,
+    Numpad8,
+    Numpad9,
+    NumpadAdd,
+    NumpadSubtract,
+    NumpadMultiply,
+    NumpadDivide,
+    NumpadDecimal,
+    F13,
+    F14,
+    F15,
+    F16,
+    F17,
+    F18,
+    F19,
+    F20,
+    F21,
+    F22,
+    F23,
+    F24,
+    /// The Windows key, or Cmd on a Mac keyboard.
+    Meta,
+    CapsLock,
+    NumLock,
+    ScrollLock,
+    PrintScreen,
+    Pause,
+    /// The key that opens the context menu.
+    ContextMenu,
+    /// A key that has no name of its own in the active layout (`^`, `ù`, `$` on a French
+    /// keyboard, the extra key left of Z): read its place in
+    /// [`KeyPress::physical`] to bind it.
+    Unidentified,
 }
 
 /// A key pressed or released, given to [`Application::key`](crate::application::Application::key)
@@ -106,6 +170,8 @@ pub struct KeyPress {
     /// of the numeric keypad). Its meaning depends on the system: prefer
     /// [`physical`](Self::physical).
     pub scancode: u32,
+    /// The Windows key (Cmd on a Mac keyboard) is held.
+    pub meta: bool,
 }
 
 impl KeyPress {
@@ -121,6 +187,7 @@ impl KeyPress {
             alt: false,
             physical: None,
             scancode: 0,
+            meta: false,
         }
     }
 }
@@ -135,6 +202,12 @@ impl UiRuntime {
     pub fn key_input(&mut self, press: KeyPress) -> EventResult {
         let mut result = EventResult::default();
         if self.focused_input_geometry().is_some() {
+            return result;
+        }
+        if self.panel_key(press) {
+            self.invalidation.repaint = true;
+            result.repaint = true;
+            result.handled = true;
             return result;
         }
         if self.app.key(press) {

@@ -282,3 +282,29 @@ fn the_content_of_a_tall_button_is_centered_vertically() {
     // `display: flex` : les éléments partent du haut, comme dans un navigateur.
     near(find(&page, "flex").bounds().top, 40.);
 }
+
+/// Une zone `flex flex-col overflow-y-auto` de hauteur définie est elle-même le conteneur
+/// flex : `flex-1` (`1 1 0%`) s'y résout contre sa hauteur, un élément `min-h-0` rétrécit
+/// et la zone ne déborde pas (pas de gouttière). La barre repliée de RustMusic en dépend.
+#[test]
+fn flex_1_item_of_a_sized_scroll_container_shrinks_instead_of_overflowing() {
+    let mut page = ui! {@styles(css);
+        <div><div class="flex flex-col h-[200px] w-[100px] overflow-y-auto">
+            <div class="h-[150px] shrink-0"></div>
+            <div class="flex flex-col flex-1 min-h-0 overflow-y-auto">
+                <div class="h-[300px] shrink-0"></div>
+            </div>
+        </div></div>
+    };
+    arrange(&mut page, 400., 300.);
+    let zone = &page.children[0];
+    let metrics = zone.scroll_metrics().expect("scroll container");
+    near(metrics.max_offset(), 0.);
+    near(metrics.thickness, 0.);
+    let list = &zone.children[0].children[1];
+    near(layout::height(list.bounds()), 50.);
+    near(
+        list.scroll_metrics().expect("inner scroll").max_offset(),
+        250.,
+    );
+}

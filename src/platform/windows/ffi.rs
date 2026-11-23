@@ -84,7 +84,58 @@ pub(super) fn screen_to_client(window: Hwnd, point: Point) -> Option<Point> {
 /// Échelle DPI de la fenêtre (1,0 pour 96 ppp).
 pub(super) fn scale(window: Hwnd) -> f32 {
     // SAFETY : simple lecture ; Windows renvoie 0 pour un handle invalide.
-    (unsafe { GetDpiForWindow(window) }.max(96) as f32) / 96.
+    (unsafe { GetDpiForWindow(window) }.max(96) as f32) / 96. * zoom::of(window)
+}
+
+/// Zoom de l'interface choisi par l'application de chaque fenêtre
+/// (`Application::interface_zoom`), multiplié à l'échelle de l'écran par `scale` ; 1 tant
+/// que l'application n'en demande pas d'autre.
+pub(super) mod zoom {
+    use super::Hwnd;
+    use std::cell::RefCell;
+
+    thread_local! {
+        static ZOOMS: RefCell<Vec<(Hwnd, f32)>> = const { RefCell::new(Vec::new()) };
+    }
+
+    pub(in crate::platform::windows) fn of(window: Hwnd) -> f32 {
+        ZOOMS.with(|z| {
+            z.borrow()
+                .iter()
+                .find(|(w, _)| *w == window)
+                .map_or(1., |(_, z)| *z)
+        })
+    }
+
+    /// Retient le zoom de `window` ; `true` quand il a changé (tout est à refaire).
+    pub(in crate::platform::windows) fn set(window: Hwnd, zoom: f32) -> bool {
+        if (of(window) - zoom).abs() < 1e-6 {
+            return false;
+        }
+        ZOOMS.with(|z| {
+            let mut zooms = z.borrow_mut();
+            zooms.retain(|(w, _)| *w != window);
+            if zoom != 1. {
+                zooms.push((window, zoom));
+            }
+        });
+        true
+    }
+
+    #[cfg(test)]
+    mod tests {
+        #[test]
+        fn a_window_keeps_its_zoom_until_it_changes() {
+            let window = 0x1234usize as super::Hwnd;
+            assert_eq!(super::of(window), 1.);
+            assert!(super::set(window, 1.25));
+            assert_eq!(super::of(window), 1.25);
+            assert!(!super::set(window, 1.25));
+            // Revenu à 1 : oublié, comme une fenêtre qui n'en a jamais demandé.
+            assert!(super::set(window, 1.));
+            assert_eq!(super::of(window), 1.);
+        }
+    }
 }
 
 /// Demande un redessin complet, sans effacement du fond.

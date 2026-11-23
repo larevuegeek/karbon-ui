@@ -79,6 +79,7 @@
 //! ```
 #![warn(missing_docs)]
 pub mod application;
+pub mod clipboard;
 pub mod diagnostics;
 mod error;
 pub mod intl;

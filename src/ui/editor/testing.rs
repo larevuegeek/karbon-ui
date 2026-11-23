@@ -58,6 +58,8 @@ pub(super) fn pointer<A: Application>(
         shift: mods.shift,
         control: mods.control,
         alt: false,
+        meta: false,
+        motion: None,
     });
     window.prepare().unwrap();
 }

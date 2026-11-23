@@ -20,6 +20,8 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     VK_ESCAPE, VK_F1, VK_F12, VK_HOME, VK_INSERT, VK_LEFT, VK_LMENU, VK_MENU, VK_NEXT, VK_PRIOR,
     VK_RETURN, VK_RIGHT, VK_SHIFT, VK_SPACE, VK_TAB, VK_UP,
 };
+// Ajout : la touche Windows, pour `meta`.
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{VK_LWIN, VK_RWIN};
 
 /// Bit 30 de lparam : la touche était déjà enfoncée (répétition).
 const REPEATED: isize = 1 << 30;
@@ -35,6 +37,15 @@ pub(super) fn pointer(
 ) {
     let p = point_from_message(lparam);
     let factor = scale(window);
+    // Pointeur verrouillé : la place de l'appui et le mouvement propre de la souris.
+    let (p, motion) = if phase == PointerPhase::Move {
+        match super::pointer_lock::filter_move(window, p) {
+            Some(filtered) => filtered,
+            None => return,
+        }
+    } else {
+        (p, None)
+    };
     let input = PointerInput {
         phase,
         button,
@@ -45,12 +56,15 @@ pub(super) fn pointer(
         shift: is_pressed(VK_SHIFT),
         control: is_pressed(VK_CONTROL),
         alt: is_pressed(VK_MENU),
+        meta: is_pressed(VK_LWIN) || is_pressed(VK_RWIN),
+        motion: motion.map(|(x, y)| (x as f32 / factor, y as f32 / factor)),
     };
     let moving = phase == PointerPhase::Move;
     let result = runtime::raw_input(window, moving, |ui| ui.pointer_input(input));
     if result.repaint {
         invalidate(window);
     }
+    super::pointer_lock::sync(window, p);
     // SAFETY : sans argument, ou la fenêtre qui traite le message ; capture prise et
     // rendue sur le thread de la fenêtre.
     unsafe {
@@ -111,6 +125,8 @@ pub(super) fn wheel(
         shift: wparam & MK_SHIFT as usize != 0,
         control: wparam & MK_CONTROL as usize != 0,
         alt: is_pressed(VK_MENU),
+        meta: is_pressed(VK_LWIN) || is_pressed(VK_RWIN),
+        motion: None,
     };
     let result = runtime::raw_input(window, false, |ui| ui.pointer_wheel(input, amount));
     if result.repaint {
@@ -129,7 +145,10 @@ pub(super) fn key(window: Hwnd, wparam: usize, lparam: isize, pressed: bool) {
     } else {
         scancode::take_release()
     };
-    let Some(code) = u16::try_from(wparam).ok().and_then(key_code) else {
+    let Some(code) = u16::try_from(wparam)
+        .ok()
+        .and_then(|vk| key_code(vk).or_else(|| super::more_keys::added_key_code(vk)))
+    else {
         return;
     };
     let scan = scancode::scancode(wparam as u16, lparam);
@@ -140,6 +159,7 @@ pub(super) fn key(window: Hwnd, wparam: usize, lparam: isize, pressed: bool) {
         alt: is_pressed(VK_MENU) || is_pressed(VK_LMENU),
         physical: scancode::physical_key(scan),
         scancode: scan,
+        meta: is_pressed(VK_LWIN) || is_pressed(VK_RWIN),
         ..KeyPress::new(code, pressed)
     };
     let result = runtime::raw_input(window, false, |ui| ui.key_input(press));

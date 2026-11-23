@@ -221,6 +221,12 @@ pub struct LayoutRules {
     pub min_height_declared: bool,
     /// Content of a `<button>`: centred vertically in block layout, as browsers do.
     pub button_content: bool,
+    /// Content of a scroll container whose length along the scrolled axis is definite.
+    /// In CSS the scroll container is itself the flex container, so a percentage flex
+    /// basis along that axis (`flex: 1` is `1 1 0%`) resolves against the viewport
+    /// instead of counting as the content size. Set by layout.
+    #[doc(hidden)]
+    pub definite_main: bool,
     /// Size limits given as a percentage or an expression (`max-width: 40%`,
     /// `max-height: calc(100vh - 330px)`), in the order min-width, min-height,
     /// max-width, max-height. Layout resolves them against the space offered to the

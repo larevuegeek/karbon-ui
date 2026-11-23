@@ -84,6 +84,12 @@ pub(crate) struct Listeners {
     pub pan: Option<Handler<crate::ui::drag_drop::PanEvent>>,
     pub pointer: Option<crate::ui::runtime::raw_input::PointerHandler>,
     pub pointer_wheel: Option<crate::ui::runtime::raw_input::PointerHandler>,
+    /// `on_key` : touches données à ce panneau quand il a le focus.
+    pub key: Option<crate::ui::runtime::raw_input::KeyHandler>,
+    /// `pointer_lock` : le geste de cet élément verrouille le pointeur.
+    pub pointer_lock: bool,
+    /// `on_file_drop` : fichiers tirés depuis un autre programme.
+    pub file_drop: Option<crate::ui::runtime::raw_input::FileDropHandler>,
 }
 thread_local! {
     /// Un gestionnaire a été posé depuis la dernière lecture.

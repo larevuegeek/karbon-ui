@@ -291,6 +291,12 @@ fn entry_element<M: Clone + 'static>(
         palette,
     };
     let element = Element::custom(id.0, widget).height(Length::Px(palette.row_height));
+    let element = match entry.tip {
+        Some(text) => {
+            element.tooltip_with(crate::ui::tooltip::Tooltip::new(text).style(palette.tooltip()))
+        }
+        None => element,
+    };
     match index {
         Some(index) => {
             let hover = Rc::clone(map);

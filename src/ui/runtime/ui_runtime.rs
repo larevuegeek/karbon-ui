@@ -141,6 +141,8 @@ pub struct UiRuntime {
     pub(super) text_cache: text_cache::TextCache,
     /// Geste en cours des gestionnaires `on_pointer` (`raw_input`).
     pub(super) raw_pointer: raw_input::RawPointerState,
+    /// Le panneau d'où partent les touches (`Element::on_key`).
+    pub(super) key_focus: raw_input::KeyFocus,
 }
 impl UiRuntime {
     /// Load `app` and prepare its first view; messages emitted by the view are
@@ -172,6 +174,7 @@ impl UiRuntime {
             window_radius: 0.,
             text_cache: Default::default(),
             raw_pointer: Default::default(),
+            key_focus: Default::default(),
         })
     }
 

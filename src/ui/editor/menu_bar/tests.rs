@@ -28,7 +28,11 @@ impl Editor {
     fn menus(&self) -> Vec<Menu<Msg>> {
         vec![
             Menu::new("&Fichier")
-                .entry(MenuEntry::new("Nouveau", Msg::New).shortcut("Ctrl+N"))
+                .entry(
+                    MenuEntry::new("Nouveau", Msg::New)
+                        .shortcut("Ctrl+N")
+                        .tip("Commence un niveau vide."),
+                )
                 .entry(MenuEntry::submenu(
                     "Récents",
                     vec![
@@ -212,7 +216,9 @@ impl Application for Contextual {
             let entries = vec![
                 MenuEntry::new("Renommer", Pick::Rename).shortcut("F2"),
                 MenuEntry::separator(),
-                MenuEntry::new("Dupliquer", Pick::Duplicate).enabled(false),
+                MenuEntry::new("Dupliquer", Pick::Duplicate)
+                    .enabled(false)
+                    .tip("Copie l'objet à côté de lui."),
             ];
             let at = crate::ui::scene::PointF { x: 40., y: 40. };
             overlays.push(context_menu(
@@ -256,4 +262,40 @@ fn a_context_menu_sends_the_chosen_entry_then_closes() {
     w.click(ctx().child("entry").item(0)).unwrap();
     assert_eq!(w.app().log, [Pick::Rename, Pick::Close]);
     assert!(w.find(ctx()).is_none());
+}
+
+#[test]
+fn an_entry_with_a_tip_shows_it_when_the_pointer_rests_on_it() {
+    let mut w = window(Editor::default(), 600., 400.);
+    w.click(title(0)).unwrap();
+    w.hover(entry(0)).unwrap();
+    w.advance(std::time::Duration::from_millis(700)).unwrap();
+    let tip = w.runtime().tooltip().expect("tooltip shown");
+    assert_eq!(&*tip.text, "Commence un niveau vide.");
+    // Témoin : une entrée sans bulle n'en montre pas (le submenu « Récents » s'ouvre).
+    w.press(Key::Escape).unwrap();
+    w.click(title(1)).unwrap();
+    w.hover(entry(0)).unwrap();
+    w.advance(std::time::Duration::from_millis(700)).unwrap();
+    assert!(w.runtime().tooltip().is_none());
+    // Un texte vide n'est pas une bulle.
+    let empty: MenuEntry<()> = MenuEntry::new("Aide", ()).tip("");
+    assert!(empty.tip.is_none());
+}
+
+#[test]
+fn a_context_menu_entry_shows_its_tip_even_greyed() {
+    let mut w = window(
+        Contextual {
+            open: true,
+            log: Vec::new(),
+        },
+        400.,
+        300.,
+    );
+    w.hover(ElementId::named("ctx").child("entry").item(2))
+        .unwrap();
+    w.advance(std::time::Duration::from_millis(700)).unwrap();
+    let tip = w.runtime().tooltip().expect("tooltip shown");
+    assert_eq!(&*tip.text, "Copie l'objet à côté de lui.");
 }

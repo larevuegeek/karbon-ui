@@ -366,6 +366,16 @@ pub trait Application: 'static {
     fn close_requested(&mut self) -> bool {
         true
     }
+    /// A zoom of the whole interface chosen by the application (a setting « Taille de
+    /// l'interface »), multiplied by the scale of the display: at `1.25` on a 150 %
+    /// display, everything is drawn 1.875 times larger, and the view gets
+    /// [`ViewContext::width`] and [`ViewContext::height`] smaller and
+    /// [`ViewContext::scale`] larger in proportion. Read after each change of the
+    /// application; kept between 0.5 and 3. Defaults to `1.0`: the display scale alone,
+    /// as before. Applied on Windows and by the headless harness for now.
+    fn interface_zoom(&self) -> f32 {
+        1.
+    }
 }
 
 /// Façade objet d'une application : le runtime et les fenêtres ignorent son type de message.
@@ -386,6 +396,7 @@ pub(crate) trait DynApplication {
     fn inbox(&self) -> Option<Arc<dyn crate::task::InboxPort>>;
     fn key(&mut self, press: crate::ui::runtime::KeyPress) -> bool;
     fn close_requested(&mut self) -> bool;
+    fn interface_zoom(&self) -> f32;
     /// Accès typé pour le harnais headless, qui connaît le type concret.
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
@@ -462,6 +473,9 @@ impl<A: Application> DynApplication for A {
     }
     fn close_requested(&mut self) -> bool {
         Application::close_requested(self)
+    }
+    fn interface_zoom(&self) -> f32 {
+        Application::interface_zoom(self)
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self

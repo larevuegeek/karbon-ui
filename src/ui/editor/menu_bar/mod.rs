@@ -9,6 +9,7 @@ mod tests;
 mod view;
 mod widgets;
 
+pub(crate) use context::anchored_menu;
 pub use context::context_menu;
 pub use model::{Check, Menu, MenuEntry};
 pub use state::{MenuBarMsg, MenuBarState, MenuReply};

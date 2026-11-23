@@ -296,3 +296,83 @@ de lecture aimantée, glisser de clés (un seul `Commit`, Échap), rectangle de 
 double clic et clic droit, zoom autour du pointeur, peinture des seules clés visibles
 (contrôle négatif fait : sans la recherche, l'essai échoue). Le pointeur arrive par
 `Element::on_pointer`, donc **sous Windows seulement** pour l'instant.
+
+## Ajouts de la vague « terminer l'outil » (version inchangée, 0.3.28)
+
+Tout par ajout ; aucun composant existant ne change d'aspect ni de comportement.
+
+### Bulle d'une entrée de menu
+
+`MenuEntry::tip(texte)` : une bulle au survol, aux couleurs de la palette, dans la barre
+de menus comme dans un menu contextuel (même grisée). Sans elle, rien ne change ; un
+texte vide n'en fait pas. Code : `menu_bar/model.rs`, `view.rs`, `context.rs`. Le menu
+contextuel passe par une fonction interne neuve, `anchored_menu` (le même menu, contre un
+point ou contre un élément), qui sert aussi au débordement de la barre d'outils.
+
+### Barre d'outils (`Toolbar`, KUI-033)
+
+```rust
+let items = vec![
+    ToolItem::choice("Déplacer", tool == Move, Msg::Move).icon(arrows).shortcut("G"),
+    ToolItem::separator(),
+    ToolItem::toggle("Grille", grid, Msg::Grid).text("#").shortcut("Ctrl+G"),
+];
+let (bar, overlays) = Toolbar::new("tools", &self.bar, Msg::Bar, items).build(largeur);
+```
+
+- Boutons, bascules (`toggle`), choix exclusifs (`choice`), séparateurs ; icône
+  (`VectorIcon`) ou court texte ; bulle « Nom (raccourci) » et sa description ; grisé.
+- Ce qui ne tient pas dans la largeur donnée part, **dans l'ordre**, dans un menu ouvert
+  par « » » au bout de la barre (cases et points des bascules et des choix, raccourcis).
+  Les largeurs sont connues sans mise en page : un bouton à icône est carré, un bouton à
+  texte a la largeur de son texte, ou celle que donne `width`.
+- Au clavier : chaque bouton prend le focus (Tab), Entrée l'active.
+
+### Toile 2D et tracés épais (`editor::canvas`, KUI-036 et KUI-037)
+
+- `CanvasView` : coin du monde en haut à gauche, pixels par unité en x et en y ;
+  `to_screen`, `to_world`, `zoom_at` (autour du pointeur, de 0,01 à 100 000 pixels par
+  unité), `pan`, `frame` (cadrer un rectangle avec une marge).
+- `bezier_points` (une courbe de Bézier en segments d'au plus `step`) et `stroke` (une
+  ligne brisée d'épaisseur donnée, en tirets au besoin), faits de `DrawCommand::Line` :
+  aucune commande de dessin neuve. 
+- Pas de composant « toile » générique : l'éditeur de courbes s'en sert ; le graphe de
+  nœuds (KUI-040) n'est pas fait.
+
+### Éditeur de courbes (`CurveEditor`, KUI-038)
+
+```rust
+CurveEditor::new(1, &self.curves, &self.state, Msg::Curves).palette(PALETTE).element()
+// update : let reply = self.state.update(m, &self.curves); appliquer reply.event
+// key    : self.state.key(press, &self.curves)
+```
+
+- Données de l'application : `Curve { name, color, keys }`, `CurveKey { time, value,
+  in_slope, out_slope, mode }` (`Smooth` d'Hermite, `Linear`, `Constant`),
+  `Curve::value_at`.
+- Gestes (`CurveEvent`) : clés glissées (`Move` : des `Preview`, **un** `Commit`, Échap
+  `Cancel`), pentes tirées par leurs poignées (`Slope`), double clic sur une courbe
+  (`Add`, à sa valeur), Suppr (`Delete`), flèches (dix pixels, un `Commit` chacune),
+  F ou Origine (tout cadrer). Choix : clic, Maj+clic, rectangle. Bouton du milieu :
+  glisser la vue ; molette : zoom autour du pointeur (Ctrl : le temps seul, Maj : les
+  valeurs seules).
+- Grille aux pas ronds avec ses nombres ; la courbe est tracée sur la largeur visible
+  (un point tous les deux pixels).
+
+### Thème d'éditeur (KUI-049, KUI-050)
+
+- `EditorPalette::kit_theme()` : le thème du kit dans les teintes de l'éditeur (fonds,
+  textes, accent de `EditorPalette::DARK` et `LIGHT`, rayons de 4) ; le thème du kit par
+  défaut ne change pas. Test : texte et texte discret à 4,5:1 au moins sur les fonds.
+- `EditorPalette::with_json(texte)` : une palette lue à l'exécution (couleurs
+  `"#RRGGBB"` sous leurs noms, `row_height` de 16 à 48, `font_size` de 9 à 24) ; ce qui
+  ne se lit pas est refusé et dit.
+
+### Contrôles
+
+Tests sans fenêtre : bulle d'une entrée (témoin : sans `tip`, aucune ; contrôle négatif :
+sans la ligne de la vue, l'essai échoue), barre d'outils (ce qui tient, ordre du
+débordement, menu, bulles, clavier), toile (aller-retour, zoom de 1 % à 1 000 % autour du
+pointeur, cadrage, Bézier et tirets), courbes (valeurs, glisser et Échap, double clic,
+rectangle et Maj, Suppr et flèches, pente, molette et cadrage), thème. Le pointeur des
+courbes arrive par `on_pointer` : sous Windows seulement pour l'instant.

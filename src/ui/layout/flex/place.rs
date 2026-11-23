@@ -11,7 +11,8 @@ pub(crate) fn natural(
     } else {
         node.style.height
     };
-    let definite = !matches!(main_length, Length::Auto | Length::MaxContent);
+    let definite = !matches!(main_length, Length::Auto | Length::MaxContent)
+        || node.rules.as_ref().is_some_and(|r| r.definite_main);
     let mut lines = plan(node, size, definite, text)?;
     let gap = if row {
         node.style.horizontal_gap()
