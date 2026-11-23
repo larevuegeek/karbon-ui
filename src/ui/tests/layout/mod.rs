@@ -8,4 +8,5 @@ mod lazy;
 mod scroll;
 mod scroll_events;
 pub(crate) mod text_fit;
+mod virtual_grid;
 mod virtual_list;

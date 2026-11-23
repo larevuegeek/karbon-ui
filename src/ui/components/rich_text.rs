@@ -144,7 +144,10 @@ impl RichText {
     /// Variables of the template context, read by variable run colours when the
     /// paragraph's node has none.
     #[doc(hidden)]
-    pub fn context_variables(mut self, variables: Option<&crate::ui::styling::CssVariables>) -> Self {
+    pub fn context_variables(
+        mut self,
+        variables: Option<&crate::ui::styling::CssVariables>,
+    ) -> Self {
         self.context_variables = variables.cloned();
         self
     }

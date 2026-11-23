@@ -136,6 +136,16 @@ pub(super) unsafe fn window_message(
         windows_sys::Win32::UI::WindowsAndMessaging::WM_SYSKEYUP => {
             super::raw_input::system_key(window, (wparam, lparam), false, default_proc)
         }
+        // Alt seul ou F10 relâché : Windows ouvrirait le menu de la fenêtre (SC_KEYMENU sans
+        // lettre), une boucle modale qui prend le clavier, alors que la fenêtre n'a pas de
+        // barre de menus à montrer ; l'application garde la main (Alt+clic, Alt tenu pour
+        // un geste). Alt+Espace (SC_KEYMENU avec l'espace) ouvre toujours ce menu, Alt+F4
+        // ferme toujours la fenêtre.
+        windows_sys::Win32::UI::WindowsAndMessaging::WM_SYSCOMMAND
+            if super::raw_input::is_bare_key_menu(wparam, lparam) =>
+        {
+            0
+        }
         WM_ERASEBKGND => 1, // Aucun effacement GDI opaque.
         WM_ENTERSIZEMOVE => nonclient::enter_size_move(window),
         WM_EXITSIZEMOVE => nonclient::exit_size_move(window),

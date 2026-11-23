@@ -16,6 +16,7 @@ mod memo;
 pub(crate) use memo::Key as MeasureKey;
 pub mod scroll;
 mod validation;
+pub mod virtual_grid;
 pub mod virtual_list;
 pub use arrange::arrange;
 pub use measure::measure;

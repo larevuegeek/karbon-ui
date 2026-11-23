@@ -106,3 +106,40 @@ fn a_released_key_keeps_its_place() {
     // SAFETY : fenêtre de test créée sur ce thread ; Windows valide le handle.
     assert_ne!(unsafe { DestroyWindow(window) }, 0);
 }
+
+/// Alt seul relâché, puis F10 relâché : le menu de la fenêtre ne s'ouvre pas (il prendrait
+/// le clavier dans une boucle modale, et ce test resterait suspendu), et la touche
+/// suivante arrive à l'application (`raw_input::is_bare_key_menu` a ses témoins).
+#[test]
+fn a_bare_alt_or_f10_release_leaves_the_keyboard_to_the_application() {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{SC_KEYMENU, WM_SYSCOMMAND};
+    let (_apartment, _session, window, log) = keys_window();
+    let _scope = state::enter(window);
+    let alt = lparam(0x38) | ALT_DOWN;
+    // Bits 30 et 31 : la touche était enfoncée, elle est relâchée.
+    let released = |l: isize| l | (1 << 30) | (1 << 31);
+    // SAFETY : fenêtre de test de ce thread ; aucun pointeur dans wparam/lparam.
+    let menu = unsafe {
+        SendMessageW(window, WM_SYSKEYDOWN, VK_MENU as usize, alt);
+        SendMessageW(
+            window,
+            WM_SYSKEYUP,
+            VK_MENU as usize,
+            released(lparam(0x38)),
+        );
+        SendMessageW(window, WM_SYSKEYDOWN, VK_F10 as usize, lparam(0x44));
+        SendMessageW(window, WM_SYSKEYUP, VK_F10 as usize, released(lparam(0x44)));
+        let menu = SendMessageW(window, WM_SYSCOMMAND, SC_KEYMENU as usize, 0);
+        SendMessageW(window, WM_KEYDOWN, VK_Q as usize, lparam(0x10));
+        menu
+    };
+    assert_eq!(menu, 0);
+    let last = seen(&log).last().copied();
+    assert_eq!(
+        last,
+        Some((KeyCode::Q, true, Some(PhysicalKey::KeyQ), 0x10))
+    );
+    assert!(take_error().is_none());
+    // SAFETY : fenêtre de test créée sur ce thread ; Windows valide le handle.
+    assert_ne!(unsafe { DestroyWindow(window) }, 0);
+}

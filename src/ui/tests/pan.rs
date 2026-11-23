@@ -191,3 +191,31 @@ fn after_release_the_frame_glides_from_the_drop_point_to_its_new_place() {
     assert_eq!(frame_left(&ui), 0.);
     assert!(ui.next_wake().is_none());
 }
+
+/// Le dernier événement dit si le geste a été lâché ou annulé : un dépôt n'a lieu que
+/// dans le premier cas.
+#[test]
+fn the_end_of_a_pan_tells_a_release_from_a_cancellation() {
+    let (mut ui, _, data, p) = setup();
+    ui.event(UiEvent::PointerDown(p));
+    ui.event(UiEvent::PointerMove(at(p, 0., 12.)));
+    ui.event(UiEvent::PointerUp(at(p, 0., 12.)));
+    ui.event(UiEvent::PointerDown(p));
+    ui.event(UiEvent::PointerMove(at(p, 0., 12.)));
+    ui.event(UiEvent::Cancel);
+    let ends: Vec<(PanPhase, bool)> = data
+        .borrow()
+        .pans
+        .iter()
+        .map(|e| (e.phase, e.cancelled))
+        .collect();
+    assert_eq!(
+        ends,
+        [
+            (PanPhase::Start, false),
+            (PanPhase::End, false),
+            (PanPhase::Start, false),
+            (PanPhase::End, true),
+        ]
+    );
+}

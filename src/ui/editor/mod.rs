@@ -11,13 +11,15 @@
 //! [`Application::key`](crate::application::Application::key), delivered on Windows only
 //! for now. See `docs/editor.md`.
 //! A [`ColorPicker`] chooses a colour: a square of saturation and value, a hue bar, an
-//! opacity bar and the hexadecimal value, with its [`ColorPickerState`].
+//! opacity bar and the hexadecimal value, with its [`ColorPickerState`]. A [`Sequencer`]
+//! is a time line of tracks and keys with a play head, with its [`SequencerState`].
 mod color;
 mod field;
 mod label;
 mod menu_bar;
 mod palette;
 mod properties;
+mod sequencer;
 #[cfg(test)]
 mod testing;
 mod tree;
@@ -35,6 +37,9 @@ pub use menu_bar::{
 pub use palette::{EditorPalette, contrast};
 pub use properties::{
     Property, PropertyGrid, PropertySection, checkbox, choice, color_swatch, read_only, text_field,
+};
+pub use sequencer::{
+    KeyRef, Sequencer, SequencerEvent, SequencerMsg, SequencerReply, SequencerState, SequencerTrack,
 };
 pub use tree::{
     DropPlace, TreeDrop, TreeEvent, TreeItem, TreeMsg, TreeReply, TreeRow, TreeSource, TreeState,

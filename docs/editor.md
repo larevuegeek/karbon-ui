@@ -247,3 +247,52 @@ propriétés montre le sélecteur (lignes ajoutées). Tests sans fenêtre : alle
 couleurs et de l'hexadécimal, glisser dans le carré (un seul `Commit`), teinte gardée d'un
 gris, Échap, barre d'opacité, valeur tapée (contrôle négatif fait sur la teinte gardée).
 Le pointeur arrive par `Element::on_pointer`, donc **sous Windows seulement** pour l'instant.
+
+## Frise de temps (`Sequencer`, 0.3.28)
+
+Pour la page Animation de l'éditeur de karbon-engine (clés d'un objet, animation d'un
+personnage), et pour toute frise : une règle du temps, des pistes, leurs clés en losanges,
+une tête de lecture. Nommée `Sequencer` pour ne pas la confondre avec
+`ui::animation::timeline`, qui anime l'interface elle-même.
+
+```rust
+let pistes = vec![SequencerTrack { name: "Position".into(), keys: vec![0.0, 1.0], ..Default::default() }];
+Sequencer::new(1, pistes, temps, &self.frise, Msg::Frise)
+    .length(2.0)          // la fin de l'animation : au-delà, ombré
+    .snap(1.0 / 30.0)     // aimant (Alt : libre)
+    .decimal_comma(true)  // « 0,5 s » sur la règle
+    .palette(PALETTE)
+    .element()
+// Dans update :
+let reply = self.frise.update(m);
+match reply.event {
+    Some(SequencerEvent::Seek(t)) => { /* la tête de lecture */ }
+    Some(SequencerEvent::Move { keys, by, change }) => { /* Preview, un Commit, Cancel */ }
+    Some(SequencerEvent::Add { track, time }) => { /* double clic : une clé */ }
+    Some(SequencerEvent::Menu { track, time, at }) => { /* clic droit */ }
+    _ => {}
+}
+// Dans Application::key : self.frise.key(press) (Échap pendant un glisser de clés).
+```
+
+- Sur la règle : appui et glisser déplacent la tête de lecture (`Seek`), aimantée.
+- Sur une clé : appui la choisit (Maj : l'ajoute au choix ou l'en retire) ; glisser
+  déplace les clés choisies, aimanté (Alt libre) : des `FieldChange::Preview`, **un seul**
+  `FieldChange::Commit` au relâchement, Échap : `Cancel` (de 0).
+- Ailleurs dans les pistes : un clic met la tête de lecture et vide le choix, un glisser
+  choisit les clés d'un rectangle (Maj : en plus) ; un double clic demande une clé
+  (`Add`) ; le clic droit un menu (`Menu`) ; le bouton du milieu glisse la vue.
+- La molette fait défiler les pistes, Maj et la molette le temps, Ctrl et la molette
+  zoome autour du pointeur (l'instant sous lui ne bouge pas).
+- L'état (`SequencerState`) garde la vue (`start`, `zoom`, `set_view`, `frame`) et le
+  choix (`selection`, `set_selection` : à refaire quand l'application change les rangs).
+- Seules les pistes et les clés visibles sont peintes (recherche dichotomique dans des
+  clés rangées par instant) : 200 pistes et 50 000 clés ne coûtent que ce qui se voit.
+
+Code : `src/ui/editor/sequencer/` (`state.rs`, `view.rs`, `tests.rs`), tout neuf ; dans
+`src/ui/editor/mod.rs`, des lignes ajoutées seulement (et une phrase de sa documentation).
+Aucun composant existant n'est changé, la version reste 0.3.28. Tests sans fenêtre : tête
+de lecture aimantée, glisser de clés (un seul `Commit`, Échap), rectangle de choix et Maj,
+double clic et clic droit, zoom autour du pointeur, peinture des seules clés visibles
+(contrôle négatif fait : sans la recherche, l'essai échoue). Le pointeur arrive par
+`Element::on_pointer`, donc **sous Windows seulement** pour l'instant.

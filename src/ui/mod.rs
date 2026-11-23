@@ -35,6 +35,8 @@ pub use components as widgets;
 pub use core::{element, theme};
 // Chemin utilisé par le code généré par ui-macros.
 pub use layout::virtual_list;
+// La grille de vignettes virtualisée, rangée avec la liste.
+pub use layout::virtual_grid;
 // Chemin utilisé par le code généré par ui-macros.
 pub use overlays::{modal, popover};
 // Chemin utilisé par le code généré par ui-macros.

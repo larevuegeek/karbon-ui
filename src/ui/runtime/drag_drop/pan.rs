@@ -47,6 +47,28 @@ pub struct PanEvent {
     pub parent_width: f32,
     /// Height of the button's parent when the gesture started, logical pixels.
     pub parent_height: f32,
+    /// The gesture ended by a cancellation (focus or capture lost, Escape turned into
+    /// a cancellation by the runtime), not by releasing the button: only on
+    /// [`PanPhase::End`]. A drop should then not take place.
+    pub cancelled: bool,
+}
+
+impl PanEvent {
+    /// An event of phase `phase` with the pointer at `(x, y)`, no motion, a parent of no
+    /// size, not cancelled: for the tests of an application, which then set the fields
+    /// they need.
+    pub fn new(phase: PanPhase, x: f32, y: f32) -> Self {
+        Self {
+            phase,
+            x,
+            y,
+            dx: 0.,
+            dy: 0.,
+            parent_width: 0.,
+            parent_height: 0.,
+            cancelled: false,
+        }
+    }
 }
 
 /// Bloc déplacé par le moteur : son coin au début du geste et les décalages permis.
@@ -70,6 +92,8 @@ pub(in crate::ui::runtime) struct PanState {
     offset: (f32, f32),
     /// Taille du parent du bouton à l'appui.
     parent: (f32, f32),
+    /// Le geste est annulé (pas relâché) : dit dans son dernier événement.
+    cancelled: bool,
 }
 
 /// Bloc qui glisse vers la place donnée par l'application après le relâchement.
@@ -192,6 +216,7 @@ impl UiRuntime {
             frame,
             offset: (0., 0.),
             parent,
+            cancelled: false,
         });
     }
 
@@ -224,6 +249,14 @@ impl UiRuntime {
         self.pan_follow_frame();
         self.pan_emit(state, phase, p);
         true
+    }
+
+    /// Annulation : comme `pan_end`, le dernier événement disant que le geste est annulé.
+    pub(in crate::ui::runtime) fn pan_cancel(&mut self) -> bool {
+        if let Some(state) = &mut self.components.pan {
+            state.cancelled = true;
+        }
+        self.pan_end()
     }
 
     /// Relâchement ou annulation ; `true` si un geste était en cours (pas de clic).
@@ -363,6 +396,7 @@ impl UiRuntime {
             dy: state.offset.1,
             parent_width: state.parent.0,
             parent_height: state.parent.1,
+            cancelled: state.cancelled,
         };
         if self.app.update(handler.emit(event)) {
             self.invalidate();

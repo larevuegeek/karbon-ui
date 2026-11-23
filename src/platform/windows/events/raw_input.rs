@@ -149,8 +149,8 @@ pub(super) fn key(window: Hwnd, wparam: usize, lparam: isize, pressed: bool) {
 }
 
 /// WM_SYSKEYDOWN et WM_SYSKEYUP (touches tenues avec Alt, et F10) : la touche pour
-/// `Application::key`, puis le traitement de Windows, qui ne change pas (Alt+F4 ferme la
-/// fenêtre, Alt seul et F10 ouvrent le menu de la fenêtre).
+/// `Application::key`, puis le traitement de Windows (Alt+F4 ferme la fenêtre). Alt seul
+/// et F10 n'ouvrent plus le menu de la fenêtre (`is_bare_key_menu`).
 pub(super) fn system_key(
     window: Hwnd,
     (wparam, lparam): (usize, isize),
@@ -159,6 +159,13 @@ pub(super) fn system_key(
 ) -> isize {
     key(window, wparam, lparam, pressed);
     default_proc()
+}
+
+/// WM_SYSCOMMAND `wparam`, `lparam` est-il le menu de la fenêtre demandé au clavier sans
+/// lettre (Alt seul ou F10 relâché) ? Alt+Espace le demande avec l'espace : non.
+pub(super) fn is_bare_key_menu(wparam: usize, lparam: isize) -> bool {
+    use windows_sys::Win32::UI::WindowsAndMessaging::SC_KEYMENU;
+    (wparam & 0xFFF0) as u32 == SC_KEYMENU && lparam == 0
 }
 
 /// La touche de code virtuel `virtual_key`. Le code virtuel suit la disposition : sur un
@@ -272,5 +279,16 @@ mod tests {
         })
         .join()
         .unwrap();
+    }
+
+    /// Alt seul ou F10 : le menu sans lettre est refusé. Témoins : Alt+Espace le demande
+    /// avec l'espace, fermer (Alt+F4) n'est pas le menu.
+    #[test]
+    fn only_the_bare_key_menu_is_refused() {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{SC_CLOSE, SC_KEYMENU};
+        assert!(is_bare_key_menu(SC_KEYMENU as usize, 0));
+        assert!(is_bare_key_menu(SC_KEYMENU as usize | 0x3, 0));
+        assert!(!is_bare_key_menu(SC_KEYMENU as usize, b' ' as isize));
+        assert!(!is_bare_key_menu(SC_CLOSE as usize, 0));
     }
 }

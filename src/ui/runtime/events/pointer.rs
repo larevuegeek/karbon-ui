@@ -235,7 +235,7 @@ impl UiRuntime {
     }
 
     pub(super) fn cancel_pointer_event(&mut self, result: &mut EventResult) {
-        if self.pan_end() {
+        if self.pan_cancel() {
             result.release = true;
             result.handled = true;
         }
