@@ -168,7 +168,10 @@ impl Display {
         let code = unsafe { wl_display_get_error(self.raw) };
         crate::Error::Platform { operation, code }
     }
-    /// Lie un objet global annoncé par le registre (versions plafonnées à celles écrites).
+    /// Lie un objet global annoncé par le registre, en version plafonnée à celle voulue, à
+    /// celle du compositeur et à celle de la table : une libwayland plus ancienne que le
+    /// compositeur (AppImage construite sur une vieille distribution) ne sait pas distribuer
+    /// les événements d'une version plus récente et coupe la connexion.
     fn bind(
         registry: Ptr,
         name: u32,
@@ -177,7 +180,7 @@ impl Display {
         offered: u32,
         kind: Kind,
     ) -> Ptr {
-        let version = wanted.min(offered);
+        let version = wanted.min(offered).min(interface.version()).max(1);
         // SAFETY : registre valide ; signature `usun` (nom, interface, version, objet).
         let object = unsafe {
             crate::platform::linux::ffi::wayland::wl_proxy_marshal_flags(

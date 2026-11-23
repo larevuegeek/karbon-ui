@@ -29,6 +29,10 @@ impl Interface {
     pub fn name(&self) -> *const c_char {
         self.name
     }
+    /// Dernière version que la table connaît (celle de la libwayland chargée pour `wl_*`).
+    pub fn version(&self) -> u32 {
+        self.version.max(0) as u32
+    }
 }
 impl Message {
     /// Signature des arguments (lettres de type, préfixe de version, `?` : nullable).
