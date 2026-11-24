@@ -247,3 +247,67 @@ refusés, quittés ; zoom de 1,25 sur un écran à 150 % (largeur 640 au lieu de
 souris : les essais échouent). **Non vérifié à la main** : le verrou dans une vraie
 fenêtre (les essais ne bougent pas le vrai pointeur), un vrai glisser depuis
 l'Explorateur, le zoom dans une vraie fenêtre.
+
+## Ajouts pour l'éditeur de karbon-engine, vague 5 (KUI-017, KUI-018, KUI-021, KUI-024)
+
+### Boutons 4 et 5, stylet (KUI-018)
+
+`PointerButton::Back` et `PointerButton::Forward` (l'énumération n'est pas exhaustive) :
+`WM_XBUTTONDOWN` et `WM_XBUTTONUP` (`XBUTTON1`, `XBUTTON2`) vont aux gestionnaires
+`on_pointer` comme les autres boutons, puis à Windows comme avant (`WM_APPCOMMAND`).
+
+`PointerEvent::pressure` (0 à 1) et `PointerEvent::tilt` (degrés selon x et y) : un
+stylet Windows Ink envoie d'abord `WM_POINTERDOWN`, `WM_POINTERUPDATE`, `WM_POINTERUP` ;
+on y lit `GetPointerPenInfo` (pression sur 1 024, inclinaison), puis Windows en fait les
+messages de souris comme avant (`DefWindowProcW`). Le message de souris qui vient du stylet
+(signature `0xFF515700` de `GetMessageExtraInfo`) porte cette lecture ; une souris garde
+une pression de 1 et une inclinaison nulle (`platform/windows/events/pen.rs`,
+`ui/runtime/raw_input/pen.rs`). Fonction ajoutée à `windows-sys` : `Win32_UI_Input_Pointer`.
+
+### Place du pointeur sur l'écran (KUI-024)
+
+`PointerEvent::screen` : la place du pointeur sur l'écran, dans les unités de
+`WindowChange::Position` (pixels logiques à l'échelle de l'écran principal), pour ouvrir
+une fenêtre là où l'on a lâché un panneau tiré hors de la fenêtre. Sous Windows, le coin de
+la zone client (`ClientToScreen`) et le rapport des échelles sont donnés au runtime avant
+chaque entrée (`UiRuntime::set_pointer_extras`). Ailleurs, et dans la fenêtre simulée, la
+fenêtre est au coin de l'écran : `screen` vaut `(x, y)`.
+
+### Curseurs choisis par l'application (KUI-021)
+
+`Element::cursor_shape(CursorShape)` : `CursorShape::Named(Cursor)`, `Hidden` (aucun
+curseur) ou `Image(CursorImage)` (une image et son point de visée, montrée à sa taille en
+pixels de l'écran). Il vaut au-dessus de l'élément et de ses descendants, et partout
+pendant un geste pris par `on_pointer` sur lui (Windows n'envoie pas `WM_SETCURSOR`
+pendant la capture : le curseur est remis après chaque entrée du geste). Les contrôles du
+runtime gardent le leur : menu d'édition, liste ouverte, séparateur, barre de défilement,
+champ de texte. `Cursor` ne change pas (énumération fermée). Windows : `CreateIconIndirect`
+d'après les pixels, le curseur fait gardé tant que l'application donne la même image
+(`platform/windows/events/cursor_shape.rs`) ; ailleurs, le curseur du CSS reste.
+`UiRuntime::cursor_shape()` dit ce qui est demandé (les essais le lisent).
+
+### Texte tapé dans un élément dessiné par l'application (KUI-017)
+
+`Element::on_text(|&TextEvent| -> Option<M>)` : `TextEvent::Insert(String)` (une touche,
+une touche morte suivie d'une lettre, ce que valide une méthode de saisie),
+`Composition { text, cursor }` (le texte en cours de composition, son curseur en octets),
+`CompositionEnd`. Le texte part de l'élément qui a le clavier (comme `on_key`) et remonte
+aux ancêtres ; un champ de texte du runtime qui a le focus garde son texte, comme avant.
+`Element::text_caret(RectF)` dit où est le curseur dans l'élément : sous Windows, la
+fenêtre de la méthode de saisie (`ImmSetCompositionWindow`) s'y place et la composition
+n'est plus dessinée par Windows, comme pour un champ (`UiRuntime::text_target_geometry`,
+branche ajoutée à `present::runtime::focused_input`).
+
+### Contrôles (vague 5)
+
+Tests sans fenêtre (`src/ui/tests/runtime/raw_input_pen.rs`) : boutons 4 et 5 reçus et
+geste rendu ; stylet à 0,5 et 12° / −30°, la souris qui suit à 1 (témoin) ; place sur
+l'écran d'une fenêtre au coin puis sur un second écran à 150 % (1980, 145) ; pression de
+Windows ramenée de 0 à 1 ; curseur image, caché, rien ailleurs (témoin), le champ de
+texte gardé, la main gardée pendant le geste hors de l'élément ; « é », une composition
+japonaise (curseur 1 en UTF-16 = 3 octets), la valeur validée, la fin, et le champ du
+runtime qui garde « ê » (témoin). Contrôle négatif fait : sans l'aiguillage du texte dans
+`dispatch`, l'essai du texte échoue. **Non vérifié à la main** : un vrai stylet (aucune
+tablette sur la machine), une vraie méthode de saisie japonaise, un vrai curseur image dans
+la fenêtre (les essais ne bougent pas le vrai pointeur ; le curseur d'une fenêtre n'est
+pas photographiable sans copie de l'écran).

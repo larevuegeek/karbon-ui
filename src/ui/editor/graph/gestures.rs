@@ -60,7 +60,8 @@ fn press(
             }));
         }
         Some(PointerButton::Primary) => {}
-        None => return GraphReply::default(),
+        // Sans bouton, ou les boutons 4 et 5 : rien pour la toile.
+        _ => return GraphReply::default(),
     }
     match found {
         Hit::Minimap => {

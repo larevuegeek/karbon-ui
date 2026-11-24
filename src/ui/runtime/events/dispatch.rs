@@ -32,6 +32,14 @@ impl UiRuntime {
         if let Some(reply) = self.drag_drop_event(&event) {
             return reply;
         }
+        // La fenêtre perd le clavier ou la souris : un glisser libre s'arrête (`ui::drag`).
+        if matches!(event, UiEvent::Cancel | UiEvent::FocusChanged(false)) {
+            self.drag_cancel();
+        }
+        // Le texte tapé pour un élément dessiné par l'application (`Element::on_text`).
+        if let Some(reply) = self.typed_text(&event) {
+            return reply;
+        }
         if let UiEvent::Timer(now) = event {
             return self.timer_event(now);
         }

@@ -60,9 +60,21 @@ pub(super) fn pointer(
         motion: motion.map(|(x, y)| (x as f32 / factor, y as f32 / factor)),
     };
     let moving = phase == PointerPhase::Move;
-    let result = runtime::raw_input(window, moving, |ui| ui.pointer_input(input));
+    // Un geste qui a son curseur (`Element::cursor_shape`) : Windows n'envoie pas
+    // `WM_SETCURSOR` pendant la capture, le curseur est remis ici.
+    let shaped = || runtime::pointer_gesture() && runtime::cursor_shape().is_some();
+    let shaped_before = shaped();
+    // Le stylet, s'il fait ce message, et la place de la fenêtre sur l'écran (`pen.rs`).
+    let (pen, origin, ratio) = super::pen::extras(window);
+    let result = runtime::raw_input(window, moving, |ui| {
+        ui.set_pointer_extras(pen, origin, ratio);
+        ui.pointer_input(input)
+    });
     if result.repaint {
         invalidate(window);
+    }
+    if shaped_before || shaped() {
+        super::pointer::update_cursor();
     }
     super::pointer_lock::sync(window, p);
     // SAFETY : sans argument, ou la fenêtre qui traite le message ; capture prise et
@@ -93,6 +105,22 @@ pub(super) fn side_button(
     };
     pointer(window, lparam, phase, Some(button));
     default_proc()
+}
+
+/// WM_XBUTTONDOWN, WM_XBUTTONUP : les boutons 4 (précédent) et 5 (suivant) de la souris
+/// pour `on_pointer`, puis ce que Windows en fait d'habitude (`WM_APPCOMMAND`).
+pub(super) fn extra_button(
+    window: Hwnd,
+    (wparam, lparam): (usize, isize),
+    down: bool,
+    default_proc: impl FnOnce() -> isize,
+) -> isize {
+    use windows_sys::Win32::UI::WindowsAndMessaging::XBUTTON1;
+    let button = match ((wparam >> 16) & 0xFFFF) as u16 {
+        XBUTTON1 => PointerButton::Back,
+        _ => PointerButton::Forward,
+    };
+    side_button(window, lparam, (button, down), default_proc)
 }
 
 /// WM_MOUSEWHEEL et WM_MOUSEHWHEEL : le tour de molette, en crans, pour les gestionnaires
@@ -128,7 +156,11 @@ pub(super) fn wheel(
         meta: is_pressed(VK_LWIN) || is_pressed(VK_RWIN),
         motion: None,
     };
-    let result = runtime::raw_input(window, false, |ui| ui.pointer_wheel(input, amount));
+    let (_, origin, ratio) = super::pen::extras(window);
+    let result = runtime::raw_input(window, false, |ui| {
+        ui.set_pointer_extras(None, origin, ratio);
+        ui.pointer_wheel(input, amount)
+    });
     if result.repaint {
         invalidate(window);
     }

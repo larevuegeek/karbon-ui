@@ -1,6 +1,7 @@
 //! Elements, constraints and extension points, independent of the operating system.
 mod aria;
 mod builders;
+mod drag_handlers;
 mod id;
 mod input_handlers;
 pub(crate) mod memo;

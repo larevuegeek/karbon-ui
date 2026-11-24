@@ -101,6 +101,13 @@ pub(crate) fn cursor() -> Cursor {
             .unwrap_or(Cursor::Arrow)
     })
 }
+pub(crate) fn cursor_shape() -> Option<crate::ui::runtime::CursorShape> {
+    DRAWING.with(|slot| {
+        slot.try_borrow()
+            .ok()
+            .and_then(|s| s.as_ref().and_then(|s| s.runtime.cursor_shape()))
+    })
+}
 /// Le menu contextuel intégré d'un champ de saisie est ouvert (tests).
 #[cfg(test)]
 pub(crate) fn edit_menu_open() -> bool {
@@ -123,6 +130,14 @@ pub(crate) fn focused_input() -> Option<crate::ui::text_input::InputGeometry> {
             .as_ref()?
             .runtime
             .focused_input_geometry()
+            .or_else(|| {
+                // Un élément dessiné par l'application prend le texte (`on_text`).
+                slot.try_borrow()
+                    .ok()?
+                    .as_ref()?
+                    .runtime
+                    .text_target_geometry()
+            })
     })
 }
 /// L'état de dessin existe et peut être lu. Faux pendant un emprunt (message imbriqué) :

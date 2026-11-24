@@ -92,6 +92,18 @@ pub(crate) struct Listeners {
     pub file_drop: Option<crate::ui::runtime::raw_input::FileDropHandler>,
     /// `aria-label` : le nom accessible donné par l'application (`aria.rs`).
     pub aria_label: Option<std::sync::Arc<str>>,
+    /// `cursor_shape` : le curseur choisi par l'application (caché, image).
+    pub cursor: Option<crate::ui::runtime::raw_input::CursorShape>,
+    /// `on_text` : le texte tapé quand l'élément a le clavier, et son curseur
+    /// (`text_caret`, dans l'élément) pour la fenêtre de la méthode de saisie.
+    pub text: Option<crate::ui::runtime::raw_input::TextHandler>,
+    pub text_caret: Option<crate::ui::scene::RectF>,
+    /// Le glisser libre (`ui::drag`) : les données portées, la source qui suit le geste,
+    /// la cible qui accepte et celle qui reçoit le lâcher.
+    pub drag_payload: Option<crate::ui::drag::Payload>,
+    pub drag: Option<crate::ui::drag::DragHandler>,
+    pub drag_over: Option<crate::ui::drag::DragHandler>,
+    pub drop: Option<crate::ui::drag::DragHandler>,
 }
 thread_local! {
     /// Un gestionnaire a été posé depuis la dernière lecture.

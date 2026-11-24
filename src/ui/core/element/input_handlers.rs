@@ -112,4 +112,69 @@ impl Element {
         }
         self
     }
+
+    /// Show `shape` as the mouse cursor over this element and its descendants (unless a
+    /// descendant asks for another one), and everywhere during a gesture this element
+    /// takes with [`on_pointer`](Self::on_pointer): a hidden cursor, a picture drawn by
+    /// the application (an eyedropper, a closed hand that drags a canvas), or a named
+    /// cursor. It goes beyond the CSS `cursor` property, which it overrides here; the
+    /// controls of the runtime keep theirs (text fields, scroll bars, dividers, open
+    /// menus). On Windows only for now: elsewhere the CSS cursor stays.
+    ///
+    /// ```
+    /// use karbon_ui::ui::{prelude::*, runtime::{CursorImage, CursorShape}, scene::Image};
+    /// use std::sync::Arc;
+    ///
+    /// let dot = Arc::new(Image::new(1, 1, vec![0, 0, 0, 255]).unwrap());
+    /// let picker = column("picker", []).cursor_shape(CursorShape::Image(CursorImage::new(dot, (0, 0))));
+    /// let aim = column("aim", []).cursor_shape(CursorShape::Hidden);
+    /// # let _ = row("both", [picker, aim]);
+    /// ```
+    pub fn cursor_shape(mut self, shape: crate::ui::runtime::CursorShape) -> Self {
+        self.listeners_mut().cursor = Some(shape);
+        self
+    }
+
+    /// Receive the text typed while this element or one of its descendants has the
+    /// keyboard (see [`on_key`](Self::on_key)): characters to insert, dead keys and
+    /// input methods included ([`TextEvent`](crate::ui::runtime::TextEvent)), for an
+    /// element the application draws itself (a code editor, the search box of a graph,
+    /// a name edited in place). `handler` returns the message to send, or `None` to let
+    /// the text go to the ancestors. A text field of the runtime that has the focus keeps
+    /// its text, as before. Give the caret with [`text_caret`](Self::text_caret) so that
+    /// the window of an input method opens next to it. On Windows only for now.
+    ///
+    /// ```
+    /// use karbon_ui::ui::{prelude::*, runtime::TextEvent, scene::RectF};
+    ///
+    /// #[derive(Clone)]
+    /// enum Msg {
+    ///     Typed(String),
+    ///     Composing(String),
+    /// }
+    /// let search = column("search", [])
+    ///     .on_text(|event: &TextEvent| match event {
+    ///         TextEvent::Insert(text) => Some(Msg::Typed(text.clone())),
+    ///         TextEvent::Composition { text, .. } => Some(Msg::Composing(text.clone())),
+    ///         _ => None,
+    ///     })
+    ///     .text_caret(RectF { left: 40., top: 4., right: 41., bottom: 20. });
+    /// # let _ = search;
+    /// ```
+    pub fn on_text<M: 'static>(
+        mut self,
+        handler: impl Fn(&crate::ui::runtime::TextEvent) -> Option<M> + 'static,
+    ) -> Self {
+        let handler = crate::ui::runtime::raw_input::TextHandler::new(handler);
+        self.listeners_mut().text = Some(handler);
+        self
+    }
+
+    /// Where the caret of this element is, from its top left corner, in logical pixels:
+    /// the window of an input method opens below it while the element takes the typed
+    /// text ([`on_text`](Self::on_text)).
+    pub fn text_caret(mut self, caret: crate::ui::scene::RectF) -> Self {
+        self.listeners_mut().text_caret = Some(caret);
+        self
+    }
 }

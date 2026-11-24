@@ -24,6 +24,8 @@ impl KeyHandler {
 pub(crate) struct KeyFocus {
     pressed: Option<ElementId>,
     focus_then: Option<ElementId>,
+    /// Une méthode de saisie compose pour l'élément qui prend le texte (`text.rs`).
+    pub(super) composing: bool,
 }
 
 /// Gestionnaires `on_key` de `start` et de ses ancêtres, de lui à la racine.
@@ -54,6 +56,7 @@ impl UiRuntime {
         self.key_focus = KeyFocus {
             pressed: found,
             focus_then: self.interaction.focused,
+            composing: false,
         };
     }
 

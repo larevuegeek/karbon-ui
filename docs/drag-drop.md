@@ -98,3 +98,52 @@ par exemple collée au bord le plus proche, et le bloc y glisse depuis le point 
 
 Code : `src/ui/runtime/drag_drop/pan.rs` (geste, bloc, glissement final), tests
 `src/ui/tests/pan.rs`.
+
+## Glisser libre entre panneaux (`ui::drag`, KUI-045)
+
+Distinct du glisser-déposer ci-dessus (qui ne change pas) : n'importe quel élément porte
+des données typées, et n'importe quel élément dit s'il les accepte.
+
+```rust,ignore
+use karbon_ui::ui::drag::{self, DragEvent, DragPhase, Payload};
+
+let tile = column("brique", [])
+    .drag_payload(Payload::new("texture", "Brique", asset_id))
+    .on_drag(|e: &DragEvent| Some(Msg::Dragging(e.phase, e.x, e.y, e.accepted)));
+let view = column("vue", [])
+    .on_drag_over(|e: &DragEvent| match e.phase {
+        DragPhase::Over if e.payload.is("texture") => Some(Msg::Aim(e.fraction())),
+        DragPhase::Leave => Some(Msg::Aim(None)),
+        _ => None,
+    })
+    .on_drop(|e: &DragEvent| Some(Msg::Place(*e.payload.get::<u64>()?, e.fraction()?)));
+// Pendant le geste, l'application pose l'aperçu où elle veut :
+// drag::preview(chip, (x, y)) le met près du pointeur, au-dessus de tout, sans prendre
+// le pointeur.
+```
+
+- **Données** : `Payload::new(sorte, nom, valeur)` ; `is`, `kind`, `label`, `get::<T>()` ;
+  `Payload::files(chemins)` (sorte `Payload::FILES`).
+- **Le geste** passe par les entrées brutes (`pointer_input`, Windows) : un appui du
+  bouton principal que nul `on_pointer` n'a pris, sur un élément qui porte des données ou
+  dans lui, devient un glisser après 4 unités ; le clic sur la source n'a pas lieu, et les
+  gestionnaires `on_pointer` ne voient plus rien jusqu'au relâchement (la fenêtre garde la
+  souris).
+- **La source** reçoit `Start`, `Move` (avec `accepted` : une cible accepte sous le
+  pointeur) et `End` (`dropped`, `cancelled`, `screen` : la place sur l'écran, pour ouvrir
+  une fenêtre là où l'on a lâché hors de la fenêtre).
+- **Les cibles** sous le pointeur, de la plus profonde à la racine, reçoivent `Over` à
+  chaque mouvement : rendre un message accepte (la première qui accepte l'emporte),
+  `None` refuse. Celle qui acceptait reçoit `Leave` quand le pointeur la quitte, puis
+  `Drop` au lâcher (`on_drop`). `DragEvent::fraction` : la place dans la cible, en
+  fractions de sa taille (le rayon visé d'une vue 3D).
+- **Annuler** : Échap (`key_input`), la fenêtre qui perd la souris ou le clavier
+  (`UiEvent::Cancel`, `FocusChanged(false)`) ; la cible reçoit `Leave` et la source `End`
+  annulé, sans `Drop`.
+
+Code : `src/ui/runtime/drag/` (`payload.rs`, `events.rs`, `session.rs`, `preview.rs`),
+`src/ui/core/element/drag_handlers.rs`. Tests : `src/ui/tests/drag_free.rs` (texture
+acceptée par la vue, refusée par l'arbre, lâchée au trois quarts ; Échap ; perte de la
+souris ; lâcher hors de toute cible ; un glisser revenu sur sa source ne la clique pas,
+témoin négatif fait : sans l'oubli de l'appui, elle est cliquée). Les fichiers déposés
+depuis l'Explorateur gardent leur chemin à eux (`on_file_drop`).

@@ -43,6 +43,7 @@ pub use overlays::{modal, popover};
 // Chemin utilisé par le code généré par ui-macros.
 pub use rendering::font;
 // Chemin utilisé par le code généré par ui-macros.
+pub use runtime::drag;
 pub use runtime::drag_drop;
 // Chemins publics conservés pour les exemples, les tests et les applications.
 pub use components::{choices, select, slider, text_input, title_bar};

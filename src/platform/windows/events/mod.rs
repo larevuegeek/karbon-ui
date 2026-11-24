@@ -2,12 +2,14 @@
 //! des `UiEvent` au runtime avec les suites qu'il demande (capture, presse-papiers…).
 pub(crate) mod caption;
 mod clipboard;
+mod cursor_shape;
 mod dispatch;
 pub(crate) mod file_drop;
 pub(crate) mod grip;
 mod keyboard;
 mod more_keys;
 mod nonclient;
+mod pen;
 mod pointer;
 mod pointer_lock;
 mod procedure;

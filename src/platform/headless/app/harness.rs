@@ -117,6 +117,9 @@ pub struct HeadlessApp<A: Application> {
     pub(super) now: Instant,
     pub(super) clipboard: Option<String>,
     pub(super) window_commands: Vec<WindowCommand>,
+    /// La place de la fenêtre sur l'écran simulé (`raw_extras.rs`).
+    pub(super) screen_origin: (f32, f32),
+    pub(super) screen_ratio: f32,
     pub(super) _application: PhantomData<fn() -> A>,
 }
 
@@ -151,6 +154,8 @@ impl<A: Application> HeadlessApp<A> {
             now: Instant::now(),
             clipboard: None,
             window_commands: Vec::new(),
+            screen_origin: (0., 0.),
+            screen_ratio: 1.,
             _application: PhantomData,
         };
         app.prepare()?;

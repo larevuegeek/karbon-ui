@@ -127,6 +127,19 @@ pub(super) unsafe fn window_message(
             let button = (crate::ui::runtime::PointerButton::Middle, false);
             super::raw_input::side_button(window, lparam, button, default_proc)
         }
+        // Boutons 4 et 5 de la souris, pour `on_pointer` ; Windows garde leur traitement.
+        windows_sys::Win32::UI::WindowsAndMessaging::WM_XBUTTONDOWN => {
+            super::raw_input::extra_button(window, (wparam, lparam), true, default_proc)
+        }
+        windows_sys::Win32::UI::WindowsAndMessaging::WM_XBUTTONUP => {
+            super::raw_input::extra_button(window, (wparam, lparam), false, default_proc)
+        }
+        // Le stylet : sa pression lue, puis les messages de souris de Windows (`pen.rs`).
+        windows_sys::Win32::UI::WindowsAndMessaging::WM_POINTERDOWN
+        | windows_sys::Win32::UI::WindowsAndMessaging::WM_POINTERUPDATE
+        | windows_sys::Win32::UI::WindowsAndMessaging::WM_POINTERUP => {
+            super::pen::pointer_message(wparam, default_proc)
+        }
         WM_CAPTURECHANGED => pointer::capture_changed(window),
         WM_KEYDOWN => keyboard::key_down(window, wparam, lparam, default_proc),
         WM_KEYUP => keyboard::key_up(window, wparam, default_proc),

@@ -6,6 +6,7 @@ mod messages;
 mod raw_input;
 mod raw_input_additions;
 mod raw_input_panels;
+mod raw_input_pen;
 mod regions;
 mod tasks;
 mod wheel;

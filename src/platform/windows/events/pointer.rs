@@ -60,8 +60,17 @@ fn pointer(window: Hwnd, lparam: isize) -> PointF {
         y: p.y as f32 / scale,
     }
 }
-fn update_cursor() {
-    let id = match runtime::cursor() {
+pub(super) fn update_cursor() {
+    // Le curseur choisi par l'application pour l'élément (`cursor_shape.rs`).
+    if let Some(shape) = runtime::cursor_shape()
+        && super::cursor_shape::show(&shape, set_named_cursor)
+    {
+        return;
+    }
+    set_named_cursor(runtime::cursor());
+}
+fn set_named_cursor(named: Cursor) {
+    let id = match named {
         Cursor::Arrow => IDC_ARROW,
         Cursor::Hand => IDC_HAND,
         Cursor::ResizeHorizontal => IDC_SIZEWE,

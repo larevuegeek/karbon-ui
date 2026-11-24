@@ -18,6 +18,10 @@ pub enum PointerButton {
     Secondary,
     /// The wheel pressed down, or the middle button.
     Middle,
+    /// The fourth button, on the side of the mouse: back (« previous » in a browser).
+    Back,
+    /// The fifth button, on the side of the mouse: forward (« next » in a browser).
+    Forward,
 }
 
 /// What happened to the pointer.
@@ -77,6 +81,19 @@ pub struct PointerEvent {
     /// of the mouse itself, which never stops at the edge of the screen. `(0.0, 0.0)` for
     /// a press, a release and the wheel.
     pub delta: (f32, f32),
+    /// Pressure of a pen on a tablet, from `0.0` (barely touching) to `1.0` (pressed
+    /// hard); `1.0` for a mouse and wherever the backend reads no pen (Windows Ink only
+    /// for now).
+    pub pressure: f32,
+    /// Tilt of a pen from the vertical, in degrees, along x (positive to the right) and y
+    /// (positive towards the user); `(0.0, 0.0)` for a mouse.
+    pub tilt: (f32, f32),
+    /// Pointer position on the screen, in the units of
+    /// [`WindowChange::Position`](crate::window::WindowChange::Position) (logical pixels
+    /// at the scale of the main screen): where a panel torn off the window should open.
+    /// Equal to `x`, `y` where the backend does not know where the window is (the
+    /// headless window sits at the origin of the screen).
+    pub screen: (f32, f32),
 }
 
 /// Délai et distance qui font d'un appui la suite du précédent (double-clic), comme les
@@ -120,9 +137,13 @@ pub(crate) struct RawPointerState {
     last_press: Option<(Instant, PointF, PointerButton)>,
     clicks: u8,
     /// Dernière position reçue, pour `PointerEvent::delta` (`lock.rs`).
-    pub(super) last_position: Option<PointF>,
+    pub(crate) last_position: Option<PointF>,
     /// L'élément qui accepte les fichiers survolés (`file_drop.rs`).
     pub(super) file_target: Option<ElementId>,
+    /// Ce que le backend dit du stylet et de la place de la fenêtre (`pen.rs`).
+    pub(crate) extras: super::pen::PointerExtras,
+    /// Le glisser libre en cours ou possible (`ui::drag`).
+    pub(crate) free_drag: Option<crate::ui::runtime::drag::Session>,
 }
 
 impl RawPointerState {
@@ -157,12 +178,14 @@ pub(super) fn bit(button: PointerButton) -> u8 {
         PointerButton::Primary => 1,
         PointerButton::Secondary => 2,
         PointerButton::Middle => 4,
+        PointerButton::Back => 8,
+        PointerButton::Forward => 16,
     }
 }
 
 /// Élément le plus profond sous `world` qui reçoit les événements du pointeur (cible de
 /// l'événement du DOM).
-pub(super) fn target(
+pub(crate) fn target(
     node: &Element,
     world: PointF,
     motions: &crate::ui::animation::timeline::Timeline,
@@ -214,6 +237,10 @@ impl UiRuntime {
         let mut result = EventResult::default();
         let clicks = self.raw_pointer.count_clicks(&input, Instant::now());
         let delta = self.raw_pointer.delta_of(&input);
+        // Un glisser libre en cours prend le pointeur (`ui::drag`).
+        if let Some(result) = self.drag_input(&input) {
+            return result;
+        }
         self.take_key_focus(&input);
         let path = self.pointer_path(input.position);
         let mut taken = None;
@@ -232,6 +259,9 @@ impl UiRuntime {
                 wheel: (0., 0.),
                 meta: input.meta,
                 delta,
+                pressure: self.raw_pointer.extras.pressure,
+                tilt: self.raw_pointer.extras.tilt,
+                screen: self.raw_pointer.extras.on_screen(input.position),
             };
             if let Some(message) = (handler.0)(event) {
                 self.send(message);
@@ -241,6 +271,11 @@ impl UiRuntime {
                 taken = Some(id);
                 break;
             }
+        }
+        if taken.is_none()
+            && (input.phase, input.button) == (PointerPhase::Down, Some(PointerButton::Primary))
+        {
+            self.drag_press(&input);
         }
         let state = &mut self.raw_pointer;
         match (input.phase, input.button) {
@@ -266,7 +301,7 @@ impl UiRuntime {
     /// Un élément a pris un geste du pointeur, qui n'est pas fini (un bouton est encore
     /// enfoncé) : le backend garde la souris pour lui.
     pub(crate) fn pointer_gesture(&self) -> bool {
-        self.raw_pointer.target.is_some()
+        self.raw_pointer.target.is_some() || self.free_dragging()
     }
 
     /// Les gestionnaires à essayer pour un événement à `position` : celui de l'élément qui
@@ -347,6 +382,9 @@ impl UiRuntime {
                 wheel,
                 meta: input.meta,
                 delta: (0., 0.),
+                pressure: 1.,
+                tilt: (0., 0.),
+                screen: self.raw_pointer.extras.on_screen(position),
             };
             if let Some(message) = (handler.0)(event) {
                 self.send(message);

@@ -78,6 +78,8 @@ impl UiRuntime {
             PointerButton::Primary,
             PointerButton::Secondary,
             PointerButton::Middle,
+            PointerButton::Back,
+            PointerButton::Forward,
         ];
         for button in buttons.into_iter().filter(|&b| held & bit(b) != 0) {
             let event = PointerEvent {
@@ -94,6 +96,9 @@ impl UiRuntime {
                 wheel: (0., 0.),
                 meta: false,
                 delta: (0., 0.),
+                pressure: 1.,
+                tilt: (0., 0.),
+                screen: self.raw_pointer.extras.on_screen(at),
             };
             if let Some(message) = (handler.0)(event) {
                 self.send(message);

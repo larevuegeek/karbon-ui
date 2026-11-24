@@ -4,6 +4,7 @@
 mod animation;
 mod components;
 mod drag_drop;
+mod drag_free;
 mod layout;
 mod overlays;
 mod pan;

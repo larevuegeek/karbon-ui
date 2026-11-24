@@ -200,6 +200,13 @@ impl UiRuntime {
     ///
     /// The result asks for a repaint when the application rebuilt its view.
     pub fn key_input(&mut self, press: KeyPress) -> EventResult {
+        // Échap pendant un glisser libre l'annule (`ui::drag`).
+        if press.pressed
+            && press.key == KeyCode::Escape
+            && let Some(result) = self.drag_cancel()
+        {
+            return result;
+        }
         let mut result = EventResult::default();
         if self.focused_input_geometry().is_some() {
             return result;
