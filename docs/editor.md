@@ -376,3 +376,53 @@ débordement, menu, bulles, clavier), toile (aller-retour, zoom de 1 % à 1 000 
 pointeur, cadrage, Bézier et tirets), courbes (valeurs, glisser et Échap, double clic,
 rectangle et Maj, Suppr et flèches, pente, molette et cadrage), thème. Le pointeur des
 courbes arrive par `on_pointer` : sous Windows seulement pour l'instant.
+
+## Toile de graphe de nœuds (`GraphEditor`, KUI-040, version inchangée)
+
+```rust
+GraphEditor::new(1, &self.graph, &self.state, Msg::Graph).palette(PALETTE).element()
+// update : let reply = self.state.update(m, &self.graph); appliquer reply.event
+// key    : self.state.key(press, &self.graph)   (par Application::key ou on_key)
+```
+
+- Rangée sous `ui::editor` comme les courbes et la frise (le cahier proposait
+  `ui::graph` ; la toile partage `editor::canvas` et `EditorPalette`).
+- Données de l'application (`Graph`) : `GraphNode { id, title, subtitle, position,
+  width, color, mark, inputs, outputs }`, `GraphPort { name, kind, color }`,
+  `GraphWire { from, to }` (une sortie vers une entrée, `PortRef { node, port }`),
+  `GraphComment { id, rect, text, color }`. Règles de branchement : même sorte, sorte
+  `0` (tout), paires `Graph::compatible` ; une entrée prend un fil (le neuf remplace
+  l'ancien) sauf `many_per_input`. Le sens des nœuds reste à l'application.
+- Gestes (`GraphEvent`) : nœuds glissés (`Move` : des `Preview`, un `Commit`, Échap
+  `Cancel`) ; un fil tiré d'une sortie vers une entrée ou l'inverse (`Connect`, avec les
+  fils à retirer) ; un fil repris de son entrée, posé ailleurs (`Connect`) ou lâché dans
+  le vide (`Disconnect`) ; Alt+clic sur un fil ou un port (`Disconnect`) ; clic sur un
+  fil (`ChooseWire`, Suppr le retire) ; Suppr (`Delete`), Ctrl+A, Ctrl+C (`Copy`),
+  Ctrl+V (`Paste`), Ctrl+D (`Duplicate`), C (`Comment` autour du choix) ; le titre d'un
+  commentaire emporte ses nœuds ; clic droit (`Menu`, pour la recherche des nœuds à
+  créer) ; double clic (`Open`). Choix : clic, Maj+clic, rectangle. Bouton du milieu :
+  glisser la vue ; molette : zoom autour du pointeur ; F : cadrer ; mini-carte en bas à
+  droite (clic, glisser) dès 360 × 260 pixels.
+- Peinture, du fond vers le dessus : grille, commentaires, fils, nœuds, fil tiré,
+  rectangle de choix, mini-carte. Ce qui sort de la toile n'est pas peint ; les textes
+  disparaissent sous un zoom de 0,45.
+- Contrôles (tests sans fenêtre, visés par la place des ports et des nœuds dans la
+  fenêtre simulée) : brancher (témoins : autre sorte refusée, propre nœud refusé),
+  reprendre et débrancher, annuler par l'historique de l'application, glisser en une
+  étape et Échap, rectangle, Maj, Suppr avec les fils, copier, coller, dupliquer,
+  commentaire qui emporte ses nœuds, clic droit, double clic, fil choisi et retiré,
+  mini-carte, ordre de peinture (témoin : fils peints après les nœuds, l'essai échoue).
+  500 nœuds et 1 000 fils tout montrés : 4,9 ms par image en mise au point (construction
+  de la vue et peinture de la scène, processeur).
+
+## Noms et valeurs lus par le Narrateur (ajout, version inchangée)
+
+- `Element::aria_label(nom)` : le nom accessible que lit le Narrateur à la place de
+  celui du composant (« Text field », « Choice ») ; rangé avec les gestionnaires, rien
+  n'est ajouté à un élément qui n'en a pas.
+- `Widget::accessible_value()` : la valeur lue d'un composant qui n'est pas une zone de
+  texte (`None` par défaut). Les champs numériques (`NumberField`, `VectorField`) sont
+  désormais exposés en curseurs, avec leur valeur montrée (« 2,5 m », « — ») ;
+  `NumberField::aria_label` et `VectorField::aria_label` (« Position » donne
+  « Position X », « Position Y », « Position Z »).
+- Essai : `editor/field/view/labels.rs` (témoin : un champ sans nom est lu sans nom).

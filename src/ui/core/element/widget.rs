@@ -350,6 +350,11 @@ pub trait Widget {
     fn focusable(&self) -> bool {
         self.action().is_some() || self.text_input().is_some_and(|input| input.enabled)
     }
+    /// The value assistive technologies read for this widget when it is not a text input
+    /// (a number field shows « 2,5 m ») ; `None` by default.
+    fn accessible_value(&self) -> Option<String> {
+        None
+    }
     /// Accessibility description; defaults to a [`Role::Custom`] with an empty name.
     fn semantics(&self) -> Semantics<'_> {
         Semantics {

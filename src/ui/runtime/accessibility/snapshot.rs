@@ -42,11 +42,18 @@ impl UiRuntime {
                 );
                 // Bouton, lien ou entrée de menu sans nom propre : celui de son contenu,
                 // comme le calcul du nom accessible du web (`<button><svg/>Ouvrir</button>`).
-                let name = if s.name.trim().is_empty()
+                let label = node
+                    .listeners
+                    .as_ref()
+                    .and_then(|l| l.aria_label.as_deref());
+                let name = if let Some(label) = label {
+                    label.to_owned()
+                } else if s.name.trim().is_empty()
                     && matches!(
                         s.role,
                         Role::Button | Role::Link | Role::MenuItem | Role::Tab
-                    ) {
+                    )
+                {
                     content_name(&node.children)
                 } else {
                     s.name.to_owned()
@@ -70,15 +77,17 @@ impl UiRuntime {
                     selection_container: matches!(choice, Some(ChoiceState::Radio(_)))
                         .then_some(selection_group)
                         .flatten(),
-                    value: input.and_then(|i| {
-                        runtime.components.inputs.snapshot(node.id, i).map(|s| {
-                            if i.masked {
-                                s.value.chars().map(|_| '\u{2022}').collect()
-                            } else {
-                                s.value
-                            }
+                    value: input
+                        .and_then(|i| {
+                            runtime.components.inputs.snapshot(node.id, i).map(|s| {
+                                if i.masked {
+                                    s.value.chars().map(|_| '\u{2022}').collect()
+                                } else {
+                                    s.value
+                                }
+                            })
                         })
-                    }),
+                        .or_else(|| widget.accessible_value()),
                     text: input
                         .filter(|i| !i.masked)
                         .and_then(|_| runtime.components.inputs.accessible_text(node.id)),

@@ -2,9 +2,10 @@
 //! vecteur, et la zone de saisie posée sur un champ cliqué.
 use super::state::{FieldId, FieldMsg, FieldState, Inner, Spec};
 use crate::ui::{
-    components::{InputStyle, TextInput},
     editor::EditorPalette,
-    element::{Element, ElementId, Length, PaintContext, SizeF, TextMeasurer, Widget},
+    element::{
+        Element, ElementId, Length, PaintContext, Role, Semantics, SizeF, TextMeasurer, Widget,
+    },
     runtime::{Cursor, PointerButton, PointerEvent, PointerPhase},
     scene::{RectF, Scene},
     theme::Color,
@@ -80,6 +81,7 @@ pub struct NumberField<M> {
     font: Option<crate::ui::font::Font>,
     comma: bool,
     tagged: bool,
+    label: Option<Arc<str>>,
 }
 
 impl<M: 'static> NumberField<M> {
@@ -123,6 +125,7 @@ impl<M: 'static> NumberField<M> {
             map,
             font: None,
             comma: false,
+            label: None,
             tagged: false,
         }
     }
@@ -210,6 +213,7 @@ impl<M: 'static> NumberField<M> {
             font,
             comma,
             tagged,
+            label,
         } = self;
         if let Some(text) = editing {
             return typing(field, &text, palette, map);
@@ -249,6 +253,9 @@ impl<M: 'static> NumberField<M> {
                 };
                 wanted(event, dragging).then(|| map(FieldMsg(message)))
             });
+        if let Some(label) = label {
+            element = element.aria_label(label);
+        }
         // Curseur de redimensionnement horizontal : on fait glisser la valeur.
         element
             .styles
@@ -257,33 +264,6 @@ impl<M: 'static> NumberField<M> {
             .cursor = Some(Cursor::ResizeHorizontal);
         element
     }
-}
-
-/// La zone de saisie qui remplace un champ cliqué : elle prend le clavier avec tout son
-/// texte choisi, valide par Entrée, Tab ou la perte du clavier, abandonne par Échap.
-fn typing<M: 'static>(
-    field: FieldId,
-    text: &str,
-    palette: EditorPalette,
-    map: Rc<dyn Fn(FieldMsg) -> M>,
-) -> Element {
-    let (on_text, on_key, on_focus) = (Rc::clone(&map), Rc::clone(&map), map);
-    let input = TextInput::new(text, move |text| on_text(FieldMsg(Inner::Text(text))))
-        .on_key(move |key| on_key(FieldMsg(Inner::Key(key))))
-        .autofocus()
-        .label("Value")
-        .style(InputStyle {
-            font_size: palette.font_size,
-            padding: 3.,
-            radius: 3.,
-            background: Some(palette.field),
-            foreground: Some(palette.text),
-            border: Some(palette.accent),
-            focus_border: Some(palette.accent),
-        });
-    Element::custom(field_element(field).child("input").0, input)
-        .height(Length::Px(palette.row_height))
-        .on_focus(move |focused| on_focus(FieldMsg(Inner::Focus(focused))))
 }
 
 /// Événements qu'un champ prend : l'appui du bouton gauche, puis, pendant son glisser,
@@ -428,6 +408,18 @@ impl Widget for FieldPainter {
         Ok(SizeF::default())
     }
 
+    fn semantics(&self) -> Semantics<'_> {
+        Semantics {
+            role: Role::Slider,
+            name: "",
+            enabled: true,
+        }
+    }
+
+    fn accessible_value(&self) -> Option<String> {
+        Some(self.text.clone())
+    }
+
     fn paint(&self, context: &PaintContext, scene: &mut Scene) {
         if self.tagged || self.font.is_some() {
             return self.paint_tagged(context, scene);
@@ -483,4 +475,7 @@ fn with_alpha(color: Color, alpha: u8) -> Color {
     Color { alpha, ..color }
 }
 
+mod labels;
 mod tagged;
+mod typing;
+use typing::typing;

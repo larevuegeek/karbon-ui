@@ -100,4 +100,24 @@ impl Element {
         self.aria.current = current;
         self
     }
+    /// Give this element the accessible name `label`, like HTML `aria-label`: assistive
+    /// technologies (Narrator) read it instead of the name its widget gives (« Text
+    /// field », « Choice ») — the label of a field in a property grid, for example. It
+    /// only names an element whose widget is exposed to them.
+    ///
+    /// ```
+    /// use karbon_ui::ui::prelude::*;
+    ///
+    /// #[derive(Clone)]
+    /// enum Msg {
+    ///     Name(String),
+    /// }
+    /// let field = Element::custom(1, karbon_ui::ui::text_input::TextInput::new("caisse", Msg::Name))
+    ///     .aria_label("Nom de l'objet");
+    /// # let _ = field;
+    /// ```
+    pub fn aria_label(mut self, label: impl Into<std::sync::Arc<str>>) -> Self {
+        self.listeners_mut().aria_label = Some(label.into());
+        self
+    }
 }

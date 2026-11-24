@@ -90,6 +90,8 @@ pub(crate) struct Listeners {
     pub pointer_lock: bool,
     /// `on_file_drop` : fichiers tirés depuis un autre programme.
     pub file_drop: Option<crate::ui::runtime::raw_input::FileDropHandler>,
+    /// `aria-label` : le nom accessible donné par l'application (`aria.rs`).
+    pub aria_label: Option<std::sync::Arc<str>>,
 }
 thread_local! {
     /// Un gestionnaire a été posé depuis la dernière lecture.

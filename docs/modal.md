@@ -47,6 +47,12 @@ enfants suivants sont les modales, dans l’ordre du fond vers le premier plan.
 La validation accepte jusqu’à huit dialogues. Les modales se déclarent
 directement dans cette liste, même si une action d’un dialogue en ouvre un autre.
 Un [popover](popover.md) facultatif peut compléter la liste en dernière position.
+Cet ordre est celui de la peinture et du pointeur, même quand la page est
+positionnée (`position: relative`, pour y poser des éléments `absolute`) : la
+règle CSS qui peint les enfants positionnés après ceux du flux vaut à
+l’intérieur de la page, pas entre les calques. Jusqu’à la 0.3.30, une page
+positionnée était peinte par-dessus les dialogues, qui prenaient pourtant les
+clics.
 
 ## Ouvrir et fermer depuis l’application
 

@@ -157,7 +157,11 @@ pub(crate) fn paint_order(node: &Element) -> impl DoubleEndedIterator<Item = usi
         .as_ref()
         .map(|r| r.paint_order.as_slice())
         .filter(|o| !o.is_empty());
+    // Une pile de calques (`Element::layers`) garde son ordre : la page, puis les
+    // dialogues et les popovers par-dessus, ceux que le pointeur atteint
+    // (`layers::active`). Une page positionnée ne passe pas devant eux.
     let tiered = order.is_none()
+        && !matches!(node.layout, Layout::Layers)
         && node.children.iter().any(positioned)
         && !node.children.iter().all(positioned);
     let passes = if tiered { 2 } else { 1 };

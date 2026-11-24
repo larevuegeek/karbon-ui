@@ -15,11 +15,14 @@
 //! is a time line of tracks and keys with a play head, with its [`SequencerState`]. A
 //! [`Toolbar`] shows icon buttons, options and exclusive choices, and puts what does
 //! not fit in an overflow menu. A [`CurveEditor`] edits curves of keys and slopes, on a
-//! 2D view from [`canvas`] (zoom around the pointer, thick Bézier strokes).
+//! 2D view from [`canvas`] (zoom around the pointer, thick Bézier strokes). A
+//! [`GraphEditor`] is a canvas of nodes with typed ports and wires, with its
+//! [`GraphEditorState`].
 pub mod canvas;
 mod color;
 mod curves;
 mod field;
+mod graph;
 mod label;
 mod menu_bar;
 mod palette;
@@ -40,6 +43,10 @@ pub use curves::{
 };
 pub use field::{
     FieldChange, FieldEvent, FieldId, FieldMsg, FieldReply, FieldState, NumberField, VectorField,
+};
+pub use graph::{
+    Graph, GraphComment, GraphEditor, GraphEditorState, GraphEvent, GraphMsg, GraphNode, GraphPort,
+    GraphReply, GraphView, GraphWire, NODE_WIDTH, PortRef,
 };
 pub use label::{label, tip};
 pub use menu_bar::{
