@@ -76,6 +76,8 @@ pub struct ColorPicker<M> {
     dragged_alpha: Option<f32>,
     typing: Option<String>,
     map: Rc<dyn Fn(ColorMsg) -> M>,
+    /// Canaux, intensité, couleurs récentes (`extras.rs`), sous la valeur hexadécimale.
+    extras: Vec<Element>,
 }
 
 impl<M: 'static> ColorPicker<M> {
@@ -98,7 +100,37 @@ impl<M: 'static> ColorPicker<M> {
             dragged_alpha: state.dragged_alpha(key),
             typing: state.typing(key).map(str::to_owned),
             map: Rc::new(map),
+            extras: Vec::new(),
         }
+    }
+
+    pub(super) fn key(&self) -> u64 {
+        self.key
+    }
+
+    /// La couleur montrée (celle du glisser en cours).
+    pub(super) fn rgb(&self) -> [f32; 3] {
+        self.hsv.to_rgb()
+    }
+
+    pub(super) fn shown_alpha(&self) -> f32 {
+        self.alpha.unwrap_or(1.)
+    }
+
+    pub(super) fn map(&self) -> Rc<dyn Fn(ColorMsg) -> M> {
+        Rc::clone(&self.map)
+    }
+
+    pub(super) fn palette_of(&self) -> EditorPalette {
+        self.palette
+    }
+
+    pub(super) fn id(&self) -> ElementId {
+        super::extras::picker_id(self.key)
+    }
+
+    pub(super) fn push_extra(&mut self, element: Element) {
+        self.extras.push(element);
     }
 
     /// Show a bar of opacity, at `alpha` (0: transparent, 1: opaque).
@@ -121,8 +153,9 @@ impl<M: 'static> ColorPicker<M> {
 
     /// The element: the square, the bars and the hexadecimal row, filling the width of
     /// its parent.
-    pub fn element(self) -> Element {
-        let id = ElementId::named("karbon-color-picker").item(self.key);
+    pub fn element(mut self) -> Element {
+        let id = self.id();
+        let extras = std::mem::take(&mut self.extras);
         let mut children = vec![
             self.part(id, Part::Square, self.square),
             self.part(id, Part::Hue, BAR),
@@ -131,6 +164,7 @@ impl<M: 'static> ColorPicker<M> {
             children.push(self.part(id, Part::Alpha, BAR));
         }
         children.push(self.hex_row(id));
+        children.extend(extras);
         Element::column(id.0, children).gap(6.)
     }
 

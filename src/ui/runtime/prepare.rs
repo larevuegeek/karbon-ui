@@ -410,10 +410,17 @@ impl UiRuntime {
                     selects: &self.components.selects,
                     motions: &self.motions,
                     fixed: Some(&self.invalidation.fixed_paths),
+                    kept: self
+                        .invalidation
+                        .incremental
+                        .then_some(&self.invalidation.kept_paints),
                 };
+                self.invalidation.kept_paints.borrow_mut().begin();
                 paint_node(root, &mut self.scene, context.theme, state, &resources);
+                self.invalidation.kept_paints.borrow_mut().end();
                 let resources = super::painting::PaintResources {
                     fixed: None,
+                    kept: None,
                     ..resources
                 };
                 // Fantômes des éléments retirés : animation de sortie, sans interaction.

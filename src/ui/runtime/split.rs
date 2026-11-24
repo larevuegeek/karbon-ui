@@ -32,7 +32,23 @@ impl UiRuntime {
                 }
                 self.invalidation.relayout = true;
                 self.invalidation.repaint = true;
+                self.tell_split(id, fraction);
             }
+        }
+    }
+
+    /// Prévient le gestionnaire `on_split` de l'élément `id` de sa nouvelle part.
+    fn tell_split(&mut self, id: ElementId, fraction: f32) {
+        let message = self
+            .root
+            .as_ref()
+            .and_then(|root| root.find(id))
+            .and_then(|node| node.listeners.as_deref()?.split.as_ref())
+            .map(|handler| handler.emit(fraction));
+        if let Some(message) = message
+            && self.app.update(message)
+        {
+            self.invalidate();
         }
     }
 }

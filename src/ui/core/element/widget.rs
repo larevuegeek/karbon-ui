@@ -317,6 +317,15 @@ pub trait Widget {
     fn measure(&self, available: SizeF, text: &mut dyn TextMeasurer) -> crate::Result<SizeF>;
     /// Append the drawing commands of the widget to `scene`.
     fn paint(&self, context: &PaintContext, scene: &mut Scene);
+    /// A key that changes whenever what [`paint`](Self::paint) draws changes, apart from
+    /// what the [`PaintContext`] carries (its rectangle, theme and visual state): a
+    /// revision of the data the widget shows. When the key, the rectangle, the state and
+    /// the theme are those of the previous frame, the runtime copies the commands the
+    /// widget drew then instead of calling `paint` (a canvas of 2,000 wires next to a 3D
+    /// view that changes every frame). `None`, the default, paints every time.
+    fn paint_key(&self) -> Option<u64> {
+        None
+    }
     /// Message emitted on activation (click, Enter/Space, accessibility Invoke).
     /// `None` makes the widget inert.
     fn action(&self) -> Option<Action> {

@@ -15,7 +15,9 @@
 //! bitmap neuf par image ; `live` : `Image::opaque_bgra` dans une `LiveImage`, bitmap mis
 //! à jour en place, KUI-002). Les autres options sont celles de `WindowOptions::from_args`
 //! (`--renderer=gpu`…). Le rapport `Presentation : {…}` de la fermeture donne les temps ;
-//! le banc écrit ensuite son propre résumé. Mesures : docs/performance.md.
+//! le banc écrit ensuite son propre résumé. `--headless N` mesure N images dans la
+//! fenêtre simulée, sans écran (préparation seule). Mesures : docs/performance.md.
+mod headless;
 mod panels;
 mod producer;
 
@@ -149,6 +151,7 @@ struct Settings {
     live: bool,
     size: (i32, i32),
     window: Vec<String>,
+    headless: Option<usize>,
 }
 
 fn settings() -> Result<Settings, String> {
@@ -159,6 +162,7 @@ fn settings() -> Result<Settings, String> {
         live: false,
         size: (1600, 1000),
         window: Vec::new(),
+        headless: None,
     };
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -185,6 +189,10 @@ fn settings() -> Result<Settings, String> {
                     other => return Err(invalid(format!("--image {other}"))),
                 }
             }
+            "--headless" => {
+                let frames = value()?.parse().map_err(|_| invalid("--headless".into()))?;
+                settings.headless = Some(frames);
+            }
             "--size" => {
                 let text = value()?;
                 let (width, height) = text
@@ -201,6 +209,9 @@ fn settings() -> Result<Settings, String> {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settings = settings()?;
+    if let Some(frames) = settings.headless {
+        return headless::run(frames, settings.size);
+    }
     let options = WindowOptions::from_args(settings.window.iter().cloned())?;
     let delivery = if settings.live {
         Delivery::Live(LiveImage::new())

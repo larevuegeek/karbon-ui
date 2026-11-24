@@ -20,6 +20,8 @@ pub struct Payload {
     kind: Arc<str>,
     label: Arc<str>,
     value: Rc<dyn Any>,
+    /// Fichiers qui la représentent hors de la fenêtre (`exported_as`).
+    exported: Option<Arc<[PathBuf]>>,
 }
 
 impl Payload {
@@ -29,7 +31,23 @@ impl Payload {
             kind: kind.into(),
             label: label.into(),
             value: Rc::new(value),
+            exported: None,
         }
+    }
+
+    /// Let the payload leave the window as these files: dragged past the edge of the
+    /// window, it becomes a drag of files of the system, which the Explorer or another
+    /// program can take (the Explorer copies them where they are dropped). The source
+    /// then learns the end of the drag as usual, `dropped` when a program took the
+    /// files. Windows only; elsewhere the drag stays in the window.
+    pub fn exported_as(mut self, files: Vec<PathBuf>) -> Self {
+        self.exported = (!files.is_empty()).then(|| Arc::from(files));
+        self
+    }
+
+    /// The files given to [`exported_as`](Self::exported_as).
+    pub fn exported(&self) -> Option<&[PathBuf]> {
+        self.exported.as_deref()
     }
 
     /// Files, of kind [`FILES`](Self::FILES), labelled by the name of the first one; the

@@ -19,7 +19,12 @@ impl UiRuntime {
             return false;
         };
         let mut revisions = 0;
-        if resized(root, &mut revisions, (false, false)) {
+        let mut walk = Walk {
+            revisions: &mut revisions,
+            measured: &mut self.invalidation.image_measures,
+            layouts: self.invalidation.stats.layouts,
+        };
+        if resized(root, &mut walk, (false, false)) {
             self.invalidation.relayout = true;
         }
         // Somme des révisions des sources de l'arbre : elle ne bouge pas quand les images
@@ -38,7 +43,12 @@ impl UiRuntime {
 /// retenu (`LayoutCache::settled`). `revisions` cumule les révisions de ses sources.
 /// `parent` : largeur et hauteur du parent fixées, contre lesquelles un pourcentage se
 /// résout sans dépendre du contenu (pochette `w-full h-full` d'une case `w-10 h-10`).
-fn resized(node: &mut Element, revisions: &mut u64, parent: (bool, bool)) -> bool {
+///
+/// Un élément dont la mesure ne suit pas son image (une vue 3D qui prend la place qu'on
+/// lui donne) mesurerait sans fin une autre taille que celle de l'image : une fois une
+/// mise en page faite avec une image de cette taille, la même taille ne la redemande
+/// plus (`Walk::measured`). Le résultat de la mise en page est le même.
+fn resized(node: &mut Element, walk: &mut Walk<'_>, parent: (bool, bool)) -> bool {
     let definite = |length: Length| matches!(length, Length::Px(_) | Length::Computed(_));
     let fixed = |length: Length, parent: bool| {
         definite(length) || (parent && matches!(length, Length::Percent(_)))
@@ -47,20 +57,49 @@ fn resized(node: &mut Element, revisions: &mut u64, parent: (bool, bool)) -> boo
         .widget
         .as_ref()
         .and_then(|widget| widget.deferred_image());
-    *revisions = revisions.wrapping_add(slot.map_or(0, ImageSlot::revision));
+    *walk.revisions = walk
+        .revisions
+        .wrapping_add(slot.map_or(0, ImageSlot::revision));
     let mut changed = (!fixed(node.style.width, parent.0) || !fixed(node.style.height, parent.1))
         && slot.is_some_and(|slot| {
-            crate::ui::template::image_intrinsic(slot.image().as_deref()) != node.intrinsic
+            let image = crate::ui::template::image_intrinsic(slot.image().as_deref());
+            image != node.intrinsic && walk.must_measure(node.id, node.intrinsic, image)
         });
     let own = (
         fixed(node.style.width, parent.0),
         fixed(node.style.height, parent.1),
     );
     for child in &mut node.children {
-        changed |= resized(child, revisions, own);
+        changed |= resized(child, walk, own);
     }
     if changed && let Some(cache) = node.layout_cache.as_deref_mut() {
         cache.settled = false;
     }
     changed
+}
+
+/// Parcours des images arrivées.
+struct Walk<'a> {
+    /// Somme des révisions des sources.
+    revisions: &'a mut u64,
+    /// Par élément : sa taille mesurée et celle de son image quand une mise en page a
+    /// été demandée pour elle, et le compte des mises en page à ce moment.
+    measured: &'a mut crate::ui::core::hash::FastMap<ElementId, (SizeF, SizeF, u64)>,
+    /// Mises en page faites jusqu'ici.
+    layouts: u64,
+}
+
+impl Walk<'_> {
+    /// Une image de taille `image` dans l'élément `id`, qui a mesuré `intrinsic` :
+    /// faut-il refaire la mise en page ? Non si une mise en page a déjà eu lieu avec une
+    /// image de cette taille et a laissé la même mesure.
+    fn must_measure(&mut self, id: ElementId, intrinsic: SizeF, image: SizeF) -> bool {
+        let settled = self.measured.get(&id).is_some_and(|&(before, seen, at)| {
+            before == intrinsic && seen == image && at < self.layouts
+        });
+        if !settled {
+            self.measured.insert(id, (intrinsic, image, self.layouts));
+        }
+        !settled
+    }
 }

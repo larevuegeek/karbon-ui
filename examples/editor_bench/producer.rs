@@ -81,7 +81,7 @@ pub fn run(delivery: Delivery, window: InboxSender<Bench>, feed: Feed) {
 /// Une image de la vue : bandes qui défilent et damier qui change, opaques, pour que
 /// chaque image diffère de la précédente partout. `opaque` : par `Image::opaque_bgra`,
 /// sans vérification de chaque pixel.
-fn view_image(frame: u32, opaque: bool) -> Image {
+pub fn view_image(frame: u32, opaque: bool) -> Image {
     let (width, height) = (VIEW_WIDTH as usize, VIEW_HEIGHT as usize);
     let mut pixels = vec![0u8; width * height * 4];
     let shift = frame as usize;

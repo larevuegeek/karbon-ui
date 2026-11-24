@@ -426,3 +426,57 @@ GraphEditor::new(1, &self.graph, &self.state, Msg::Graph).palette(PALETTE).eleme
   `NumberField::aria_label` et `VectorField::aria_label` (« Position » donne
   « Position X », « Position Y », « Position Z »).
 - Essai : `editor/field/view/labels.rs` (témoin : un champ sans nom est lu sans nom).
+
+## Ajouts de la vague 6 de karbon-engine (version inchangée)
+
+Tous en ajouts : ce qui existait se comporte comme avant (exports de référence
+identiques octet pour octet, essais existants verts).
+
+- **Champs atteints par Tab** : `NumberField::tab_stop(true)` (et `VectorField`) ; la
+  boîte qui prend le clavier ouvre sa saisie, Tab y valide et passe au champ suivant,
+  Maj+Tab revient, un anneau d'accent marque le champ. Un appui de la souris reste un
+  glisser. Essais : `editor/field/tab_tests.rs` (témoin : sans `tab_stop`, Tab passe).
+- **Glisser libre jusqu'aux lignes d'un arbre et aux champs** (`ui::drag`) :
+  `TreeView::on_payload(|event, clé, place| …)` (quart du haut : avant, quart du bas :
+  après, entre les deux : dedans) et `TreeView::payload_target` pour la marque ;
+  `NumberField::on_payload(|event, champ| …)`, `payload_over(bool)`, et les mêmes sur
+  `VectorField` (un axe par cible). Essais : `editor/tree/payload_tests.rs`,
+  `editor/field/payload_tests.rs` (témoins sans `on_payload`).
+- **`TreeState::set_selection(clés, curseur)`** : une sélection faite ailleurs (vue 3D,
+  commande) reportée dans l'arbre, curseur et ancre des plages compris.
+- **Lecteur d'écran de l'arbre** : chaque ligne est un élément de liste avec son nom
+  (`TreeView::accessible_names`), sa place (« niveau 2, ligne 3 sur 12 ») et son état
+  plié ou déplié (`Element::expanded`). Sans nouveau rôle : `Role` est une énumération
+  fermée, y ajouter `TreeItem` changerait l'interface publique (version 0.4).
+- **Sélecteur de couleur complet** : `ColorPicker::channels(&state)` (rouge, vert, bleu de
+  0 à 255, glissés ou tapés, arrêts de Tab), `ColorPicker::intensity(valeur, max, &state)`
+  (intensité d'une couleur de lumière au-delà de 1, lue par
+  `ColorPickerState::take_intensity`), `ColorPicker::recent(&state)` (les douze
+  dernières couleurs validées, `ColorPickerState::recent`, choisies au clic ou par
+  Entrée). Échap pendant le glisser d'un canal rend la couleur. Essais :
+  `editor/color/extras_tests.rs`.
+- **Toile d'éléments** (`editor::canvas::CanvasLayer`, `CanvasItem`) : des rectangles
+  posés dans le monde, vus par une `CanvasView`, découpés au bord ; seuls ceux qui
+  touchent la toile produisent des commandes (10 000 rectangles, zoom de 1 % à 1 000 %).
+- **Peinture gardée** (`Widget::paint_key`, KUI-056) : un widget qui donne une clé est
+  recopié de l'image précédente si sa clé, sa boîte, son état et le thème n'ont pas
+  changé ; la scène est la même octet pour octet (essai d'équivalence avec
+  `set_incremental(false)`, témoin : une clé ignorée fait échouer l'essai).
+  `CanvasLayer::revision` s'en sert.
+- **Thème suivi sur le disque** : `ThemeWatch::new(chemin, base).poll()` relit le fichier
+  JSON dès qu'il change (date ou taille) et rend la palette (KUI-050).
+- **Ancrage** (`ui::dock`, KUI-023) : `DockTree` (groupes d'onglets séparés deux à deux,
+  `dock(panneau, cible, DockSide)`, `remove`, `activate`, `set_fraction`, `to_json`,
+  `from_json`), `DockState` et `DockArea` (onglets qu'on tire sur un côté ou au milieu
+  d'un autre groupe, marque de la zone, croix, séparations réglées à la souris).
+  `Element::on_split` rend la part d'un `split` déplacé. Essais : `ui/dock/tests.rs`
+  (dix déplacements puis sauvegarde et relecture : même arbre).
+- **Glisser vers l'extérieur** (Windows, KUI-047) : `Payload::exported_as(fichiers)` ;
+  passé le bord de la fenêtre, le glisser devient celui d'OLE (`DoDragDrop`, objet de
+  données du Shell : `CF_HDROP`), la source apprend s'il a été pris. Ailleurs, le
+  relâchement le finit sans dépôt. Essais : `ui/tests/drag_out.rs`,
+  `platform/windows/events/drag_out.rs` (l'objet de données rend les chemins).
+  **Non essayé à la souris** vers l'Explorateur.
+- **Carte de dessin de l'interface** : `KARBON_UI_ADAPTER=radeon` (morceau du nom) fait
+  dessiner l'interface sur une autre carte que celle que Direct3D prend d'office ;
+  sans la variable, rien ne change. Réglage de mesure.

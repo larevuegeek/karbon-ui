@@ -1,8 +1,12 @@
 //! Sélecteur de couleur des éditeurs : un carré saturation et clarté, une barre de
 //! teinte, une barre d'opacité au besoin, et la valeur en hexadécimal à taper. Les
 //! conversions (teinte, saturation, valeur ; hexadécimal) sont dans `convert.rs`, l'état
-//! des gestes dans `state.rs`, l'élément dans `view.rs`.
+//! des gestes dans `state.rs`, l'élément dans `view.rs`, les canaux, l'intensité et les
+//! couleurs récentes dans `extras.rs`.
 mod convert;
+mod extras;
+#[cfg(test)]
+mod extras_tests;
 mod state;
 #[cfg(test)]
 mod tests;

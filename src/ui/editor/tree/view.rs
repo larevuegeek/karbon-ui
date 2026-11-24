@@ -5,8 +5,12 @@ use super::{
     state::{DropPlace, TreeMsg, TreeState},
 };
 use crate::ui::{
+    drag::DragEvent,
     editor::EditorPalette,
-    element::{Align, Element, ElementId, Insets, PaintContext, SizeF, TextMeasurer, Widget},
+    element::{
+        Align, Element, ElementId, Insets, PaintContext, Role, Semantics, SizeF, TextMeasurer,
+        Widget,
+    },
     runtime::{PointerButton, PointerEvent, PointerPhase},
     scene::{DrawCommand, PointF, RectF, Scene},
     virtual_list::VirtualList,
@@ -95,7 +99,13 @@ pub struct TreeView<M> {
     palette: EditorPalette,
     map: Rc<dyn Fn(TreeMsg) -> M>,
     content: Rc<dyn Fn(&TreeItem) -> Element>,
+    payload: Option<PayloadHandler<M>>,
+    payload_target: Option<(u64, DropPlace)>,
+    names: Option<Rc<dyn Fn(u64) -> String>>,
 }
+
+/// Ce qu'une ligne répond à ce qu'on lui apporte par un glisser libre (`ui::drag`).
+type PayloadHandler<M> = Rc<dyn Fn(&DragEvent, u64, DropPlace) -> Option<M>>;
 
 impl<M: 'static> TreeView<M> {
     /// The view of `state`: `map` wraps its gestures in the application's message,
@@ -120,7 +130,43 @@ impl<M: 'static> TreeView<M> {
             palette: EditorPalette::DARK,
             map: Rc::new(map),
             content: Rc::new(content),
+            payload: None,
+            payload_target: None,
+            names: None,
         }
+    }
+
+    /// Name each row for screen readers (`name` of the node's key), which then read it
+    /// with its level, its place among the visible rows (« niveau 2, ligne 3 sur 12 »)
+    /// and whether it is expanded.
+    pub fn accessible_names(mut self, name: impl Fn(u64) -> String + 'static) -> Self {
+        self.names = Some(Rc::new(name));
+        self
+    }
+
+    /// Let the rows receive what is dragged with [`ui::drag`](crate::ui::drag) (a
+    /// thumbnail from another panel): each row asks `handler` with the event, its key
+    /// and where the pointer is on it (its top quarter [`DropPlace::Before`], its bottom
+    /// quarter [`DropPlace::After`], between them [`DropPlace::Into`]). On
+    /// [`DragPhase::Over`](crate::ui::drag::DragPhase::Over) a message accepts the
+    /// payload there (`None` refuses it), on
+    /// [`DragPhase::Drop`](crate::ui::drag::DragPhase::Drop) it receives it, as with
+    /// [`Element::on_drag_over`] and [`Element::on_drop`]. Show the place with
+    /// [`payload_target`](Self::payload_target).
+    pub fn on_payload(
+        mut self,
+        handler: impl Fn(&DragEvent, u64, DropPlace) -> Option<M> + 'static,
+    ) -> Self {
+        self.payload = Some(Rc::new(handler));
+        self
+    }
+
+    /// Draw the drop mark of a dragged payload on the row of `key` (the place the
+    /// application kept from [`on_payload`](Self::on_payload)), as for rows dragged
+    /// within the tree.
+    pub fn payload_target(mut self, target: Option<(u64, DropPlace)>) -> Self {
+        self.payload_target = target;
+        self
     }
 
     /// Colours of the rows ([`EditorPalette::DARK`] by default).
@@ -150,6 +196,9 @@ impl<M: 'static> TreeView<M> {
             palette,
             map,
             content,
+            payload,
+            payload_target,
+            names,
         } = self;
         let count = rows.len();
         let scroll_map = Rc::clone(&map);
@@ -164,16 +213,32 @@ impl<M: 'static> TreeView<M> {
                 scope: id.item(row.key),
             };
             let inset = f32::from(row.depth) * INDENT + INDENT + 4.;
+            let spoken = Spoken {
+                name: names
+                    .as_ref()
+                    .map_or_else(String::new, |name| name(row.key)),
+                place: format!(
+                    "niveau {}, ligne {} sur {}",
+                    row.depth + 1,
+                    index + 1,
+                    count
+                ),
+            };
             let painter = RowPainter {
                 item,
+                spoken,
                 inset,
                 cursor: focused && cursor == Some(row.key),
-                drop: drop.filter(|d| d.0 == index).map(|d| d.1),
+                drop: drop
+                    .filter(|d| d.0 == index)
+                    .map(|d| d.1)
+                    .or(payload_target.filter(|t| t.0 == row.key).map(|t| t.1)),
                 palette,
             };
             let map = Rc::clone(&map);
             let key = row.key;
-            Element::row(item.scope.0, vec![content(&item)])
+            let element = Element::row(item.scope.0, vec![content(&item)])
+                .expanded(row.has_children.then_some(row.expanded))
                 .insets(Insets {
                     left: inset,
                     right: RIGHT,
@@ -183,7 +248,11 @@ impl<M: 'static> TreeView<M> {
                 .painter(painter)
                 .on_pointer(move |event: PointerEvent| {
                     wanted(event, dragging).then(|| map(TreeMsg::Pointer { key, event }))
-                })
+                });
+            match &payload {
+                Some(handler) => accept_payload(element, handler, key),
+                None => element,
+            }
         };
         let mut list = VirtualList::new(count, row_height, build).overscan(2);
         if let Some(index) = reveal {
@@ -192,6 +261,31 @@ impl<M: 'static> TreeView<M> {
         Element::virtual_list(id.0, list)
             .on_scroll(move |metrics| scroll_map(TreeMsg::Scrolled(metrics.viewport_size())))
             .surface(palette.panel, 0.)
+    }
+}
+
+/// Une ligne qui reçoit ce qu'apporte un glisser libre, à la place que montre le
+/// pointeur.
+fn accept_payload<M: 'static>(element: Element, handler: &PayloadHandler<M>, key: u64) -> Element {
+    let (over, drop) = (Rc::clone(handler), Rc::clone(handler));
+    element
+        .on_drag_over(move |event: &DragEvent| over(event, key, place_of(event)))
+        .on_drop(move |event: &DragEvent| drop(event, key, place_of(event)))
+}
+
+/// Place d'un dépôt sur une ligne : son quart du haut, son quart du bas, entre les deux.
+fn place_of(event: &DragEvent) -> DropPlace {
+    let fraction = if event.height > 0. {
+        event.local_y / event.height
+    } else {
+        0.5
+    };
+    if fraction < 0.25 {
+        DropPlace::Before
+    } else if fraction > 0.75 {
+        DropPlace::After
+    } else {
+        DropPlace::Into
     }
 }
 
@@ -214,6 +308,7 @@ const RIGHT: f32 = 4.;
 /// Fond d'une ligne : sélection, flèche, curseur et marque de dépôt.
 struct RowPainter {
     item: TreeItem,
+    spoken: Spoken,
     /// Marge à gauche du contenu : le peintre reçoit la boîte du contenu, la ligne
     /// commence `inset` plus à gauche.
     inset: f32,
@@ -222,9 +317,27 @@ struct RowPainter {
     palette: EditorPalette,
 }
 
+/// Ce que lit un lecteur d'écran d'une ligne : son nom, sa place.
+struct Spoken {
+    name: String,
+    place: String,
+}
+
 impl Widget for RowPainter {
     fn measure(&self, _: SizeF, _: &mut dyn TextMeasurer) -> crate::Result<SizeF> {
         Ok(SizeF::default())
+    }
+
+    fn semantics(&self) -> Semantics<'_> {
+        Semantics {
+            role: Role::ListItem,
+            name: &self.spoken.name,
+            enabled: true,
+        }
+    }
+
+    fn accessible_value(&self) -> Option<String> {
+        Some(self.spoken.place.clone())
     }
 
     fn paint(&self, context: &PaintContext, scene: &mut Scene) {

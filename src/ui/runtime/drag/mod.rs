@@ -11,6 +11,7 @@
 //! It is distinct from [`drag_drop`](crate::ui::drag_drop) (lines reordered within a
 //! group, buttons panned), which stays as it is.
 mod events;
+mod outgoing;
 mod payload;
 mod preview;
 mod session;

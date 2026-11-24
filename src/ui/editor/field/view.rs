@@ -2,18 +2,15 @@
 //! vecteur, et la zone de saisie posée sur un champ cliqué.
 use super::state::{FieldId, FieldMsg, FieldState, Inner, Spec};
 use crate::ui::{
+    drag::DragEvent,
     editor::EditorPalette,
-    element::{
-        Element, ElementId, Length, PaintContext, Role, Semantics, SizeF, TextMeasurer, Widget,
-    },
+    element::{Element, ElementId, Length},
     runtime::{Cursor, PointerButton, PointerEvent, PointerPhase},
-    scene::{RectF, Scene},
-    theme::Color,
 };
 use std::{rc::Rc, sync::Arc};
 
 /// Lettres des axes d'un vecteur.
-const AXES: [&str; 3] = ["X", "Y", "Z"];
+pub(super) const AXES: [&str; 3] = ["X", "Y", "Z"];
 
 /// Identifiant de l'élément d'un champ.
 pub(super) fn field_element(field: FieldId) -> ElementId {
@@ -82,7 +79,13 @@ pub struct NumberField<M> {
     comma: bool,
     tagged: bool,
     label: Option<Arc<str>>,
+    tab_stop: bool,
+    payload: Option<PayloadHandler<M>>,
+    payload_over: bool,
 }
+
+/// Ce qu'un champ répond à ce qu'on lui apporte par un glisser libre (`ui::drag`).
+type PayloadHandler<M> = Rc<dyn Fn(&DragEvent, FieldId) -> Option<M>>;
 
 impl<M: 'static> NumberField<M> {
     /// The field of `key` showing `value`; `map` wraps its gestures in the
@@ -127,6 +130,9 @@ impl<M: 'static> NumberField<M> {
             comma: false,
             label: None,
             tagged: false,
+            tab_stop: false,
+            payload: None,
+            payload_over: false,
         }
     }
 
@@ -198,6 +204,36 @@ impl<M: 'static> NumberField<M> {
         self
     }
 
+    /// Let Tab and Shift+Tab stop on the field (`false` by default, the field is reached
+    /// with the mouse only): when it takes the keyboard, it opens its typing box with
+    /// the value selected, as after a click; Tab in that box confirms and goes on to the
+    /// next field. The field shows a ring while it has the keyboard.
+    pub fn tab_stop(mut self, tab_stop: bool) -> Self {
+        self.tab_stop = tab_stop;
+        self
+    }
+
+    /// Let the field receive what is dragged with [`ui::drag`](crate::ui::drag) (a
+    /// texture onto a material slot, a value from another field): `handler` gets the
+    /// event and the field, returns a message to accept on
+    /// [`DragPhase::Over`](crate::ui::drag::DragPhase::Over) (`None` refuses) and the
+    /// message of the drop on [`DragPhase::Drop`](crate::ui::drag::DragPhase::Drop),
+    /// as with [`Element::on_drag_over`] and [`Element::on_drop`]. Show the accepting
+    /// field with [`payload_over`](Self::payload_over).
+    pub fn on_payload(
+        mut self,
+        handler: impl Fn(&DragEvent, FieldId) -> Option<M> + 'static,
+    ) -> Self {
+        self.payload = Some(Rc::new(handler));
+        self
+    }
+
+    /// Outline the field in the accent colour: a dragged payload would drop here.
+    pub fn payload_over(mut self, over: bool) -> Self {
+        self.payload_over = over;
+        self
+    }
+
     /// The element: a box one row high that fills its parent's width.
     pub fn element(self) -> Element {
         let Self {
@@ -214,6 +250,9 @@ impl<M: 'static> NumberField<M> {
             comma,
             tagged,
             label,
+            tab_stop,
+            payload,
+            payload_over,
         } = self;
         if let Some(text) = editing {
             return typing(field, &text, palette, map);
@@ -229,10 +268,11 @@ impl<M: 'static> NumberField<M> {
             },
             fraction: fraction(&spec),
             axis,
-            dragging,
+            dragging: dragging || payload_over,
             palette,
             font,
             tagged,
+            tab_stop,
         };
         let painter = if comma {
             FieldPainter {
@@ -242,6 +282,7 @@ impl<M: 'static> NumberField<M> {
         } else {
             painter
         };
+        let entered = tab_stop.then(|| (Rc::clone(&map), spec.clone()));
         let mut element = Element::column(id.0, vec![])
             .height(Length::Px(palette.row_height))
             .painter(painter)
@@ -255,6 +296,22 @@ impl<M: 'static> NumberField<M> {
             });
         if let Some(label) = label {
             element = element.aria_label(label);
+        }
+        if let Some(handler) = payload {
+            let over = Rc::clone(&handler);
+            element = element
+                .on_drag_over(move |event: &DragEvent| over(event, field))
+                .on_drop(move |event: &DragEvent| handler(event, field));
+        }
+        if let Some((map, spec)) = entered {
+            element = element.on_focus(move |focused| {
+                let spec = spec.clone();
+                map(FieldMsg(Inner::Enter {
+                    field,
+                    spec,
+                    focused,
+                }))
+            });
         }
         // Curseur de redimensionnement horizontal : on fait glisser la valeur.
         element
@@ -379,6 +436,30 @@ impl<M: 'static> VectorField<M> {
     pub fn tagged(self, tagged: bool) -> Self {
         self.each(|f| f.tagged(tagged))
     }
+    /// See [`NumberField::on_payload`]: each axis is a target, named by
+    /// [`FieldId::axis`].
+    pub fn on_payload(self, handler: impl Fn(&DragEvent, FieldId) -> Option<M> + 'static) -> Self {
+        let handler: PayloadHandler<M> = Rc::new(handler);
+        self.each(|f| {
+            let handler = Rc::clone(&handler);
+            f.on_payload(move |event, field| handler(event, field))
+        })
+    }
+    /// See [`NumberField::payload_over`], for each axis.
+    pub fn payload_over(self, over: [bool; 3]) -> Self {
+        let [x, y, z] = self.fields;
+        Self {
+            fields: [
+                x.payload_over(over[0]),
+                y.payload_over(over[1]),
+                z.payload_over(over[2]),
+            ],
+        }
+    }
+    /// See [`NumberField::tab_stop`]: Tab goes from X to Y to Z.
+    pub fn tab_stop(self, tab_stop: bool) -> Self {
+        self.each(|f| f.tab_stop(tab_stop))
+    }
 
     /// The element: a row of three fields sharing its width.
     pub fn element(self) -> Element {
@@ -392,90 +473,9 @@ impl<M: 'static> VectorField<M> {
     }
 }
 
-/// La boîte d'un champ : fond, part de la plage, couleur de l'axe, lettre et valeur.
-struct FieldPainter {
-    text: String,
-    fraction: Option<f32>,
-    axis: Option<usize>,
-    dragging: bool,
-    palette: EditorPalette,
-    font: Option<crate::ui::font::Font>,
-    tagged: bool,
-}
-
-impl Widget for FieldPainter {
-    fn measure(&self, _: SizeF, _: &mut dyn TextMeasurer) -> crate::Result<SizeF> {
-        Ok(SizeF::default())
-    }
-
-    fn semantics(&self) -> Semantics<'_> {
-        Semantics {
-            role: Role::Slider,
-            name: "",
-            enabled: true,
-        }
-    }
-
-    fn accessible_value(&self) -> Option<String> {
-        Some(self.text.clone())
-    }
-
-    fn paint(&self, context: &PaintContext, scene: &mut Scene) {
-        if self.tagged || self.font.is_some() {
-            return self.paint_tagged(context, scene);
-        }
-        let r = context.rect;
-        let p = &self.palette;
-        let width = (r.right - r.left).max(0.);
-        let height = (r.bottom - r.top).max(0.);
-        let active = self.dragging || context.state.hovered;
-        scene.fill(r, 3., if active { p.hover } else { p.field });
-        if let Some(fraction) = self.fraction {
-            let filled = RectF::new(r.left, r.top, width * fraction.clamp(0., 1.), height);
-            scene.fill(filled, 3., with_alpha(p.accent, 0x48));
-        }
-        let mut left = r.left + 6.;
-        let text_top = r.top + ((height - p.font_size * 1.35) / 2.).max(0.);
-        if let Some(axis) = self.axis {
-            let color = p.axes[axis];
-            scene.fill(RectF::new(r.left, r.top, 3., height), 1.5, color);
-            scene.text_single_line(
-                RectF::new(left, text_top, 12., p.font_size * 1.4),
-                AXES[axis],
-                p.font_size,
-                true,
-                color,
-            );
-            left += 14.;
-        }
-        scene.text_single_line(
-            RectF::new(
-                left,
-                text_top,
-                (r.right - left - 4.).max(0.),
-                p.font_size * 1.4,
-            ),
-            self.text.clone(),
-            p.font_size,
-            false,
-            p.text,
-        );
-        if self.dragging {
-            scene.commands.push(crate::ui::scene::DrawCommand::Stroke {
-                rect: r,
-                radius: 3.,
-                width: 1.,
-                color: p.accent,
-            });
-        }
-    }
-}
-
-fn with_alpha(color: Color, alpha: u8) -> Color {
-    Color { alpha, ..color }
-}
-
 mod labels;
+mod painter;
 mod tagged;
 mod typing;
+use painter::{FieldPainter, with_alpha};
 use typing::typing;

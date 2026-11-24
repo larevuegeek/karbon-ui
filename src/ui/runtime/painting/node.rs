@@ -20,6 +20,8 @@ pub(crate) struct PaintResources<'a> {
     /// (`None` : tout parcourir). Calculé au layout : la peinture d'une image de
     /// défilement ne parcourt pas tout l'arbre pour les chercher.
     pub fixed: Option<&'a crate::ui::core::hash::FastMap<ElementId, ()>>,
+    /// Commandes gardées des widgets à clé de peinture (`None` : tout repeindre).
+    pub kept: Option<&'a std::cell::RefCell<super::KeptPaints>>,
 }
 /// Éléments `fixed` de `root` et leurs ancêtres, et présence d'une liste virtuelle.
 pub(crate) fn fixed_paths(root: &Element) -> (crate::ui::core::hash::FastMap<ElementId, ()>, bool) {
@@ -270,6 +272,8 @@ pub(super) fn paint_inner(
             sliders.paint(node.id, slider, &context, scene);
         } else if let Some(select) = widget.select() {
             selects.paint_control(node.id, select, &context, scene);
+        } else if let Some(kept) = resources.kept {
+            kept.borrow_mut().paint(node.id, &**widget, &context, scene);
         } else {
             widget.paint(&context, scene);
         }

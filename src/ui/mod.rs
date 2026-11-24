@@ -15,6 +15,7 @@ pub mod bootstrap;
 pub mod commands;
 pub mod components;
 pub mod core;
+pub mod dock;
 pub mod editor;
 pub mod kit;
 pub mod layout;

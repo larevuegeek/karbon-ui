@@ -106,6 +106,15 @@ pub(super) enum Inner {
     Key(Key),
     /// Le champ de saisie a pris (`true`) ou perdu le clavier.
     Focus(bool),
+    /// La boîte d'un champ qui s'arrête à Tab ([`NumberField::tab_stop`]) a pris
+    /// (`true`) ou perdu le clavier : elle prend la saisie.
+    ///
+    /// [`NumberField::tab_stop`]: super::NumberField::tab_stop
+    Enter {
+        field: FieldId,
+        spec: Spec,
+        focused: bool,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -179,6 +188,28 @@ impl FieldState {
             Inner::Key(Key::Enter | Key::Tab) | Inner::Focus(false) => self.confirm(),
             Inner::Key(Key::Escape) => self.cancel_edit(),
             Inner::Key(_) | Inner::Focus(true) => FieldReply::default(),
+            Inner::Enter {
+                field,
+                spec,
+                focused,
+            } => self.enter(field, spec, focused),
+        }
+    }
+
+    /// La boîte d'un champ a pris le clavier par Tab : la saisie s'ouvre, comme après
+    /// un clic. Un appui en cours (le clavier pris par un clic) ou la saisie déjà
+    /// ouverte sur ce champ ne changent rien.
+    fn enter(&mut self, field: FieldId, spec: Spec, focused: bool) -> FieldReply {
+        let typing_here = self.edit.as_ref().is_some_and(|e| e.field == field);
+        if !focused || self.drag.is_some() || typing_here {
+            return FieldReply::default();
+        }
+        let confirmed = self.confirm();
+        let text = spec.number(spec.value);
+        self.edit = Some(Edit { field, spec, text });
+        FieldReply {
+            rebuild: true,
+            event: confirmed.event,
         }
     }
 

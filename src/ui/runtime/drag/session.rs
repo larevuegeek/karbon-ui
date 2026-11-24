@@ -17,15 +17,19 @@ const THRESHOLD: f32 = 4.;
 /// accepte en ce moment.
 pub(crate) struct Session {
     source: ElementId,
-    payload: Payload,
+    pub(super) payload: Payload,
     start: PointF,
     active: bool,
-    over: Option<ElementId>,
+    pub(super) over: Option<ElementId>,
+    /// Le glisser a quitté la fenêtre et passe au système (`outgoing.rs`).
+    pub(super) out: bool,
+    /// Ses fichiers ont été donnés au backend.
+    pub(super) handed: bool,
 }
 
 /// Quel gestionnaire d'un élément.
 #[derive(Clone, Copy)]
-enum Role {
+pub(super) enum Role {
     Source,
     Over,
     Drop,
@@ -90,14 +94,28 @@ impl UiRuntime {
             start: p,
             active: false,
             over: None,
+            out: false,
+            handed: false,
         });
     }
 
     /// Un mouvement ou un relâchement pendant un glisser possible : `Some` quand le
     /// glisser l'a pris (les gestionnaires `on_pointer` ne le voient pas).
     pub(crate) fn drag_input(&mut self, input: &PointerInput) -> Option<EventResult> {
-        let session = self.raw_pointer.free_drag.as_mut()?;
         let p = input.position;
+        let leaving = input.phase == PointerPhase::Move && self.leaves_window(p);
+        let session = self.raw_pointer.free_drag.as_mut()?;
+        if session.out {
+            // Le système mène le glisser : rien n'arrive ici avant sa fin. Sans backend
+            // qui le prenne (hors de Windows), le relâchement le finit, sans dépôt.
+            let released = input.phase == PointerPhase::Up && !session.handed;
+            return Some(if released {
+                self.drag_finish(p, false)
+            } else {
+                EventResult::default()
+            });
+        }
+        let exported = session.payload.exported().is_some();
         match (input.phase, input.button) {
             (PointerPhase::Move, _) => {
                 if !session.active {
@@ -109,6 +127,9 @@ impl UiRuntime {
                     // Le clic sur la source n'aura pas lieu.
                     self.interaction.pressed = None;
                     self.tell_source(DragPhase::Start, p, (false, false, false));
+                }
+                if leaving && exported {
+                    return Some(self.hand_off(p));
                 }
                 let accepted = self.follow_targets(p);
                 self.tell_source(DragPhase::Move, p, (accepted, false, false));
@@ -139,7 +160,7 @@ impl UiRuntime {
 
     /// Le lâcher (ou l'annulation) : la cible qui accepte le reçoit, la source apprend la
     /// fin, et le glisser est oublié.
-    fn drag_finish(&mut self, p: PointF, cancelled: bool) -> EventResult {
+    pub(super) fn drag_finish(&mut self, p: PointF, cancelled: bool) -> EventResult {
         let over = self.raw_pointer.free_drag.as_ref().and_then(|s| s.over);
         let mut dropped = false;
         if let Some(target) = over {
@@ -162,7 +183,7 @@ impl UiRuntime {
     }
 
     /// Ce que dit un glisser au backend : pris, à repeindre.
-    fn drag_result(&mut self) -> EventResult {
+    pub(super) fn drag_result(&mut self) -> EventResult {
         self.invalidation.repaint = true;
         EventResult {
             handled: true,
@@ -217,7 +238,7 @@ impl UiRuntime {
             .collect()
     }
 
-    fn tell_source(&mut self, phase: DragPhase, p: PointF, flags: (bool, bool, bool)) {
+    pub(super) fn tell_source(&mut self, phase: DragPhase, p: PointF, flags: (bool, bool, bool)) {
         if let Some(source) = self.raw_pointer.free_drag.as_ref().map(|s| s.source) {
             self.tell(source, Role::Source, phase, p, flags);
         }
@@ -225,7 +246,7 @@ impl UiRuntime {
 
     /// Donne l'étape `phase` au gestionnaire `role` de l'élément `id` ; rend s'il a
     /// répondu par un message (envoyé). `flags` : accepté, lâché, annulé.
-    fn tell(
+    pub(super) fn tell(
         &mut self,
         id: ElementId,
         role: Role,

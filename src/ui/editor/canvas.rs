@@ -3,6 +3,7 @@
 //! celles de l'écran, le zoom autour du pointeur, le glissement de la vue, le cadrage ; et
 //! des courbes de Bézier tracées avec une épaisseur, découpées en segments assez courts
 //! pour rester lisses à l'écran.
+pub use super::canvas_layer::{CanvasItem, CanvasLayer};
 use crate::ui::{
     scene::{DrawCommand, PointF, RectF, Scene},
     theme::Color,

@@ -87,6 +87,10 @@ pub(super) fn pointer(
             ReleaseCapture();
         }
     }
+    // Un glisser de fichiers qui vient de quitter la fenêtre passe au système.
+    if moving {
+        super::drag_out::after_pointer(window);
+    }
 }
 
 /// WM_RBUTTONDOWN, WM_RBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP : le bouton pour

@@ -271,6 +271,11 @@ impl UiRuntime {
             self.invalidation.relayout = true;
         }
     }
+    /// Peintures de widgets évitées par leur clé de peinture depuis le début (KUI-056).
+    #[cfg(test)]
+    pub(crate) fn kept_paints_reused(&self) -> u64 {
+        self.invalidation.kept_paints.borrow().reused
+    }
     /// When `false`, every [`prepare`](Self::prepare) recomputes styles, measures and
     /// layout from scratch, without the engine's incremental caches (`true` by default).
     /// The result must be identical: meant for tests and diagnostics that compare both.

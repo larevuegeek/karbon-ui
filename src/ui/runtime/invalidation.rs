@@ -81,6 +81,10 @@ pub(super) struct Invalidation {
     pub(super) rebuild_hold: Option<Instant>,
     /// La tranche de cette image est déjà faite : le réveil qui suit n'en fait pas d'autre.
     pub(super) frame_work_done: bool,
+    /// Commandes gardées des widgets qui ont une clé de peinture (KUI-056).
+    pub(super) kept_paints: std::cell::RefCell<super::painting::KeptPaints>,
+    /// Images arrivées qui ont demandé une mise en page, par élément (`images.rs`).
+    pub(super) image_measures: crate::ui::core::hash::FastMap<ElementId, (SizeF, SizeF, u64)>,
 }
 impl Default for Invalidation {
     /// Tout est à construire au premier `prepare`.
@@ -116,6 +120,8 @@ impl Default for Invalidation {
             forget_memos: false,
             rebuild_hold: None,
             frame_work_done: false,
+            kept_paints: Default::default(),
+            image_measures: Default::default(),
         }
     }
 }

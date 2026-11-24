@@ -570,3 +570,36 @@ Déplier un nœud de 10 000 enfants dans un arbre de 87 000 lignes visibles :
 **1,7 ms** au médian (`TreeState::set_expanded`, release ;
 `cargo test --release --lib tree_timings -- --ignored --nocapture`). Au plus 60 lignes
 construites en défilant (test `a_hundred_thousand_nodes_build_only_the_visible_rows`).
+
+## Vague 6 : image de la vue sans mise en page, banc sans écran (2026-11-24)
+
+`editor_bench --headless N` mesure N images de la vue dans la fenêtre simulée (sans
+écran ni Direct2D) et la part de chaque passe. Avant : chaque image livrée à l'`ImageSlot`
+de la vue refaisait **les styles et la mise en page de toute la fenêtre** (0,46 et
+0,27 ms), parce que le widget de la vue mesure une autre taille que celle de son image ;
+la règle d'`images.rs` (« la taille mesurée diffère de celle de l'image ») était donc
+vraie à chaque image. Le runtime retient maintenant, par élément, la taille d'image avec
+laquelle une mise en page a déjà été faite et la mesure qu'elle a laissée : la même
+taille ne la redemande plus. Le résultat de la mise en page est le même (exports
+identiques).
+
+| fenêtre simulée 1600 × 1000 à 150 %, 300 images | préparation p50 | p95 | styles | mise en page | peinture |
+| --- | --- | --- | --- | --- | --- |
+| avant | 1,305 ms | 1,737 | 0,459 | 0,265 | 0,493 |
+| après | 0,323 ms | 0,498 | 0,002 | 0,001 | 0,274 |
+
+Dans la vraie fenêtre (1280 × 720 unités à 150 %, soit 1920 × 1080 pixels, mode copie,
+10 s par tour, avant et après en alternance, machine chargée par d'autres compilations) :
+`prepare` au médian 1,13 à 1,32 → 0,28 à 0,32 ms sur les deux cartes. Le rendu Direct2D
+de toute la fenêtre (2,6 à 3,8 ms au médian, inchangé) reste l'essentiel du travail ;
+ses écarts entre tours (et des 95ᵉ centiles de 20 à 45 ms) suivent la charge des autres
+agents sur la carte. Radeon (`KARBON_UI_ADAPTER=radeon`), travail du fil p50 / p95 :
+avant 5,30 / 13,0 et 4,62 / 6,89 ms, après 4,55 / 8,50 et 3,50 / 5,82 ms.
+
+Coût d'un mouvement du pointeur selon la taille de l'arbre (KUI-057,
+`cargo test --release --lib pointer_cost -- --ignored --nocapture`) : 0,06 ms avec 1 000
+éléments, 2,8 ms avec 40 000 (hors de la vue, dans une liste non virtualisée), dont
+1,75 ms de styles : les faits du pointeur (`pointer_facts`) et plusieurs passes
+(`containers_changed`, `has_dynamic_styles`) parcourent tout l'arbre à chaque
+mouvement. **Non corrigé** : il faudrait des index tenus à la reconstruction dans le
+moteur de styles. Les listes virtualisées (arbre de l'éditeur) n'y sont pas exposées.

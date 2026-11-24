@@ -6,6 +6,7 @@ mod id;
 mod input_handlers;
 pub(crate) mod memo;
 mod rules;
+mod split_handler;
 mod types;
 mod units;
 mod widget;

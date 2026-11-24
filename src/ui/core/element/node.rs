@@ -104,6 +104,9 @@ pub(crate) struct Listeners {
     pub drag: Option<crate::ui::drag::DragHandler>,
     pub drag_over: Option<crate::ui::drag::DragHandler>,
     pub drop: Option<crate::ui::drag::DragHandler>,
+    /// `on_split` : la part donnée au premier volet d'un `split` déplacé à la souris ou
+    /// au clavier.
+    pub split: Option<Handler<f32>>,
 }
 thread_local! {
     /// Un gestionnaire a été posé depuis la dernière lecture.

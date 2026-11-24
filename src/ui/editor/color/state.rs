@@ -3,7 +3,7 @@
 //! retenue d'un gris ou d'un noir.
 use super::convert::{Hsv, parse_hex};
 use crate::ui::{
-    editor::FieldChange,
+    editor::{FieldChange, FieldMsg, FieldState},
     runtime::{Key, KeyCode, KeyPress, PointerButton, PointerEvent, PointerPhase},
 };
 
@@ -49,6 +49,19 @@ pub(super) enum Inner {
     HexKey(Key),
     /// La zone hexadécimale a pris (`true`) ou perdu le clavier.
     HexFocus(bool),
+    /// Un geste sur un champ des canaux (rouge, vert, bleu de 0 à 255) ou de l'intensité,
+    /// avec la couleur montrée.
+    Channel {
+        key: u64,
+        rgb: [f32; 3],
+        alpha: f32,
+        message: FieldMsg,
+    },
+    /// Clic sur une couleur récente.
+    Recent {
+        key: u64,
+        rgba: [f32; 4],
+    },
 }
 
 /// A new colour for a picker.
@@ -107,6 +120,14 @@ pub struct ColorPickerState {
     drag: Option<Drag>,
     hex: Option<HexEdit>,
     kept: Option<(u64, Hsv)>,
+    /// Champs des canaux et de l'intensité (`extras.rs`).
+    pub(super) fields: FieldState,
+    /// Couleurs validées, la plus récente d'abord.
+    pub(super) recent: Vec<[f32; 4]>,
+    /// Intensité changée, en attente de `take_intensity`.
+    pub(super) intensity: Option<(u64, f32, FieldChange)>,
+    /// Dernier sélecteur dont un champ de canal a bougé, et sa couleur (Échap).
+    pub(super) last_channel: Option<(u64, [f32; 3], f32)>,
 }
 
 impl ColorPickerState {
@@ -115,8 +136,17 @@ impl ColorPickerState {
         self.drag.is_some() || self.hex.is_some()
     }
 
-    /// Apply a gesture of a picker ([`ColorMsg`]).
+    /// Apply a gesture of a picker ([`ColorMsg`]). A committed colour joins the recent
+    /// colours ([`recent`](Self::recent)).
     pub fn update(&mut self, message: ColorMsg) -> ColorReply {
+        let reply = self.apply(message);
+        if let Some(event) = reply.event.filter(|e| e.change == FieldChange::Commit) {
+            self.remember(event.rgb, event.alpha);
+        }
+        reply
+    }
+
+    fn apply(&mut self, message: ColorMsg) -> ColorReply {
         match message.0 {
             Inner::Pointer { part, shown, event } => match event.phase {
                 PointerPhase::Down if event.button == Some(PointerButton::Primary) => {
@@ -139,6 +169,21 @@ impl ColorPickerState {
                 event: None,
             },
             Inner::HexKey(_) | Inner::HexFocus(true) => ColorReply::default(),
+            Inner::Channel {
+                key,
+                rgb,
+                alpha,
+                message,
+            } => self.channel(key, rgb, alpha, message),
+            Inner::Recent { key, rgba } => ColorReply {
+                rebuild: true,
+                event: Some(ColorEvent {
+                    key,
+                    rgb: [rgba[0], rgba[1], rgba[2]],
+                    alpha: rgba[3],
+                    change: FieldChange::Commit,
+                }),
+            },
         }
     }
 
@@ -150,7 +195,17 @@ impl ColorPickerState {
             return ColorReply::default();
         }
         let Some(drag) = self.drag.take() else {
-            return ColorReply::default();
+            // Échap pendant le glisser d'un champ de canal : il rend sa valeur.
+            let field = self.fields.key(press);
+            return match (field.event, self.last_channel) {
+                (Some(event), Some((key, rgb, alpha))) => {
+                    self.channel_event(key, rgb, alpha, event)
+                }
+                _ => ColorReply {
+                    rebuild: field.rebuild,
+                    event: None,
+                },
+            };
         };
         ColorReply {
             rebuild: true,

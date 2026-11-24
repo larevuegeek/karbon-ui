@@ -2,6 +2,8 @@
 //! dont seules celles à l'écran sont construites ; pli, sélection par clé, clavier,
 //! double-clic et glisser-déposer pour changer de parent.
 mod keys;
+#[cfg(test)]
+mod payload_tests;
 mod rows;
 mod state;
 #[cfg(test)]

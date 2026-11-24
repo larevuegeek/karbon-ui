@@ -4,6 +4,7 @@ pub(crate) mod caption;
 mod clipboard;
 mod cursor_shape;
 mod dispatch;
+mod drag_out;
 pub(crate) mod file_drop;
 pub(crate) mod grip;
 mod keyboard;

@@ -195,6 +195,19 @@ impl TreeState {
         self.reveal = Some(key);
     }
 
+    /// Select exactly `keys` (hidden nodes included) and put the cursor on `cursor`,
+    /// which also becomes the anchor of Shift ranges: the application mirrors a
+    /// selection made elsewhere (in the 3D view, by a command). The cursor row is shown
+    /// at the next view. No event is sent; rebuild the view.
+    pub fn set_selection(&mut self, keys: impl IntoIterator<Item = u64>, cursor: Option<u64>) {
+        let selected = Rc::make_mut(&mut self.selected);
+        selected.clear();
+        selected.extend(keys);
+        self.cursor = cursor;
+        self.anchor = cursor;
+        self.reveal = cursor;
+    }
+
     /// Expand or collapse the node of `key`, then read `source` again.
     pub fn set_expanded(&mut self, key: u64, expanded: bool, source: &impl TreeSource) {
         if expanded {

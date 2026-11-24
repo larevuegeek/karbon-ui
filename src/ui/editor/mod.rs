@@ -19,6 +19,9 @@
 //! [`GraphEditor`] is a canvas of nodes with typed ports and wires, with its
 //! [`GraphEditorState`].
 pub mod canvas;
+mod canvas_layer;
+#[cfg(test)]
+mod canvas_layer_tests;
 mod color;
 mod curves;
 mod field;
@@ -31,6 +34,7 @@ mod sequencer;
 #[cfg(test)]
 mod testing;
 mod theme_file;
+mod theme_watch;
 mod toolbar;
 mod tree;
 
@@ -59,6 +63,7 @@ pub use properties::{
 pub use sequencer::{
     KeyRef, Sequencer, SequencerEvent, SequencerMsg, SequencerReply, SequencerState, SequencerTrack,
 };
+pub use theme_watch::ThemeWatch;
 pub use toolbar::{ToolItem, Toolbar, ToolbarMsg, ToolbarState};
 pub use tree::{
     DropPlace, TreeDrop, TreeEvent, TreeItem, TreeMsg, TreeReply, TreeRow, TreeSource, TreeState,

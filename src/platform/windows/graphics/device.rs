@@ -85,12 +85,16 @@ fn d3d(mode: RenderMode) -> crate::Result<D3d> {
 }
 fn create_d3d(software: bool) -> crate::Result<D3d> {
     let (mut device, mut context) = (None, None);
-    // SAFETY: sorties optionnelles valides ; ni adaptateur ni module logiciel explicites.
+    let chosen = if software { None } else { chosen_adapter() };
+    // SAFETY: sorties optionnelles valides ; avec une carte explicite, Direct3D exige le
+    // type de pilote « inconnu » ; aucun module logiciel.
     unsafe {
         D3D11CreateDevice(
-            None::<&IDXGIAdapter>,
+            chosen.as_ref(),
             if software {
                 D3D_DRIVER_TYPE_WARP
+            } else if chosen.is_some() {
+                windows::Win32::Graphics::Direct3D::D3D_DRIVER_TYPE_UNKNOWN
             } else {
                 D3D_DRIVER_TYPE_HARDWARE
             },
@@ -108,6 +112,24 @@ fn create_d3d(software: bool) -> crate::Result<D3d> {
         device: required(device)?,
         context: required(context)?,
         software,
+    })
+}
+/// La carte que désigne `KARBON_UI_ADAPTER` (un morceau de son nom, sans tenir compte de
+/// la casse : « radeon », « rtx ») : un réglage de mesure, pour faire dessiner
+/// l'interface sur une autre carte que celle que Direct3D prend d'office. Absente, ou
+/// aucune carte de ce nom : `None`, la carte par défaut, comme avant.
+fn chosen_adapter() -> Option<IDXGIAdapter> {
+    let wanted = std::env::var("KARBON_UI_ADAPTER").ok()?.to_lowercase();
+    // SAFETY : appel sans pointeur ; l'IID provient du type demandé.
+    let factory: windows::Win32::Graphics::Dxgi::IDXGIFactory1 =
+        unsafe { windows::Win32::Graphics::Dxgi::CreateDXGIFactory1() }.ok()?;
+    (0..16).find_map(|index| {
+        // SAFETY : fabrique valide ; numéro de carte passé par valeur.
+        let adapter = unsafe { factory.EnumAdapters(index) }.ok()?;
+        // SAFETY : carte valide ; description copiée par valeur.
+        let description = unsafe { adapter.GetDesc() }.ok()?;
+        let name = String::from_utf16_lossy(&description.Description).to_lowercase();
+        name.contains(&wanted).then_some(adapter)
     })
 }
 pub(super) fn create(factory: &ID2D1Factory1, d3d: &ID3D11Device) -> crate::Result<ID2D1Device> {
