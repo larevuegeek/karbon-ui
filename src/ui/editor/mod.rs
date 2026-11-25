@@ -26,8 +26,11 @@ mod color;
 mod curves;
 mod field;
 mod graph;
+#[cfg(test)]
+mod kept_canvases_tests;
 mod label;
 mod menu_bar;
+mod paint_hash;
 mod palette;
 mod properties;
 mod sequencer;

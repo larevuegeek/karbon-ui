@@ -16,7 +16,8 @@ traversant et l’option `--present=layered` (voir
 [architecture](architecture.md#présentation-à-lécran-windows)). Le rendu hors
 écran et l’export PNG gardent la relecture. Aucun gain face à Tauri n’est établi.
 
-Points ouverts de la présentation : rectangles sales (`Present1`), latence
+Points ouverts de la présentation : rectangles sales (`Present1`, faits en option le
+2026-11-24 : `Application::partial_redraw`, voir [les performances](performance.md)), latence
 maximale d’images (`SetMaximumFrameLatency`/objet attendable), recette visuelle
 du redimensionnement interactif, partage d’un périphérique entre fenêtres, et
 clic traversant sur les zones vides d’une fenêtre transparente composée

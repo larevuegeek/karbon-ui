@@ -326,6 +326,12 @@ pub trait Widget {
     fn paint_key(&self) -> Option<u64> {
         None
     }
+    /// Called instead of [`paint`](Self::paint) when the runtime copies the commands of
+    /// the previous frame (same [`paint_key`](Self::paint_key), rectangle, state and
+    /// theme), with the context `paint` would have received: a widget that notes
+    /// something while painting (its size, for its pointer handler) notes it here too.
+    /// Does nothing by default.
+    fn paint_reused(&self, _context: &PaintContext) {}
     /// Message emitted on activation (click, Enter/Space, accessibility Invoke).
     /// `None` makes the widget inert.
     fn action(&self) -> Option<Action> {

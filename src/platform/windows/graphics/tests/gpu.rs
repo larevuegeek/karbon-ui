@@ -12,4 +12,5 @@ fn gpu_renders_alpha_clip_image_path_text_and_dpi() {
     svg::verify_svg(RenderMode::Gpu);
     super::super::filters::tests::verify_filters(RenderMode::Gpu);
     swapchain::verify_swap_chain(RenderMode::Gpu);
+    partial::verify_partial(RenderMode::Gpu, 300);
 }

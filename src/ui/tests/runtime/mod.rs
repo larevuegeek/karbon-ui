@@ -3,6 +3,7 @@ mod basics;
 mod focus;
 mod graveyard;
 mod messages;
+mod peer_partial;
 mod pointer_cost;
 mod raw_input;
 mod raw_input_additions;

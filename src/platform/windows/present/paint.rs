@@ -238,9 +238,24 @@ impl DrawingState {
                 // Les gabarits de surface partagée de cette image deviennent des trous.
                 let surfaces = super::surface_visual::Painting::begin(window);
                 let started = clock();
-                self.renderer
-                    .render_to_swap_chain(scene, width, height, scale, frame.premultiplied)
-                    .map_err(Failure::Renderer)?;
+                if self.runtime.partial_redraw() {
+                    self.renderer.render_changes_to_swap_chain(
+                        scene,
+                        width,
+                        height,
+                        scale,
+                        frame.premultiplied,
+                    )
+                } else {
+                    self.renderer.render_to_swap_chain(
+                        scene,
+                        width,
+                        height,
+                        scale,
+                        frame.premultiplied,
+                    )
+                }
+                .map_err(Failure::Renderer)?;
                 let render_time = elapsed(started);
                 startup::mark("first frame rendered");
                 let started = clock();

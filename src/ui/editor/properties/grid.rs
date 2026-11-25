@@ -104,6 +104,8 @@ pub struct PropertyGrid<M> {
     sections: Vec<PropertySection>,
     label_width: f32,
     palette: EditorPalette,
+    /// Libellés et sections dits aux lecteurs d'écran (`accessible`).
+    accessible: bool,
 }
 
 impl<M: Clone + 'static> PropertyGrid<M> {
@@ -115,7 +117,17 @@ impl<M: Clone + 'static> PropertyGrid<M> {
             sections: Vec::new(),
             label_width: 110.,
             palette: EditorPalette::DARK,
+            accessible: false,
         }
+    }
+
+    /// Tell screen readers what the grid shows: each control is named by its label
+    /// (unless it already has a name, [`Element::aria_label`]), and each section title
+    /// says whether it is expanded (the expand-collapse state of UI Automation) and its
+    /// place (« déplié, section 2 sur 4 »).
+    pub fn accessible(mut self) -> Self {
+        self.accessible = true;
+        self
     }
 
     /// Add a section.
@@ -140,21 +152,39 @@ impl<M: Clone + 'static> PropertyGrid<M> {
     pub fn element(self) -> Element {
         let p = self.palette;
         let mut children = Vec::new();
-        for section in self.sections {
+        let count = self.sections.len();
+        for (place, section) in self.sections.into_iter().enumerate() {
             let scope = self.id.item(section.key);
+            let state = if section.open { "déplié" } else { "plié" };
             let header = SectionHeader {
                 title: Arc::clone(&section.title),
                 open: section.open,
                 action: Action::new((self.on_toggle)(section.key)),
                 palette: p,
+                spoken: self
+                    .accessible
+                    .then(|| format!("{state}, section {} sur {count}", place + 1)),
             };
+            // Motif ExpandCollapse de UI Automation : Narrator dit « réduit » ou « développé ».
+            let expanded = self.accessible.then_some(section.open);
             children.push(
-                Element::custom(scope.child("header").0, header).height(Length::Px(p.row_height)),
+                Element::custom(scope.child("header").0, header)
+                    .height(Length::Px(p.row_height))
+                    .expanded(expanded),
             );
             if !section.open {
                 continue;
             }
-            for (index, property) in section.rows.into_iter().enumerate() {
+            for (index, mut property) in section.rows.into_iter().enumerate() {
+                let named = property
+                    .editor
+                    .listeners
+                    .as_ref()
+                    .is_some_and(|l| l.aria_label.is_some());
+                if self.accessible && !named {
+                    let label = Arc::clone(&property.label);
+                    property.editor = property.editor.aria_label(label);
+                }
                 children.push(row(
                     scope.item(index as u64),
                     property,
@@ -200,6 +230,8 @@ struct SectionHeader {
     open: bool,
     action: Action,
     palette: EditorPalette,
+    /// État et place lus après le titre, si la grille est accessible.
+    spoken: Option<String>,
 }
 
 impl Widget for SectionHeader {
@@ -256,6 +288,10 @@ impl Widget for SectionHeader {
             name: &self.title,
             enabled: true,
         }
+    }
+
+    fn accessible_value(&self) -> Option<String> {
+        self.spoken.clone()
     }
 }
 

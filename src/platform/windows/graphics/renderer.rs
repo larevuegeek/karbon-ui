@@ -90,6 +90,8 @@ pub(crate) struct Renderer {
     pub(super) measurements: HashMap<(String, u32, Font, u32), crate::ui::element::SizeF>,
     pub(super) scopes: Vec<effects::Scope>,
     pub(super) typography: typography::Cache,
+    /// Redessin partiel de la chaîne d'échange (KUI-055).
+    pub(super) partial: partial::State,
     /// Test : la prochaine présentation échoue comme après un retrait du périphérique.
     #[cfg(test)]
     pub(super) lose_device: bool,
@@ -127,6 +129,7 @@ impl Renderer {
             measurements: HashMap::new(),
             scopes: Vec::new(),
             typography: Default::default(),
+            partial: Default::default(),
             #[cfg(test)]
             lose_device: false,
         })

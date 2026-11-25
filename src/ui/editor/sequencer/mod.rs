@@ -6,6 +6,7 @@
 mod state;
 #[cfg(test)]
 mod tests;
+mod track;
 mod view;
 
 pub use state::{KeyRef, SequencerEvent, SequencerMsg, SequencerReply, SequencerState};

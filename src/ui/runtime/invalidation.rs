@@ -52,6 +52,9 @@ pub(super) struct Invalidation {
     pub(super) incremental: bool,
     /// Faits du pointeur lus par la dernière résolution des styles.
     pub(super) pointer_facts: Option<crate::ui::styling::resolve::PointerFacts>,
+    /// Faits du pointeur déjà relevés pendant cette préparation, avant toute mise en
+    /// page (`pointer_moved_only`) : la résolution qui suit les reprend (KUI-057).
+    pub(super) facts_now: Option<crate::ui::styling::resolve::PointerFacts>,
     pub(super) stats: RuntimeStats,
     /// Anciens arbres remplacés par une reconstruction, libérés par tranches hors des
     /// images qui reconstruisent (voir `UiRuntime::bury`).
@@ -106,6 +109,7 @@ impl Default for Invalidation {
             accessibility_revision: 0,
             incremental: true,
             pointer_facts: None,
+            facts_now: None,
             stats: RuntimeStats::default(),
             graveyard: Vec::new(),
             graveyard_wake: None,

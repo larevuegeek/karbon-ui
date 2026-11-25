@@ -100,7 +100,9 @@ impl UiRuntime {
         let signature = self
             .interaction
             .style_signature(self.components.inputs.revision());
-        if !rebuilt && self.pointer_moved_only(signature) {
+        // Un seul parcours des conteneurs de requêtes avant la mise en page (KUI-057).
+        let containers = self.root.as_ref().is_some_and(containers_changed);
+        if !rebuilt && self.pointer_moved_only(signature, containers) {
             self.invalidation.style_signature = Some(signature);
         }
         if (rebuilt
@@ -121,10 +123,8 @@ impl UiRuntime {
                     .invalidation
                     .style_signature
                     .is_some_and(|previous| previous.same_except_pointer(signature))
-                && self
-                    .root
-                    .as_ref()
-                    .is_some_and(|root| !containers_changed(root));
+                && self.root.is_some()
+                && !containers;
             let changes = self.resolve_styles(context, now, partial)?;
             self.invalidation.stats.style_time += stage.elapsed();
             self.invalidation.relayout |= changes.layout;
@@ -133,6 +133,8 @@ impl UiRuntime {
             self.invalidation.style_signature = Some(signature);
             self.invalidation.dynamic_styles = has_dynamic_styles(self.root.as_ref().unwrap());
         }
+        // Relevés avant la mise en page : ils ne valent plus après.
+        self.invalidation.facts_now = None;
         if self.invalidation.relayout || self.invalidation.reflow {
             let stage = Instant::now();
             layout::containment::enter(std::mem::take(&mut self.invalidation.containment));

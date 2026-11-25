@@ -6,6 +6,7 @@ mod gpu;
 mod gradients;
 mod live_images;
 mod paint;
+mod partial;
 mod shapes;
 mod svg;
 mod swapchain;

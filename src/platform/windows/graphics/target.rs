@@ -111,6 +111,9 @@ impl Renderer {
             });
             SurfaceChange::Created
         };
+        if change != SurfaceChange::Unchanged {
+            self.partial.forget();
+        }
         let t = self.target.as_ref().unwrap();
         // SAFETY: contexte Direct2D valide, hors BeginDraw/EndDraw.
         unsafe { t.target.SetDpi(96. * scale, 96. * scale) };
@@ -137,6 +140,8 @@ impl Renderer {
         scale: f32,
         premultiplied: bool,
     ) -> crate::Result<()> {
+        // Les tampons ne suivent plus ce que le redessin partiel en sait.
+        self.partial.forget();
         self.draw_scene(
             scene,
             width,
@@ -161,8 +166,12 @@ impl Renderer {
                 DXGI_ERROR_DEVICE_REMOVED,
             ));
         }
+        let region = self.take_pending_region();
         match self.target.as_mut().map(|t| &mut t.output) {
-            Some(Output::SwapChain { chain, slot, .. }) => swapchain::present(chain, slot),
+            Some(Output::SwapChain { chain, slot, .. }) => match region {
+                Some(dirty) => swapchain::present_region(chain, slot, &dirty),
+                None => swapchain::present(chain, slot),
+            },
             _ => Err(crate::Error::invalid_input("no swap chain to present")),
         }
     }

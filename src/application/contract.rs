@@ -376,6 +376,14 @@ pub trait Application: 'static {
     fn interface_zoom(&self) -> f32 {
         1.
     }
+    /// Redraw only the zones that changed since the previous frame, skipping the drawing
+    /// commands that do not touch them, and tell the compositor which zones changed
+    /// (Windows composition path, `Present1` with dirty rectangles); the pixels are those
+    /// of a whole redraw. Read before each frame. Defaults to `false` (whole window, as
+    /// before); Linux and macOS already redraw partially and ignore it.
+    fn partial_redraw(&self) -> bool {
+        false
+    }
 }
 
 /// Façade objet d'une application : le runtime et les fenêtres ignorent son type de message.
@@ -397,6 +405,8 @@ pub(crate) trait DynApplication {
     fn key(&mut self, press: crate::ui::runtime::KeyPress) -> bool;
     fn close_requested(&mut self) -> bool;
     fn interface_zoom(&self) -> f32;
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    fn partial_redraw(&self) -> bool;
     /// Accès typé pour le harnais headless, qui connaît le type concret.
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
@@ -476,6 +486,9 @@ impl<A: Application> DynApplication for A {
     }
     fn interface_zoom(&self) -> f32 {
         Application::interface_zoom(self)
+    }
+    fn partial_redraw(&self) -> bool {
+        Application::partial_redraw(self)
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self

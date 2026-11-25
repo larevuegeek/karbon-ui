@@ -22,7 +22,7 @@ fn scene() -> Scene {
 }
 
 /// Relit le back buffer courant (avant Present) via une texture de relecture dédiée.
-fn back_buffer(renderer: &Renderer) -> Vec<u8> {
+pub(super) fn back_buffer(renderer: &Renderer) -> Vec<u8> {
     let target = renderer.target.as_ref().unwrap();
     let Output::SwapChain { chain, .. } = &target.output else {
         panic!("la cible doit être une chaîne d'échange");

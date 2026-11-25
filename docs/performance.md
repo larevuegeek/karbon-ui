@@ -603,3 +603,59 @@ Coût d'un mouvement du pointeur selon la taille de l'arbre (KUI-057,
 (`containers_changed`, `has_dynamic_styles`) parcourent tout l'arbre à chaque
 mouvement. **Non corrigé** : il faudrait des index tenus à la reconstruction dans le
 moteur de styles. Les listes virtualisées (arbre de l'éditeur) n'y sont pas exposées.
+
+## Vague 7 : redessin partiel, peinture gardée des toiles, survol (2026-11-24)
+
+**Redessin partiel de la fenêtre** (KUI-055, `Application::partial_redraw`, désactivé
+par défaut, Windows, chemin de composition) : l'inventaire des zones modifiées déjà
+écrit pour Cairo et Core Graphics (`platform/shared/damage.rs`, compilé maintenant aussi
+sous Windows ; bornes des textes par les mises en page DirectWrite de l'image,
+`graphics/typography/ink.rs`) donne les zones qui changent ; le tampon où l'on dessine
+l'image N contient l'image N − 2 (deux tampons, modèle flip séquentiel) : on y redessine
+les zones des deux dernières images, chacune sous une découpe sans lissage, en ne
+rejouant que les commandes qui la touchent (`Canvas::draw_kept`), puis `Present1`
+déclare à DWM les zones de l'image (`graphics/partial.rs`). Une création, un
+redimensionnement ou une image entière par l'autre chemin rendent les deux images
+suivantes entières. Les gabarits de surface partagée sont toujours rejoués (ils placent
+leur visuel). Essais : 300 images d'un scénario (survol, compteur, image, groupe
+translucide, découpe arrondie, groupe flouté, fond flouté, une image sur dix inchangée,
+une sur 97 toute changée) dessinées en partie dans la chaîne d'échange et relues avant
+chaque `Present` : identiques au pixel près au rendu entier (WARP ; 300 aussi sur le
+GPU, 1 000 à la demande) ; témoins : sans les zones de l'image précédente, ou en sautant
+une commande qui touche la zone, l'essai échoue. Survol d'une ligne dans une fenêtre de
+1 280 × 800 : 0,8 % des pixels redessinés (critère : 5 %). Exports de référence
+identiques octet pour octet.
+
+`editor_bench --partial` (le banc l'active par `partial_redraw`), fenêtre 1280 × 720
+unités à 150 % (1920 × 1080 pixels), mode copie, 10 s par tour, avant / après sans /
+après avec, en alternance, machine chargée par d'autres agents :
+
+| carte, image de la vue | `work` p50 / p95 avant | après, entier | après, partiel | `render` p50 avant → partiel | part redessinée |
+| --- | --- | --- | --- | --- | --- |
+| RTX 4080, neuve à chaque image | 3,30 à 4,00 / 4,8 à 7,6 ms | 3,14 à 3,95 / 4,7 à 5,0 | 2,00 à 2,43 / 3,1 à 3,6 | 3,0 à 3,6 → 1,7 à 2,0 ms | 23 % (la vue) |
+| RTX 4080, même image | 1,71 à 1,80 / 2,5 à 2,8 | 1,62 à 1,97 / 2,6 à 2,7 | 0,41 à 0,51 / 0,7 à 1,0 | 1,4 à 1,5 → 0,15 à 0,17 | 0,4 % (ligne d'état) |
+| Radeon, neuve à chaque image | 2,97 à 4,38 / 4,8 à 6,0 | 3,82 à 4,15 / 5,6 à 6,4 | 1,64 à 2,65 / 3,7 à 5,7 | 2,4 à 3,5 → 1,2 à 1,9 | 23 % |
+| Radeon, même image | 2,23 à 2,33 / 3,1 à 3,7 | 2,24 à 2,31 / 3,1 à 3,2 | 0,54 à 0,58 / 0,9 à 1,0 | 1,7 → 0,15 à 0,16 | 0,4 à 0,5 % |
+
+Lecture : avec une vue 3D qui change à chaque image, le travail du fil de l'interface
+baisse d'environ 40 % (le reste est surtout l'envoi de l'image de la vue) ; quand seule
+la ligne d'état change, le rendu Direct2D passe de 1,5 ms à 0,16 ms. Radeon par
+`KARBON_UI_ADAPTER=radeon`.
+
+**Peinture gardée des toiles** (KUI-056) : le graphe, la frise et les courbes donnent une
+clé de peinture (empreinte de leurs données, `ui/editor/paint_hash.rs`) ;
+`Widget::paint_reused` (ajout) leur laisse noter la taille de la toile quand le runtime
+recopie leurs commandes. Graphe de 500 nœuds et 1 000 fils tout montré, frise de 40
+pistes × 200 clés et courbes, à côté d'un compteur qui change (`cargo test --release
+--lib kept_canvases_cost -- --ignored --nocapture`) : peinture de la scène 0,58 →
+0,30 ms par image. Scènes identiques à `set_incremental(false)` (essai, témoin).
+
+**Survol** (KUI-057) : la résolution partielle des styles ne parcourt plus tous les
+enfants d'un élément du chemin, seulement ceux qu'elle peut avoir à refaire (sur le
+chemin d'un élément touché, ou lecteurs d'un frère précédent : `Partial::candidates`) ;
+les faits du pointeur et les conteneurs de requêtes relevés avant la mise en page ne
+sont plus refaits pour la résolution qui suit. `pointer_cost`, 40 000 éléments, quatre
+tours alternés : styles 1,51 à 1,88 → 0,60 à 0,70 ms par mouvement, total 2,58 à 3,32 →
+1,71 à 2,13 ms (1 000 éléments : 0,06 à 0,09 → 0,04 à 0,06 ms). Le coût dépend encore du
+nombre d'éléments hors de la vue (relevé des faits du pointeur, recherche de ce qui est
+survolé, `Partial::new`) : il faudrait des index tenus à la reconstruction.

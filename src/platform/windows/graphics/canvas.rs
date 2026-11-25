@@ -86,6 +86,23 @@ impl Canvas {
         scopes: &mut Vec<effects::Scope>,
         filters: &filters::Cache,
     ) -> crate::Result<()> {
+        self.draw_kept(scene, factory, formats, typography, scopes, filters, None)
+    }
+    /// Comme [`draw`](Self::draw) ; avec `keep`, une commande de dessin dont le rang y
+    /// est faux est sautée (elle ne touche pas la zone redessinée, KUI-055). Les portées
+    /// (découpes, effets, filtres) sont toujours suivies.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn draw_kept(
+        &self,
+        scene: &Scene,
+        factory: &ID2D1Factory,
+        formats: &HashMap<(u32, Font), IDWriteTextFormat>,
+        typography: &typography::Cache,
+        scopes: &mut Vec<effects::Scope>,
+        filters: &filters::Cache,
+        keep: Option<&[bool]>,
+    ) -> crate::Result<()> {
+        let kept = |index: usize| keep.is_none_or(|keep| keep[index]);
         let t = &self.target;
         let b = &self.brush;
         let mut filter_depth = 0usize;
@@ -106,7 +123,7 @@ impl Canvas {
                     None => b.into(),
                 }
             };
-        for command in &scene.commands {
+        for (index, command) in scene.commands.iter().enumerate() {
             if hidden_depth > 0 {
                 match command {
                     DrawCommand::PushEffect { .. } => hidden_depth += 1,
@@ -124,7 +141,7 @@ impl Canvas {
             }
             match command {
                 DrawCommand::PushFilter { id, .. } => {
-                    if filter_depth == 0 {
+                    if filter_depth == 0 && kept(index) {
                         filters.draw(&self.target, *id);
                     }
                     filter_depth += 1;
@@ -135,6 +152,7 @@ impl Canvas {
                     continue;
                 }
                 _ if filter_depth > 0 => continue,
+                _ if !kept(index) => continue,
                 _ => {}
             }
             match command {

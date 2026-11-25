@@ -17,6 +17,8 @@ use crate::ui::{
 };
 use std::{cell::Cell, rc::Rc, sync::Arc};
 
+mod paint_key;
+
 /// Écart voulu entre deux lignes de la grille, en pixels ; demi-côté d'une clé.
 const GRID_ROOM: f32 = 60.;
 const KEY: f32 = 3.5;
@@ -129,6 +131,16 @@ struct Painter {
 impl Widget for Painter {
     fn measure(&self, _: SizeF, _: &mut dyn TextMeasurer) -> crate::Result<SizeF> {
         Ok(SizeF::default())
+    }
+
+    fn paint_key(&self) -> Option<u64> {
+        Some(self.key())
+    }
+
+    fn paint_reused(&self, context: &PaintContext) {
+        let r = context.rect;
+        self.size
+            .set(((r.right - r.left).max(0.), (r.bottom - r.top).max(0.)));
     }
 
     fn paint(&self, context: &PaintContext, scene: &mut Scene) {

@@ -100,21 +100,31 @@ impl UiRuntime {
     /// mêmes styles. Sans mise en page en attente, sans transition de couleurs ou de
     /// longueurs (échantillonnées à chaque résolution) ni conteneur de requêtes dont la
     /// taille vue a changé.
-    pub(super) fn pointer_moved_only(&self, signature: StyleSignature) -> bool {
+    /// `containers` : un conteneur de requêtes a changé de taille (déjà relevé). Les
+    /// faits relevés ici sont gardés pour la résolution qui suit (`facts_now`).
+    pub(super) fn pointer_moved_only(
+        &mut self,
+        signature: StyleSignature,
+        containers: bool,
+    ) -> bool {
         let Some(previous) = self.invalidation.style_signature else {
             return false;
         };
-        self.invalidation.incremental
+        if !(self.invalidation.incremental
             && !self.invalidation.relayout
             && previous != signature
             && previous.same_except_pointer(signature)
             && !self.motions.animating_styles()
-            && self
-                .root
-                .as_ref()
-                .is_some_and(|root| !containers_changed(root))
-            && self.invalidation.pointer_facts.is_some()
-            && self.invalidation.pointer_facts == self.pointer_facts()
+            && self.root.is_some()
+            && !containers
+            && self.invalidation.pointer_facts.is_some())
+        {
+            return false;
+        }
+        let facts = self.pointer_facts();
+        let same = self.invalidation.pointer_facts == facts;
+        self.invalidation.facts_now = facts;
+        same
     }
     /// Le dernier layout a changé ce que le pointeur touche depuis la résolution des
     /// styles (positions des éléments d'une vue reconstruite, contenu déplacé).
@@ -137,7 +147,10 @@ impl UiRuntime {
         self.motions.invalidate_paths();
         // Faits du pointeur lus par cette résolution, comparés à la suivante.
         let previous = self.invalidation.pointer_facts.take();
-        self.invalidation.pointer_facts = self.pointer_facts();
+        self.invalidation.pointer_facts = match self.invalidation.facts_now.take() {
+            Some(facts) => Some(facts),
+            None => self.pointer_facts(),
+        };
         let partial = match (&previous, &self.invalidation.pointer_facts, &self.root) {
             (Some(previous), Some(facts), Some(root)) if partial => {
                 facts.changed(previous).map(|mut touched| {

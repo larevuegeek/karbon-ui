@@ -32,11 +32,15 @@ impl Widget for Hole {
     }
 }
 
-struct Viewer(SharedSurface);
+/// La surface, et le redessin partiel demandé (`Application::partial_redraw`).
+struct Viewer(SharedSurface, bool);
 impl Application for Viewer {
     type Message = ();
     fn update(&mut self, _: ()) -> bool {
         false
+    }
+    fn partial_redraw(&self) -> bool {
+        self.1
     }
     fn view(&self, _: &ViewContext) -> Element {
         Element::column(
@@ -51,7 +55,13 @@ impl Application for Viewer {
     }
 }
 
-fn open(session: &Session, id: u64, surface: &SharedSurface, mode: PresentMode) -> Hwnd {
+fn open(
+    session: &Session,
+    id: u64,
+    surface: &SharedSurface,
+    mode: PresentMode,
+    partial: bool,
+) -> Hwnd {
     let options = WindowOptions {
         title: "Karbon UI - surface partagée cachée",
         width: 300,
@@ -63,7 +73,7 @@ fn open(session: &Session, id: u64, surface: &SharedSurface, mode: PresentMode) 
         presentation: mode,
         ..WindowOptions::DEFAULT
     };
-    let viewer = Viewer(surface.clone());
+    let viewer = Viewer(surface.clone(), partial);
     session
         .open(WindowDescriptor::new(WindowId(id), options, viewer), false)
         .unwrap()
@@ -75,7 +85,7 @@ fn a_composed_window_shows_the_surface_under_its_element() {
         return;
     };
     let (_apartment, session) = session();
-    let window = open(&session, 1, &surface, PresentMode::Composition);
+    let window = open(&session, 1, &surface, PresentMode::Composition, false);
     let _scope = state::enter(window);
     assert!(matches!(
         runtime::presentation_state(),
@@ -113,11 +123,36 @@ fn a_layered_window_paints_the_placeholder_instead() {
         return;
     };
     let (_apartment, session) = session();
-    let window = open(&session, 1, &surface, PresentMode::Layered);
+    let window = open(&session, 1, &surface, PresentMode::Layered, false);
     let _scope = state::enter(window);
     assert_eq!(runtime::presentation_state(), Some((Path::Layered, None)));
     assert!(!surface_visual::shown_in(window));
     assert_eq!(surface.placement(), None);
+    assert!(take_error().is_none());
+    // SAFETY : fenêtre de test créée sur ce thread ; Windows valide le handle.
+    assert_ne!(unsafe { DestroyWindow(window) }, 0);
+}
+
+/// Redessin partiel (KUI-055) : des images où rien ne change ne redessinent rien, mais
+/// rejouent le gabarit ; la surface reste montrée à sa place.
+#[test]
+fn a_partial_redraw_keeps_the_surface_shown() {
+    let Ok(surface) = SharedSurface::new(None, 64, 48) else {
+        return;
+    };
+    let (_apartment, session) = session();
+    let window = open(&session, 1, &surface, PresentMode::Composition, true);
+    let _scope = state::enter(window);
+    let placed = surface.placement().expect("surface montrée");
+    // Les deux premières images sont entières ; les suivantes n'ont plus rien à
+    // redessiner.
+    for _ in 0..4 {
+        runtime::invalidate_for_test();
+        // SAFETY : fenêtre de test de ce thread ; aucun pointeur dans wparam/lparam.
+        unsafe { SendMessageW(window, WM_PAINT, 0, 0) };
+        assert!(surface_visual::shown_in(window));
+        assert_eq!(surface.placement(), Some(placed));
+    }
     assert!(take_error().is_none());
     // SAFETY : fenêtre de test créée sur ce thread ; Windows valide le handle.
     assert_ne!(unsafe { DestroyWindow(window) }, 0);

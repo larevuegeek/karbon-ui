@@ -310,6 +310,21 @@ pub(crate) fn finish_profile() {
             && let Some(profile) = state.profile.take()
         {
             profile.emit(state.renderer.label(), "close");
+            // Redessin partiel (KUI-055) : part des pixels redessinés, sur une ligne à
+            // part (le rapport `Presentation` garde son protocole).
+            if let Some(share) = state.renderer.partial_share() {
+                println!("Partial redraw : {{\"painted_share\":{share:.4}}}");
+            }
+        }
+    });
+}
+
+/// Essais : la prochaine préparation repeint la scène (même identique).
+#[cfg(test)]
+pub(crate) fn invalidate_for_test() {
+    DRAWING.with(|slot| {
+        if let Some(state) = slot.borrow_mut().as_mut() {
+            state.runtime.invalidate();
         }
     });
 }

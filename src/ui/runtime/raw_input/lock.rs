@@ -34,6 +34,13 @@ impl UiRuntime {
         }
     }
 
+    /// L'application demande le redessin partiel de sa fenêtre
+    /// ([`Application::partial_redraw`](crate::application::Application::partial_redraw)).
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    pub(crate) fn partial_redraw(&self) -> bool {
+        self.app.partial_redraw()
+    }
+
     /// L'élément qui tient le geste en cours a demandé le verrouillage du pointeur : le
     /// backend le cache et le garde à sa place jusqu'à la fin du geste.
     pub(crate) fn pointer_lock_wanted(&self) -> bool {

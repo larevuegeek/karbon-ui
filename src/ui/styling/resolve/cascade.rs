@@ -387,7 +387,20 @@ pub(crate) fn resolve_inherited(
         // Résolution partielle : seuls les enfants touchés, sur le chemin d'un élément
         // touché, ou qui lisent un frère précédent touché, sont visités.
         let mut sibling_touched = false;
-        for index in 0..count {
+        // Les enfants qui ne sont ni sur le chemin ni lecteurs d'un frère précédent
+        // seraient sautés un à un : ils ne sont pas parcourus (KUI-057).
+        let candidates = env.partial.map(|partial| partial.candidates(node.id));
+        let mut next = 0;
+        loop {
+            let index = match candidates {
+                Some(candidates) => match candidates.get(next) {
+                    Some(&index) if index < count => index,
+                    _ => break,
+                },
+                None if next < count => next,
+                None => break,
+            };
+            next += 1;
             let (before, rest) = node.children.split_at_mut(index);
             let (child, after) = rest.split_first_mut().unwrap();
             let after: &[Element] = after;

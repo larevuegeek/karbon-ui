@@ -20,8 +20,8 @@ mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
 pub(crate) mod offscreen;
-// Filtres CPU, portées de la scène et géométrie communs aux renderers macOS et Linux.
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+// Filtres CPU, portées de la scène et géométrie communs aux renderers macOS et Linux ;
+// zones modifiées d'une image à l'autre, communes aux trois (redessin partiel).
 mod shared;
 #[cfg(target_os = "windows")]
 mod windows;

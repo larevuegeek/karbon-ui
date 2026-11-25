@@ -1,0 +1,5 @@
+.list { display: flex; flex-direction: column; width: 100%; }
+.row { height: 16px; }
+.row:hover { background: #ff0000; }
+.row:hover + .next { background: #0000ff; }
+.next { height: 16px; background: #808080; }

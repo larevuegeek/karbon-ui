@@ -15,31 +15,48 @@ pub struct Partial {
     full: FastMap<ElementId, ()>,
     /// Ancêtres d'un élément touché : résolus pour leurs descendants.
     path: FastMap<ElementId, ()>,
+    /// Pour chaque élément du chemin, le rang de ses enfants que la cascade peut avoir à
+    /// visiter : sur le chemin, ou qui lisent un frère précédent (KUI-057). Les autres
+    /// sont sautés sans être parcourus.
+    candidates: FastMap<ElementId, Vec<usize>>,
 }
 impl Partial {
     /// Set of the `touched` elements of the tree `root`.
     pub fn new(root: &Element, touched: impl IntoIterator<Item = ElementId>) -> Self {
         let full: FastMap<ElementId, ()> = touched.into_iter().map(|id| (id, ())).collect();
-        let mut path = FastMap::default();
-        fn mark(
-            node: &Element,
-            full: &FastMap<ElementId, ()>,
-            path: &mut FastMap<ElementId, ()>,
-        ) -> bool {
-            let mut any = full.contains_key(&node.id);
-            // Contenu sauté (`content-visibility`) : la cascade n'y descend pas.
-            if !node.content_skipped {
-                for child in &node.children {
-                    any |= mark(child, full, path);
+        let mut partial = Self {
+            full,
+            path: FastMap::default(),
+            candidates: FastMap::default(),
+        };
+        partial.mark(root);
+        partial
+    }
+    /// Note `node` sur le chemin s'il contient un élément touché, et les enfants à
+    /// visiter ; `true` s'il en contient un.
+    fn mark(&mut self, node: &Element) -> bool {
+        let mut any = self.full.contains_key(&node.id);
+        let mut candidates = Vec::new();
+        // Contenu sauté (`content-visibility`) : la cascade n'y descend pas.
+        if !node.content_skipped {
+            for (index, child) in node.children.iter().enumerate() {
+                let wanted = self.mark(child);
+                if wanted || reads_previous_siblings(child) {
+                    candidates.push(index);
                 }
+                any |= wanted;
             }
-            if any {
-                path.insert(node.id, ());
-            }
-            any
         }
-        mark(root, &full, &mut path);
-        Self { full, path }
+        if any {
+            self.path.insert(node.id, ());
+            self.candidates.insert(node.id, candidates);
+        }
+        any
+    }
+    /// Rangs, croissants, des enfants de `id` que la cascade partielle peut avoir à
+    /// visiter (les autres ne sont ni sur le chemin ni lecteurs d'un frère précédent).
+    pub(super) fn candidates(&self, id: ElementId) -> &[usize] {
+        self.candidates.get(&id).map_or(&[], Vec::as_slice)
     }
     /// Returns `true` when nothing is to be resolved.
     pub fn is_empty(&self) -> bool {

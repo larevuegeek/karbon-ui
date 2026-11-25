@@ -11,6 +11,9 @@ use crate::ui::{
 };
 use std::{cell::Cell, rc::Rc, sync::Arc};
 
+pub use super::track::SequencerTrack;
+mod paint_key;
+
 /// Largeur de la colonne des noms, hauteur de la règle, demi-diagonale d'un losange.
 const NAMES: f32 = 150.;
 const RULER: f32 = 24.;
@@ -21,20 +24,6 @@ const TICK_ROOM: f32 = 70.;
 const STEPS: [f32; 16] = [
     0.01, 0.02, 0.05, 0.1, 0.2, 0.25, 0.5, 1., 2., 5., 10., 15., 30., 60., 120., 300.,
 ];
-
-/// A track of a [`Sequencer`]: its name, the times of its keys in seconds (in the order
-/// of time), and how far its name is indented (a property under its object).
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct SequencerTrack {
-    /// Its name, in the column on the left.
-    pub name: String,
-    /// The times of its keys, in seconds, in the order of time.
-    pub keys: Vec<f32>,
-    /// Steps of indentation of its name.
-    pub indent: u8,
-    /// Colour of its keys; the text colour of the palette by default.
-    pub color: Option<Color>,
-}
 
 /// A time line for dense editors: a ruler of time, tracks with their keys as diamonds, a
 /// play head, the end of the animation, a choice of keys. Its gestures are told by
@@ -223,6 +212,16 @@ struct Painter {
 impl Widget for Painter {
     fn measure(&self, _: SizeF, _: &mut dyn TextMeasurer) -> crate::Result<SizeF> {
         Ok(SizeF::default())
+    }
+
+    fn paint_key(&self) -> Option<u64> {
+        Some(self.key())
+    }
+
+    fn paint_reused(&self, context: &PaintContext) {
+        let r = context.rect;
+        self.size
+            .set(((r.right - r.left).max(0.), (r.bottom - r.top).max(0.)));
     }
 
     fn paint(&self, context: &PaintContext, scene: &mut Scene) {

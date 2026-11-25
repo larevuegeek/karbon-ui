@@ -5,6 +5,7 @@
 //! Les éléments apparus, disparus ou modifiés entre deux scènes forment la zone à
 //! redessiner ; un groupe filtré compte pour un seul élément. Un `backdrop-filter`
 //! touché par la zone l'agrandit à toute la surface qu'il relit.
+#[cfg(not(target_os = "windows"))]
 use super::{TextCache, Typesetter, plain, simple_format};
 use crate::ui::{
     rendering::{
@@ -115,6 +116,7 @@ fn scope_end(commands: &[DrawCommand], start: usize) -> usize {
 }
 /// Bornes logiques de ce que peint un texte : sa boîte, et ses lignes si elles en
 /// débordent (texte non découpé, italique, ellipse).
+#[cfg(not(target_os = "windows"))]
 fn text_bounds<T: Typesetter>(
     fonts: &mut T,
     cache: &mut TextCache<T>,
@@ -138,15 +140,96 @@ fn text_bounds<T: Typesetter>(
         ink
     })
 }
+/// Pixels d'une commande qui ne se voit pas (rectangle vide, ne touche aucune zone).
+pub(in crate::platform) const NOWHERE: Pixels = [0, 0, 0, 0];
+fn place(places: &mut Option<&mut Vec<Option<Pixels>>>, index: usize, at: Pixels) {
+    if let Some(places) = places.as_deref_mut() {
+        places[index] = Some(at);
+    }
+}
+/// Bornes logiques (avant transformation) de ce que peint une commande de texte, selon
+/// la pile de texte du backend ; `None` pour une autre commande.
+pub(in crate::platform) trait TextInk {
+    fn ink(&mut self, command: &DrawCommand) -> crate::Result<Option<RectF>>;
+}
+/// Bornes des textes par une pile `Typesetter` (Core Text, Pango).
+#[cfg(not(target_os = "windows"))]
+struct Typeset<'a, T: Typesetter> {
+    fonts: &'a mut T,
+    cache: &'a mut TextCache<T>,
+}
+#[cfg(not(target_os = "windows"))]
+impl<T: Typesetter> TextInk for Typeset<'_, T> {
+    fn ink(&mut self, command: &DrawCommand) -> crate::Result<Option<RectF>> {
+        let (fonts, cache) = (&mut *self.fonts, &mut *self.cache);
+        Ok(Some(match command {
+            DrawCommand::FormattedText {
+                rect,
+                text: value,
+                format,
+                wrap,
+                ..
+            } => text_bounds(fonts, cache, &plain(value, *format), *rect, *wrap)?,
+            DrawCommand::RichText {
+                rect,
+                paragraph,
+                wrap,
+                ..
+            } => text_bounds(fonts, cache, paragraph, *rect, *wrap)?,
+            DrawCommand::Text {
+                rect,
+                text: value,
+                size,
+                bold,
+                wrap,
+                ..
+            } => {
+                let format = simple_format(crate::ui::font::Font::system(*bold), *size);
+                text_bounds(fonts, cache, &plain(value, format), *rect, *wrap)?
+            }
+            DrawCommand::FontText {
+                rect,
+                text: value,
+                size,
+                font,
+                wrap,
+                ..
+            } => {
+                let format = simple_format(*font, *size);
+                text_bounds(fonts, cache, &plain(value, format), *rect, *wrap)?
+            }
+            _ => return Ok(None),
+        }))
+    }
+}
 impl Damage {
     /// Inventaire de `scene` peinte à `scale` sur une cible de `width` × `height` pixels.
+    #[cfg(not(target_os = "windows"))]
     pub fn new<T: Typesetter>(
         scene: &Scene,
         scale: f32,
-        (width, height): (usize, usize),
+        size: (usize, usize),
         fonts: &mut T,
         cache: &mut TextCache<T>,
     ) -> crate::Result<Self> {
+        Self::inventory(scene, scale, size, &mut Typeset { fonts, cache }, None)
+    }
+    /// Inventaire de `scene`, les bornes des textes données par `ink`. Avec `places`,
+    /// note aussi les pixels que touche chaque commande de dessin, à son rang
+    /// (`NOWHERE` si elle ne se voit pas, `None` si elle n'est pas notée : portées,
+    /// contenu d'un groupe filtré ou invisible), pour ne dessiner que ce qui touche une
+    /// zone (redessin partiel de Direct2D).
+    pub fn inventory(
+        scene: &Scene,
+        scale: f32,
+        (width, height): (usize, usize),
+        ink: &mut dyn TextInk,
+        mut places: Option<&mut Vec<Option<Pixels>>>,
+    ) -> crate::Result<Self> {
+        if let Some(places) = places.as_deref_mut() {
+            places.clear();
+            places.resize(scene.commands.len(), None);
+        }
         let clear = u32::from_le_bytes([
             scene.clear.red,
             scene.clear.green,
@@ -180,7 +263,9 @@ impl Damage {
                     let end = scope_end(commands, index);
                     let content =
                         Signature::new(&commands[index + 1..end], *bounds, *filters, scale);
-                    damage.item(state, mix(own(), content.digest()), filters.bounds(*bounds));
+                    let at =
+                        damage.item(state, mix(own(), content.digest()), filters.bounds(*bounds));
+                    place(&mut places, index, at);
                     index = end + 1;
                     continue;
                 }
@@ -280,71 +365,27 @@ impl Damage {
                     );
                     grow(r, 2.)
                 }),
-                DrawCommand::FormattedText {
-                    rect,
-                    text: value,
-                    format,
-                    wrap,
-                    ..
-                } => Some(text_bounds(
-                    fonts,
-                    cache,
-                    &plain(value, *format),
-                    *rect,
-                    *wrap,
-                )?),
-                DrawCommand::RichText {
-                    rect,
-                    paragraph,
-                    wrap,
-                    ..
-                } => Some(text_bounds(fonts, cache, paragraph, *rect, *wrap)?),
-                DrawCommand::Text {
-                    rect,
-                    text: value,
-                    size,
-                    bold,
-                    wrap,
-                    ..
-                } => {
-                    let format = simple_format(crate::ui::font::Font::system(*bold), *size);
-                    Some(text_bounds(
-                        fonts,
-                        cache,
-                        &plain(value, format),
-                        *rect,
-                        *wrap,
-                    )?)
-                }
-                DrawCommand::FontText {
-                    rect,
-                    text: value,
-                    size,
-                    font,
-                    wrap,
-                    ..
-                } => {
-                    let format = simple_format(*font, *size);
-                    Some(text_bounds(
-                        fonts,
-                        cache,
-                        &plain(value, format),
-                        *rect,
-                        *wrap,
-                    )?)
-                }
+                DrawCommand::FormattedText { .. }
+                | DrawCommand::RichText { .. }
+                | DrawCommand::Text { .. }
+                | DrawCommand::FontText { .. } => ink.ink(command)?,
             };
             if let Some(local) = local {
-                damage.item(state, own(), local);
+                let at = damage.item(state, own(), local);
+                place(&mut places, index, at);
             }
             index += 1;
         }
         Ok(damage)
     }
-    fn item(&mut self, state: State, hash: u64, local: RectF) {
+    /// Note un élément ; rend ses pixels (`NOWHERE` s'il ne se voit pas).
+    fn item(&mut self, state: State, hash: u64, local: RectF) -> Pixels {
         let device = intersect(state.transform.bounds(local), state.clip);
         if let Some(p) = pixels(device) {
             *self.items.entry((mix(state.hash, hash), p)).or_default() += 1;
+            p
+        } else {
+            NOWHERE
         }
     }
     /// Zone à redessiner pour passer de `previous` à `self`.
@@ -405,7 +446,7 @@ impl Damage {
 }
 /// Réunit les zones qui se chevauchent ou se touchent presque (16 pixels) ; au-delà de 24
 /// zones, une seule zone englobante.
-fn merge(zones: &mut Vec<Pixels>) {
+pub(in crate::platform) fn merge(zones: &mut Vec<Pixels>) {
     let near = |a: Pixels, b: Pixels| {
         a[0] < b[2] + 16 && b[0] < a[2] + 16 && a[1] < b[3] + 16 && b[1] < a[3] + 16
     };

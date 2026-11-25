@@ -44,6 +44,12 @@ pub(super) struct RichEntry {
     /// Paragraphe réellement mis en page après une ellipse de début.
     cut: Option<RichParagraph>,
 }
+impl RichEntry {
+    /// Mise en page DirectWrite du paragraphe (bornes du redessin partiel).
+    pub(super) fn layout(&self) -> &IDWriteTextLayout {
+        &self.layout
+    }
+}
 fn utf16_map(text: &str) -> Vec<u32> {
     let mut map = vec![0u32; text.len() + 1];
     let mut unit = 0u32;

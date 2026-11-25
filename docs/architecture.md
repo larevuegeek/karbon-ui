@@ -828,6 +828,16 @@ DirectComposition, sans relecture GPU → CPU :
    d’animation (`FRAME_WAKE`) prend cette place **avant** de lire l’horloge : elle
    est échantillonnée juste après le balayage qui a pris la précédente et
    s’affiche au suivant, à intervalle constant (le `BeginFrame` de Chromium).
+   **Redessin partiel** (`Application::partial_redraw`, désactivé par défaut,
+   `graphics/partial.rs`) : l’inventaire des zones modifiées commun à Cairo et Core
+   Graphics (`platform/shared/damage.rs`, bornes des textes par les mises en page
+   DirectWrite de l’image, `typography/ink.rs`) donne les zones qui ont changé ; le
+   tampon où l’on dessine l’image N contient l’image N − 2 (modèle flip séquentiel à
+   deux tampons), on y redessine donc les zones des deux dernières images, chacune
+   sous une découpe sans lissage, en ne rejouant que les commandes qui la touchent
+   (`Canvas::draw_kept`) ; `Present1` déclare à DWM les zones de l’image. Création,
+   redimensionnement ou image entière par l’autre chemin : les deux images suivantes
+   sont entières.
 
 Fichiers : `platform/windows/present/composition.rs` (choix du chemin, visuel
 DComp), `graphics/swapchain.rs` et `graphics/target.rs` (chaîne d’échange),

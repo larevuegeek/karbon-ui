@@ -29,6 +29,8 @@ struct Inspector {
     picks: u32,
     fields: FieldState,
     log: Vec<Msg>,
+    /// Grille dite aux lecteurs d'écran (`PropertyGrid::accessible`).
+    accessible: bool,
 }
 
 impl Default for Inspector {
@@ -41,6 +43,7 @@ impl Default for Inspector {
             picks: 0,
             fields: FieldState::default(),
             log: Vec::new(),
+            accessible: false,
         }
     }
 }
@@ -91,10 +94,14 @@ impl Application for Inspector {
                 "Couleur",
                 color_swatch("color", Color::hex(0xFFC080), Msg::Pick, &p),
             ));
-        PropertyGrid::new(GRID, Msg::Fold)
+        let grid = PropertyGrid::new(GRID, Msg::Fold)
             .section(object)
-            .section(light)
-            .element()
+            .section(light);
+        if self.accessible {
+            grid.accessible().element()
+        } else {
+            grid.element()
+        }
     }
     fn update(&mut self, message: Msg) -> bool {
         match &message {
@@ -187,4 +194,43 @@ fn the_controls_start_on_the_same_column_and_rows_have_a_tooltip() {
     w.advance(Duration::from_millis(700)).unwrap();
     let tip = w.runtime().tooltip().expect("tooltip shown");
     assert_eq!(&*tip.text, "Montre l'objet dans la vue et dans le jeu.");
+}
+
+/// KUI-053 : chaque contrôle porte le nom de son libellé, chaque titre de section dit
+/// s'il est déplié et sa place ; sans `accessible`, rien ne change.
+#[test]
+fn an_accessible_grid_names_its_controls_and_tells_its_sections() {
+    let spoken = |accessible: bool| {
+        let inspector = Inspector {
+            accessible,
+            ..Inspector::default()
+        };
+        let mut w = window(inspector, 420., 400.);
+        w.click(header(2)).unwrap();
+        let name = w.accessible("name").unwrap();
+        let visible = w.accessible("visible").unwrap();
+        let (first, second) = (
+            w.accessible(header(1)).unwrap(),
+            w.accessible(header(2)).unwrap(),
+        );
+        (
+            [name.name, visible.name],
+            [first.value, second.value],
+            [first.expanded, second.expanded],
+        )
+    };
+    let (names, sections, expanded) = spoken(true);
+    assert_eq!(expanded, [Some(true), Some(false)]);
+    assert_eq!(names, ["Nom", "Visible"]);
+    assert_eq!(
+        sections,
+        [
+            Some("déplié, section 1 sur 2".to_string()),
+            Some("plié, section 2 sur 2".to_string())
+        ]
+    );
+    let (names, sections, expanded) = spoken(false);
+    assert_ne!(names[0], "Nom");
+    assert_eq!(sections, [None, None]);
+    assert_eq!(expanded, [None, None]);
 }

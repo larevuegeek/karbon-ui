@@ -16,7 +16,8 @@
 //! à jour en place, KUI-002). Les autres options sont celles de `WindowOptions::from_args`
 //! (`--renderer=gpu`…). Le rapport `Presentation : {…}` de la fermeture donne les temps ;
 //! le banc écrit ensuite son propre résumé. `--headless N` mesure N images dans la
-//! fenêtre simulée, sans écran (préparation seule). Mesures : docs/performance.md.
+//! fenêtre simulée, sans écran (préparation seule). `--partial` : redessin partiel de la
+//! fenêtre (`Application::partial_redraw`, KUI-055). Mesures : docs/performance.md.
 mod headless;
 mod panels;
 mod producer;
@@ -71,6 +72,8 @@ pub struct Bench {
     started: Instant,
     duration: Duration,
     commands: Vec<WindowCommand>,
+    /// Redessin partiel de la fenêtre (`--partial`).
+    partial: bool,
 }
 
 impl Bench {
@@ -92,6 +95,7 @@ impl Bench {
             started: Instant::now(),
             duration,
             commands: Vec::new(),
+            partial: false,
         }
     }
 
@@ -142,6 +146,9 @@ impl Application for Bench {
     fn take_window_commands(&mut self) -> Vec<WindowCommand> {
         std::mem::take(&mut self.commands)
     }
+    fn partial_redraw(&self) -> bool {
+        self.partial
+    }
 }
 
 /// Options propres au banc, et le reste pour la fenêtre.
@@ -152,6 +159,7 @@ struct Settings {
     size: (i32, i32),
     window: Vec<String>,
     headless: Option<usize>,
+    partial: bool,
 }
 
 fn settings() -> Result<Settings, String> {
@@ -163,6 +171,7 @@ fn settings() -> Result<Settings, String> {
         size: (1600, 1000),
         window: Vec::new(),
         headless: None,
+        partial: false,
     };
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -201,6 +210,7 @@ fn settings() -> Result<Settings, String> {
                     .ok_or_else(|| invalid(format!("--size {text}")))?;
                 settings.size = (width, height);
             }
+            "--partial" => settings.partial = true,
             _ => settings.window.push(arg),
         }
     }
@@ -224,7 +234,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let feed = settings.feed;
     let live = settings.live;
     let producer = std::thread::spawn(move || producer::run(delivery, sender, feed));
-    let bench = Bench::new(slot, inbox, settings.duration);
+    let mut bench = Bench::new(slot, inbox, settings.duration);
+    bench.partial = settings.partial;
     let started = Instant::now();
     platform::run(
         WindowOptions {

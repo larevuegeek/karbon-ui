@@ -66,6 +66,7 @@ impl KeptPaints {
             && kept.theme == context.theme
         {
             kept.generation = generation;
+            widget.paint_reused(context);
             scene.commands.extend_from_slice(&kept.commands);
             self.reused += 1;
             return;

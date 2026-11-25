@@ -158,6 +158,50 @@ pub(super) fn present(chain: &IDXGISwapChain1, slot: &mut FrameSlot) -> crate::R
     Ok(())
 }
 
+/// Présentation (vsync) qui ne déclare à DWM que les rectangles `dirty` (pixels de la
+/// chaîne) : le reste de l'image est celui de la précédente (redessin partiel,
+/// KUI-055). Sans rectangle (rien n'a changé), un pixel est déclaré : l'image part
+/// quand même, pour garder la cadence de la file de présentation.
+pub(super) fn present_region(
+    chain: &IDXGISwapChain1,
+    slot: &mut FrameSlot,
+    dirty: &[[i32; 4]],
+) -> crate::Result<()> {
+    let mut rects: Vec<windows::Win32::Foundation::RECT> = dirty
+        .iter()
+        .map(
+            |&[left, top, right, bottom]| windows::Win32::Foundation::RECT {
+                left,
+                top,
+                right,
+                bottom,
+            },
+        )
+        .collect();
+    if rects.is_empty() {
+        rects.push(windows::Win32::Foundation::RECT {
+            left: 0,
+            top: 0,
+            right: 1,
+            bottom: 1,
+        });
+    }
+    let parameters = windows::Win32::Graphics::Dxgi::DXGI_PRESENT_PARAMETERS {
+        DirtyRectsCount: rects.len() as u32,
+        pDirtyRects: rects.as_mut_ptr(),
+        pScrollRect: std::ptr::null_mut(),
+        pScrollOffset: std::ptr::null_mut(),
+    };
+    // SAFETY: chaîne valide, back buffer refermé par EndDraw ; `rects` vit pendant
+    // l'appel, dans les bornes de la chaîne (zones découpées à la cible).
+    unsafe { chain.Present1(1, DXGI_PRESENT(0), &parameters) }
+        .ok()
+        .check("IDXGISwapChain1::Present1")?;
+    slot.acquired = false;
+    slot.waited = std::time::Duration::ZERO;
+    Ok(())
+}
+
 /// Taille et mode alpha réels de la chaîne, pour les tests.
 #[cfg(test)]
 pub(super) fn describe(chain: &IDXGISwapChain1) -> (u32, u32, bool) {

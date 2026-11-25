@@ -17,6 +17,7 @@ mod gradients;
 mod images;
 mod live_images;
 mod measure;
+mod partial;
 mod radials;
 mod readback;
 mod renderer;
